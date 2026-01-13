@@ -147,6 +147,9 @@ def parse_veracity_toon(text: str) -> dict:
             'audio_caption_score': '0'
         },
         'video_context_summary': '',
+        'political_bias': {},
+        'criticism_level': {},
+        'sentiment_and_bias': '',
         'tags': [],
         'factuality_factors': {},
         'disinformation_analysis': {},
@@ -252,6 +255,27 @@ def parse_veracity_toon(text: str) -> dict:
     s = parsed_sections.get('summary', {})
     if isinstance(s, list): s = s[0] if s else {}
     flat_result['video_context_summary'] = s.get('text', '')
+
+    # 8. Political Bias (New)
+    pb = parsed_sections.get('political_bias', {})
+    if isinstance(pb, list): pb = pb[0] if pb else {}
+    flat_result['political_bias'] = {
+        'score': pb.get('score', '0'),
+        'reasoning': pb.get('reasoning', '')
+    }
+
+    # 9. Criticism Level (New)
+    cl = parsed_sections.get('criticism_level', {})
+    if isinstance(cl, list): cl = cl[0] if cl else {}
+    flat_result['criticism_level'] = {
+        'score': cl.get('score', '0'),
+        'reasoning': cl.get('reasoning', '')
+    }
+
+    # 10. Sentiment and Bias (New)
+    sb = parsed_sections.get('sentiment_and_bias', {})
+    if isinstance(sb, list): sb = sb[0] if sb else {}
+    flat_result['sentiment_and_bias'] = sb.get('text', '')
 
     flat_result['raw_parsed_structure'] = parsed_sections
     

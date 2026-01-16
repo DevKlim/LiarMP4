@@ -1,4 +1,13 @@
-# liarMP4: Multimodal Content Moderation via Fractal Chain-of-Thought
+---
+title: VFacts
+emoji: 😀
+colorFrom: gray
+colorTo: gray
+sdk: docker
+pinned: false
+---
+
+# VFacts - Video Veracity & Analysis Platform
 
 ## Research Overview
 

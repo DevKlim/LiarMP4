@@ -15,7 +15,7 @@ from labeling_logic import (
     FCOT_MACRO_PROMPT, FCOT_MESO_PROMPT, FCOT_SYNTHESIS_PROMPT
 )
 from toon_parser import parse_veracity_toon
-from agents import video_analysis_system
+from agents import get_video_analysis_system
 
 # Google GenAI Imports
 try:
@@ -205,12 +205,12 @@ async def run_gemini_labeling_pipeline(video_path: str, caption: str, transcript
             # ... existing fcot logic ...
             pass
         elif reasoning_method == "agentic":
-            # --- Multi-Agent System ---
             yield "Starting Multi-Agent Analysis..."
-            # Note: This is a simplified integration. 
-            # In a real scenario, we'd pass the video/transcript/caption to the root agent.
-            # For now, let's assume the root agent handles the coordination.
-            results = await loop.run_in_executor(None, lambda: video_analysis_system.run(
+            # Create a clean system instance with the provided API key
+            model_name = gemini_config.get("model_name", "models/gemini-2.1-flash-lite")
+            system = get_video_analysis_system(api_key=api_key, model_name=model_name)
+            
+            results = await loop.run_in_executor(None, lambda: system.run(
                 video_path=video_path,
                 caption=caption,
                 transcript=transcript

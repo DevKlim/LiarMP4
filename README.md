@@ -61,7 +61,15 @@ This project is containerized to ensure reproducibility across different environ
     ```bash
     docker-compose up --build
     ```
+### Extension Instructions
 
+1. Unzip extension.zip to obtain folder
+
+2. Open Chrome - Input `chrome://extensions` in address bar - Trun on `Developer mode` (top right) - Click `Load unpacked` & select the folder just obtained - Activate the extensions in `All Extensions`.
+
+3. Go to any post on X/Twitter
+- button at the bottom right can open the interface
+- buttons in each post can select the post and allow user to label the post in the interface.
 The system will initialize the backend services and expose the necessary endpoints for the analysis pipeline.
 
 ## License

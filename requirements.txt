@@ -8,6 +8,9 @@ python-multipart
 requests
 aiofiles
 jinja2
+pandas
+scikit-learn
+autogluon.tabular
 
 # --- AI & Vision Processing ---
 transformers

@@ -26,8 +26,7 @@ func main() {
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		// Check if request is for the API
-		// Added /queue to the list so uploads and list fetches work
-		// ADDED: /workflow to fix JSON parse error in frontend
+		// We filter requests by prefix to forward to FastAPI
 		if strings.HasPrefix(r.URL.Path, "/process") ||
 			strings.HasPrefix(r.URL.Path, "/label_video") ||
 			strings.HasPrefix(r.URL.Path, "/batch_label") ||
@@ -36,7 +35,17 @@ func main() {
 			strings.HasPrefix(r.URL.Path, "/extension") ||
 			strings.HasPrefix(r.URL.Path, "/manage") ||
 			strings.HasPrefix(r.URL.Path, "/workflow") ||
-			strings.HasPrefix(r.URL.Path, "/queue") {
+			strings.HasPrefix(r.URL.Path, "/queue") ||
+			// NEW ROUTES ADDED HERE
+			strings.HasPrefix(r.URL.Path, "/profiles") ||
+			strings.HasPrefix(r.URL.Path, "/community") ||
+			strings.HasPrefix(r.URL.Path, "/analyze") ||
+			strings.HasPrefix(r.URL.Path, "/analytics") ||
+			strings.HasPrefix(r.URL.Path, "/dataset") ||
+			// FIXED: Added missing routes for Manual Labeling and Config
+			strings.HasPrefix(r.URL.Path, "/manual") ||
+			strings.HasPrefix(r.URL.Path, "/benchmarks") ||
+			strings.HasPrefix(r.URL.Path, "/config") {
 
 			log.Printf("Proxying %s to Python Backend...", r.URL.Path)
 			proxy.ServeHTTP(w, r)

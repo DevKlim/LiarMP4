@@ -8,6 +8,7 @@ from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.pipeline import make_pipeline
 from sklearn.metrics import accuracy_score, classification_report
 import re
+import math
 
 # Lazy import to avoid startup overhead if not used immediately
 try:
@@ -19,6 +20,20 @@ except ImportError:
 DATA_AI = Path("data/dataset.csv")
 DATA_MANUAL = Path("data/manual_dataset.csv")
 
+def sanitize_for_json(obj):
+    """
+    Recursively replace NaN/Infinity with None for JSON serialization.
+    """
+    if isinstance(obj, float):
+        if math.isnan(obj) or math.isinf(obj):
+            return None
+        return obj
+    elif isinstance(obj, dict):
+        return {k: sanitize_for_json(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [sanitize_for_json(v) for v in obj]
+    return obj
+
 def get_combined_dataset():
     """
     Joins AI predictions with Manual Ground Truth on ID.
@@ -27,12 +42,19 @@ def get_combined_dataset():
         return None
 
     try:
+        # Use keep_default_na=False to prevent empty strings becoming NaN floats for string columns,
+        # BUT numeric columns still need care.
+        # Actually safer to let pandas handle NAs then replace them.
         df_ai = pd.read_csv(DATA_AI)
         df_manual = pd.read_csv(DATA_MANUAL)
         
         # Ensure IDs are strings
         df_ai['id'] = df_ai['id'].astype(str)
         df_manual['id'] = df_manual['id'].astype(str)
+
+        # FIX: Force numeric conversion for scores to avoid 'str' >= 'int' TypeError
+        df_ai['final_veracity_score'] = pd.to_numeric(df_ai['final_veracity_score'], errors='coerce').fillna(0)
+        df_manual['final_veracity_score'] = pd.to_numeric(df_manual['final_veracity_score'], errors='coerce').fillna(0)
         
         # Merge on ID
         merged = pd.merge(
@@ -68,12 +90,17 @@ def calculate_benchmarks():
     merged['bin_manual'] = merged['final_veracity_score_manual'] >= 50
     accuracy = (merged['bin_ai'] == merged['bin_manual']).mean()
     
-    return {
+    # Handle NaNs in the samples before converting to dict
+    recent_samples = merged.tail(5).replace({np.nan: None}).to_dict(orient='records')
+
+    result = {
         "count": int(len(merged)),
         "mae": round(mae, 2),
         "accuracy_percent": round(accuracy * 100, 1),
-        "recent_samples": merged.tail(5).to_dict(orient='records')
+        "recent_samples": recent_samples
     }
+    
+    return sanitize_for_json(result)
 
 def train_with_autogluon(df, feature_cols, target_col):
     if not AUTOGLUON_AVAILABLE:
@@ -97,8 +124,8 @@ def train_with_autogluon(df, feature_cols, target_col):
         
         # Leaderboard
         lb = predictor.leaderboard(test_data, silent=True)
-        # Convert to simple list of dicts
-        results = lb[['model', 'score_test', 'score_val', 'fit_time']].to_dict(orient='records')
+        # Convert to simple list of dicts and sanitize
+        results = lb[['model', 'score_test', 'score_val', 'fit_time']].replace({np.nan: None}).to_dict(orient='records')
         
         return {
             "status": "success",
@@ -140,10 +167,6 @@ def train_predictive_sandbox(features_config: dict):
     feature_cols = ['feat_len', 'feat_keywords']
     
     # Check for the requested "visual_integrity_score" etc.
-    # If using them as input features, it implies we are training a meta-model or simulating their availability.
-    # Typically, these are TARGETS or Outputs of GenAI, but for a predictive model, 
-    # we usually only have metadata. 
-    # However, if 'use_visual_meta' is true, we assume we have some visual score available (perhaps from metadata API).
     use_visual = features_config.get('use_visual_meta', False)
     
     if use_visual:
@@ -158,7 +181,9 @@ def train_predictive_sandbox(features_config: dict):
 
     # Target: High Veracity (>=50) vs Low
     target_col = 'target_veracity'
-    df[target_col] = (df['final_veracity_score'].astype(float) >= 50).astype(int)
+    # FIX: Explicit numeric conversion here as well
+    df['final_veracity_score'] = pd.to_numeric(df['final_veracity_score'], errors='coerce').fillna(0)
+    df[target_col] = (df['final_veracity_score'] >= 50).astype(int)
 
     model_type = features_config.get('model_type', 'logistic')
 
@@ -185,7 +210,7 @@ def train_predictive_sandbox(features_config: dict):
         # Coefficients interpretation
         coefs = dict(zip(feature_cols, clf.coef_[0].tolist()))
         
-        return {
+        result = {
             "status": "success",
             "type": "logistic",
             "samples": len(df),
@@ -194,5 +219,6 @@ def train_predictive_sandbox(features_config: dict):
             "feature_importance": coefs,
             "message": "Model trained on available features."
         }
+        return sanitize_for_json(result)
     except Exception as e:
         return {"error": str(e)}

@@ -11,7 +11,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return true; 
     }
     
-    // 2. User History Bulk Ingestion
+    // 2. Ingest Link WITH Comments (New)
+    if (message.type === 'INGEST_LINK_COMMENTS') {
+        postData('/extension/ingest', { link: message.link, comments: message.comments })
+            .then(data => sendResponse({success: true, data}))
+            .catch(err => sendResponse({success: false, error: err.toString()}));
+        return true; 
+    }
+    
+    // 3. User History Bulk Ingestion
     if (message.type === 'INGEST_USER_HISTORY') {
         postData('/extension/ingest_user_history', message.payload)
             .then(data => sendResponse({success: true, data}))
@@ -19,7 +27,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return true;
     }
 
-    // 3. Trigger Agentic Analysis
+    // 4. Trigger Agentic Analysis
     if (message.type === 'TRIGGER_USER_ANALYSIS') {
         postData('/analyze/user_context', message.payload)
             .then(data => sendResponse({success: true, data}))
@@ -27,7 +35,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return true;
     }
     
-    // 4. Manual Labeling
+    // 5. Manual Labeling
     if (message.type === 'SAVE_MANUAL') {
         postData('/extension/save_manual', message.payload)
             .then(data => sendResponse({success: true, data}))
@@ -35,7 +43,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return true;
     }
 
-    // 5. Save Comments
+    // 6. Save Comments
     if (message.type === 'SAVE_COMMENTS') {
         postData('/extension/save_comments', message.payload)
             .then(data => sendResponse({success: true, data}))
@@ -57,4 +65,4 @@ async function postData(endpoint, body) {
         console.error(`Request to ${endpoint} failed:`, error);
         throw error;
     }
-}
+}

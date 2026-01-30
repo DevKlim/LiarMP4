@@ -1,3 +1,9 @@
+import json
+import os
+import logging
+
+logger = logging.getLogger(__name__)
+
 # Utilizes TOON (Token-Oriented Object Notation) for token efficiency and structured output.
 
 PROMPT_VARIANTS = {
@@ -15,6 +21,39 @@ PROMPT_VARIANTS = {
     }
 }
 
+TEXT_ONLY_INSTRUCTIONS = """
+**MODE: TEXT-ONLY ANALYSIS**
+- No video or audio is provided.
+- You must analyze the CAPTION and TRANSCRIPT (if available) only.
+- **Visual/Audio Scores:** Set all Visual, Audio, and Video-Alignment scores to **0**.
+- **Reasoning:** For these 0 scores, write "Not Applicable (Text Only)".
+- **Focus:** Heavily scrutinize the claim accuracy, logic, and source credibility based on the text provided.
+"""
+
+# --- Tag Management Logic ---
+TAGS_FILE = "data/tags.json"
+DEFAULT_TAGS = {
+    "political": "Gov, elections, policy.",
+    "sensationalist": "Shock value, emotional bait.",
+    "manipulative": "Intentionally misleading.",
+    "satire": "Humor/Parody.",
+    "news": "Journalistic reporting."
+}
+
+def get_formatted_tag_list() -> str:
+    """Reads tags.json and returns a formatted string for the prompt."""
+    tags = DEFAULT_TAGS
+    if os.path.exists(TAGS_FILE):
+        try:
+            with open(TAGS_FILE, 'r', encoding='utf-8') as f:
+                tags = json.load(f)
+        except Exception as e:
+            logger.error(f"Error loading tags.json: {e}")
+    
+    # Format: "- "tag_name": Description"
+    formatted = "\n".join([f'- "{k}": {v}' for k, v in tags.items()])
+    return formatted
+
 LABELING_PROMPT_TEMPLATE = """
 {system_persona}
 
@@ -30,9 +69,12 @@ LABELING_PROMPT_TEMPLATE = """
     *   Analyze *Audio Integrity* (Voice cloning, sync).
     *   Analyze *Modality Alignment* (Does video match audio? Does caption match content? Does audio match caption?).
     *   Analyze *Logic* (Fallacies, gaps).
-    *   **Classify Tags:** Identify 3-5 relevant tags (e.g., "political", "celebrity", "targeting", "satire", "news").
+    *   **Classify Tags:** Identify 3-5 relevant tags. **PREFER** using tags from the **Standard Tag List** below if applicable, but create new ones if necessary.
     *   Determine *Disinformation* classification.
 3.  **Output Format:** Output strictly in **TOON** format (Token-Oriented Object Notation) as defined below.
+
+**STANDARD TAG LIST:**
+{tag_list_text}
 
 **CRITICAL CONSTRAINTS:** 
 - Do NOT repeat the input data.
@@ -42,6 +84,8 @@ LABELING_PROMPT_TEMPLATE = """
 - Strings containing commas MUST be quoted.
 - ALL scores must be filled (use 0 if unsure, do not leave blank).
 - **MODALITY SCORING:** You must provide 3 distinct alignment scores: Video-Audio, Video-Caption, and Audio-Caption.
+- **REQUIRED FIELDS:** You MUST provide a 'summary' of events, 'tags', 'disinfo' classification (intent, threat), and a 'final' assessment with reasoning.
+- **REASONING:** You MUST provide a short text justification for EVERY score.
 
 **TOON SCHEMA:**
 {toon_schema}
@@ -56,38 +100,20 @@ SCORE_INSTRUCTIONS_REASONING = """
 **Constraints:** 
 1. Provide specific reasoning for EACH score in the `vectors` and `modalities` tables.
 2. Ensure strings are properly quoted.
+3. The 'summary' must be a neutral description of the video content.
+4. The 'disinfo' block must classify the intent and threat vector explicitly.
 """
 
 SCORE_INSTRUCTIONS_SIMPLE = """
-**Constraint:** Focus on objective measurements. Keep text concise.
+**Constraints:** 
+1. Provide specific reasoning for EACH score in the `vectors` and `modalities` tables.
+2. Ensure strings are properly quoted.
+3. The 'summary' must be a neutral description of the video content.
+4. The 'disinfo' block must classify the intent and threat vector explicitly.
 """
 
-# Updated Schema based on user requirements - Ensure explicit newlines
-SCHEMA_SIMPLE = """summary: text[1]{text}:
-"Brief neutral summary of the video events"
-
-tags: list[1]{keywords}:
-"political, celebrity, deepfake, viral"
-
-vectors: scores[1]{visual,audio,source,logic,emotion}:
-(Int 1-10),(Int 1-10),(Int 1-10),(Int 1-10),(Int 1-10)
-*Scale: 1=Fake/Malicious, 10=Authentic/Neutral*
-
-modalities: scores[1]{video_audio_score,video_caption_score,audio_caption_score}:
-(Int 1-10),(Int 1-10),(Int 1-10)
-*Scale: 1=Mismatch, 10=Perfect Match*
-
-factuality: factors[1]{accuracy,gap,grounding}:
-(Verified/Misleading/False),"Missing evidence description","Grounding check results"
-
-disinfo: analysis[1]{class,intent,threat}:
-(None/Misinfo/Disinfo/Satire),(Political/Commercial/None),(Deepfake/Recontextualization/None)
-
-final: assessment[1]{score,reasoning}:
-(Int 1-100),"Final synthesis of why this score was given"
-"""
-
-SCHEMA_REASONING = """
+# FORCED DETAILED SCHEMA FOR ALL MODES
+SCHEMA_SIMPLE = """
 summary: text[1]{text}:
 "Brief neutral summary of the video events"
 
@@ -116,8 +142,10 @@ final: assessment[1]{score,reasoning}:
 (Int 1-100),"Final synthesis of why this score was given"
 """
 
+SCHEMA_REASONING = SCHEMA_SIMPLE
+
 # ==========================================
-# Fractal Chain of Thought (FCoT) Prompts
+# Fractal Chain-of-Thought (FCoT) Prompts
 # ==========================================
 
 FCOT_MACRO_PROMPT = """
@@ -130,7 +158,7 @@ You are analyzing a video for factuality.
 
 1. **Global Scan**: Observe the video, audio, and caption as a whole entity.
 2. **Context Aperture**: Wide. Assess the overall intent (Humor, Information, Political, Social) and the setting.
-3. **Macro Hypothesis**: Formulate a high-level hypothesis about the veracity. (e.g., "The video is likely authentic but the caption misrepresents the location" or "The audio quality suggests synthetic generation").
+3. **Macro Hypothesis**: Formulate a high-level hypothesis about the veracity. ("The video is likely authentic but the caption misrepresents the location" or "The audio quality suggests synthetic generation").
 
 **Objective**: Maximize **Coverage** (broadly explore potential angles of manipulation).
 
@@ -162,7 +190,12 @@ FCOT_SYNTHESIS_PROMPT = """
 **Action**: Integrate your Macro Hypothesis and Micro-Observations.
 - **Consensus Check**: If Micro-Observations contradict the Macro Hypothesis, prioritize the Micro evidence (Self-Correction).
 - **Compression**: Synthesize the findings into the final structured format.
-- **Tags**: Assign 3-5 high-level tags (e.g., "political", "fabricated", "humor").
+- **Mandatory Fields**: You MUST provide a Summary, Tags, and Disinformation Classification (Class, Intent, Threat).
+- **Mandatory Reasoning**: You MUST provide reasoning for every score.
+
+**TAGGING STRATEGY:**
+Select 3-5 tags. Prioritize these Standard Tags if applicable:
+{tag_list_text}
 
 **Output Format**:
 Strictly fill out the following TOON schema based on the consensus. Do not include markdown code blocks.

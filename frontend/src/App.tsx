@@ -4,7 +4,7 @@ import {
   Users, MessageSquare, TrendingUp, ShieldCheck, UserCheck, Search, PlusCircle, 
   StopCircle, RefreshCw, CheckCircle2, PenTool, ClipboardCheck, Info, Clock, FileText,
   Tag, Home, Cpu, FlaskConical, Target, Trash2, ArrowUpRight, CheckSquare, Square,
-  Layers, Activity, Zap, BrainCircuit, Network, Archive
+  Layers, Activity, Zap, BrainCircuit, Network, Archive, Plus, Edit3, RotateCcw
 } from 'lucide-react';
 
 function App() {
@@ -22,6 +22,8 @@ function App() {
   const [includeComments, setIncludeComments] = useState(false);
   const [reasoningMethod, setReasoningMethod] = useState('cot');
   const [promptTemplate, setPromptTemplate] = useState('standard');
+  const [customQuery, setCustomQuery] = useState('');
+  const [maxRetries, setMaxRetries] = useState(1);
   const [availablePrompts, setAvailablePrompts] = useState<any[]>([]);
 
   // Predictive Config
@@ -30,6 +32,8 @@ function App() {
 
   // Data States
   const [queueList, setQueueList] = useState<any[]>([]);
+  const [selectedQueueItems, setSelectedQueueItems] = useState<Set<string>>(new Set());
+  const [singleLinkInput, setSingleLinkInput] = useState(''); 
   const [profileList, setProfileList] = useState<any[]>([]);
   const [selectedProfile, setSelectedProfile] = useState<any>(null);
   const [profilePosts, setProfilePosts] = useState<any[]>([]);
@@ -40,7 +44,10 @@ function App() {
   const [benchmarks, setBenchmarks] = useState<any>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
-  // Selection State
+  // Tags
+  const [configuredTags, setConfiguredTags] = useState<any>({});
+
+  // Selection State (Ground Truth / Manual)
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
 
   // Manual Labeling State
@@ -53,28 +60,12 @@ function App() {
       va: 5, vc: 5, ac: 5, final: 50
   });
   
+  // New: AI Reference for Side-by-Side View
+  const [aiReference, setAiReference] = useState<any>(null);
+
   const [labelBrowserMode, setLabelBrowserMode] = useState<'queue' | 'dataset'>('queue');
   const [labelFilter, setLabelFilter] = useState('');
 
-  // Placeholder Benchmark Data for Home Screen
-  const modelLeaderboard = {
-    predictive: [
-      { name: "XGBoost", desc: "Visual Integrity", score: 64.2, color: "bg-sky-500", text: "text-sky-400" },
-      { name: "CatBoost (Hybrid)", desc: "Visual Integrity + Audio Integrity + Visual-Audio Semantic", score: 65.3, color: "bg-sky-400", text: "text-sky-300" },
-    ],
-    generative: [
-      { name: "Gemini 2.5 Flash", desc: "Standard CoT & Prompt, Visual Integrity", score: 65.5, color: "bg-indigo-500", text: "text-indigo-400" },
-      { name: "Gemini 2.5 Flash Lite", desc: "Fractal CoT + Standard Prompt", score: 45.4, color: "bg-purple-500", text: "text-purple-400" },
-            { name: "Gemini 2.5 Flash", desc: "Standard CoT + Alt Prompt", score: 63.5, color: "bg-indigo-500", text: "text-indigo-400" },
-      { name: "Gemini 2.5 Flash Lite", desc: "Fractal CoT + Alt Prompt", score: 46.4, color: "bg-purple-500", text: "text-purple-400" },
-    ],
-    agentic: [
-      { name: "Single Agent + Tools", desc: "Google Search", score: 53, color: "bg-emerald-500", text: "text-emerald-400" },
-      { name: "Multi-Agent", desc: "Researcher + Critic + Judge", score: 73.4, color: "bg-orange-500", text: "text-orange-400" },
-    ]
-  };
-
-  // --- Handlers Defined Early to Avoid ReferenceError ---
   const handleTagsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       setManualTags(e.target.value);
   };
@@ -85,8 +76,13 @@ function App() {
     };
 
     load('/config/prompts', setAvailablePrompts);
+    load('/config/tags', setConfiguredTags);
+
     if (activeTab === 'home') load('/benchmarks/stats', setBenchmarks);
-    if (activeTab === 'queue') load('/queue/list', setQueueList);
+    if (activeTab === 'queue') {
+        load('/queue/list', setQueueList);
+        setSelectedQueueItems(new Set());
+    }
     if (activeTab === 'profiles') load('/profiles/list', setProfileList);
     if (activeTab === 'community') load('/community/list_datasets', setCommunityDatasets);
     if (activeTab === 'analytics') load('/analytics/account_integrity', setIntegrityBoard);
@@ -103,19 +99,22 @@ function App() {
   // Helpers: Robust Tag Extraction
   const existingTags = React.useMemo(() => {
     const tags = new Set<string>();
+    // Add configured tags
+    Object.keys(configuredTags).forEach(t => tags.add(t));
+    
+    // Add existing tags from dataset
     if (datasetList && Array.isArray(datasetList)) {
         datasetList.forEach(item => {
             if (item.tags && typeof item.tags === 'string') {
-                // Robust Split: Handles commas, newlines, pipes, or semicolons
                 item.tags.split(/[,\n|;]+/).forEach((t: string) => {
-                    const clean = t.trim().replace(/^['"]|['"]$/g, ''); // Remove quotes
+                    const clean = t.trim().replace(/^['"]|['"]$/g, '');
                     if (clean.length > 1) tags.add(clean);
                 });
             }
         });
     }
     return Array.from(tags).sort();
-  }, [datasetList]);
+  }, [datasetList, configuredTags]);
 
   const toggleTag = (tag: string) => {
     let current = manualTags.split(',').map(t => t.trim()).filter(Boolean);
@@ -125,11 +124,6 @@ function App() {
         current.push(tag);
     }
     setManualTags(current.join(', '));
-  };
-
-  const getTweetId = (link: string) => {
-    const match = link.match(/(?:twitter|x)\.com\/[^/]+\/status\/(\d+)/);
-    return match ? match[1] : null;
   };
 
   const loadProfilePosts = async (username: string) => {
@@ -148,11 +142,30 @@ function App() {
       });
       setManualReasoning('');
       setManualTags('');
+      setAiReference(null); // Clear reference
+      
+      // Attempt to find AI reference anyway
+      const ref = datasetList.find(d => 
+          d.source !== 'Manual' && 
+          d.source !== 'manual_promoted' && 
+          (d.link === link)
+      );
+      setAiReference(ref || null);
+      
       setActiveTab('manual');
   };
   
   const loadFromBrowser = (item: any, mode: 'queue' | 'dataset') => {
       setManualLink(item.link);
+      
+      // Look for AI reference
+      const ref = datasetList.find(d => 
+          d.source !== 'Manual' && 
+          d.source !== 'manual_promoted' && 
+          (d.id === item.id || d.link === item.link)
+      );
+      setAiReference(ref || null);
+
       if (mode === 'dataset') {
           setManualCaption(item.caption || '');
           setManualTags(item.tags || '');
@@ -177,48 +190,49 @@ function App() {
       }
   };
 
+  const editSelectedLabel = () => {
+      if(selectedItems.size !== 1) return alert("Please select exactly one item to edit.");
+      const id = Array.from(selectedItems)[0];
+      const item = datasetList.find(d => d.id === id);
+      if(!item) return;
+      loadFromBrowser(item, 'dataset');
+      setActiveTab('manual');
+  };
+
   const toggleSelection = (id: string) => {
       const newSet = new Set(selectedItems);
       if (newSet.has(id)) newSet.delete(id);
       else newSet.add(id);
       setSelectedItems(newSet);
   };
+  
+  const toggleQueueSelection = (link: string) => {
+      const newSet = new Set(selectedQueueItems);
+      if (newSet.has(link)) newSet.delete(link);
+      else newSet.add(link);
+      setSelectedQueueItems(newSet);
+  };
 
   const promoteSelected = async () => {
       if (selectedItems.size === 0) return alert("No items selected.");
       if (!confirm(`Promote ${selectedItems.size} items to Ground Truth?`)) return;
-      
       try {
           const res = await fetch('/manual/promote', {
               method: 'POST', headers: {'Content-Type': 'application/json'},
               body: JSON.stringify({ ids: Array.from(selectedItems) })
           });
-          
-          if (!res.ok) {
-               const errText = await res.text();
-               console.error("Promote Error:", errText);
-               alert("Server Error during promotion: " + errText);
-               return;
-          }
-
           const d = await res.json();
           if(d.status === 'success') {
               alert(`Successfully promoted ${d.promoted_count} items.`);
               setSelectedItems(new Set());
               setRefreshTrigger(p => p+1);
-          } else {
-              alert("Promotion failed: " + (d.message || "Unknown error"));
-          }
-      } catch(e: any) { 
-          console.error("Network Error:", e);
-          alert("Network error: " + e.toString()); 
-      }
+          } else alert("Promotion failed: " + d.message);
+      } catch(e: any) { alert("Network error: " + e.toString()); }
   };
 
   const deleteSelected = async () => {
       if (selectedItems.size === 0) return alert("No items selected.");
       if (!confirm(`Delete ${selectedItems.size} items from Ground Truth? Irreversible.`)) return;
-
       try {
           const res = await fetch('/manual/delete', {
               method: 'POST', headers: {'Content-Type': 'application/json'},
@@ -233,6 +247,48 @@ function App() {
       } catch(e) { alert("Network error."); }
   };
 
+  const deleteDataEntries = async () => {
+      if (selectedItems.size === 0) return alert("No items selected.");
+      if (!confirm(`Delete ${selectedItems.size} items? This cannot be undone.`)) return;
+
+      const selectedArray = Array.from(selectedItems);
+      // Determine source of each item to call correct endpoint
+      const manualIds = selectedArray.filter(id => datasetList.find(d => d.id === id)?.source === 'Manual');
+      const aiIds = selectedArray.filter(id => {
+          const item = datasetList.find(d => d.id === id);
+          return item?.source === 'AI' || !item?.source; 
+      });
+
+      try {
+          let msg = "";
+          if (manualIds.length > 0) {
+              const res = await fetch('/manual/delete', {
+                  method: 'POST', headers: {'Content-Type': 'application/json'},
+                  body: JSON.stringify({ ids: manualIds })
+              });
+              const d = await res.json();
+              if (d.status === 'success') msg += `Deleted ${d.deleted_count} Manual items. `;
+              else msg += `Failed Manual delete: ${d.message}. `;
+          }
+
+          if (aiIds.length > 0) {
+              const res = await fetch('/dataset/delete', {
+                  method: 'POST', headers: {'Content-Type': 'application/json'},
+                  body: JSON.stringify({ ids: aiIds })
+              });
+              const d = await res.json();
+              if (d.status === 'success') msg += `Deleted ${d.deleted_count} AI items. `;
+              else msg += `Failed AI delete: ${d.message}. `;
+          }
+
+          alert(msg || "Done.");
+          setSelectedItems(new Set());
+          setRefreshTrigger(p => p + 1);
+      } catch (e) {
+          alert("Network error: " + e);
+      }
+  };
+
   const submitManualLabel = async () => {
       if(!manualLink) return alert("Link is required.");
       const payload = {
@@ -241,29 +297,17 @@ function App() {
           source_credibility_score: manualScores.source, logical_consistency_score: manualScores.logic,
           emotional_manipulation_score: manualScores.emotion,
           video_audio_score: manualScores.va, video_caption_score: manualScores.vc, audio_caption_score: manualScores.ac,
-          final_veracity_score: manualScores.final
+          final_veracity_score: manualScores.final,
+          classification: "Manual Verified"
       };
-      
       try {
           const res = await fetch('/manual/save', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
-          
-          if(!res.ok) {
-             const txt = await res.text();
-             alert("Error saving: " + txt);
-             return;
-          }
-
           const d = await res.json();
           if(d.status === 'success') { 
-              alert("Label Saved! Data added to Ground Truth."); 
+              alert("Label Saved! Data updated."); 
               setRefreshTrigger(p => p+1); 
-          } else {
-              alert("Error saving label: " + (d.message || "Unknown Error"));
-          }
-      } catch(e: any) { 
-          console.error(e);
-          alert("Network error: " + e.toString()); 
-      }
+          } else alert("Error saving label: " + d.message);
+      } catch(e: any) { alert("Network error: " + e.toString()); }
   };
 
   const analyzeComments = async (id: string) => {
@@ -298,6 +342,54 @@ function App() {
       } catch (e) { alert("Error uploading."); }
   };
 
+  const addSingleLink = async () => {
+      if(!singleLinkInput) return;
+      try {
+          const res = await fetch('/queue/add', {
+              method: 'POST', headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({ link: singleLinkInput })
+          });
+          const d = await res.json();
+          if(d.status === 'success') {
+              setSingleLinkInput('');
+              setRefreshTrigger(p => p+1);
+          } else { alert(d.message); }
+      } catch(e) { alert("Error adding link"); }
+  };
+
+  const clearProcessed = async () => {
+      if(!confirm("Remove all 'Processed' items from the queue?")) return;
+      try {
+          const res = await fetch('/queue/clear_processed', { method: 'POST' });
+          const d = await res.json();
+          alert(`Removed ${d.removed_count} processed items.`);
+          setRefreshTrigger(p => p+1);
+      } catch(e) { alert("Error clearing queue."); }
+  };
+  
+  const deleteQueueItems = async () => {
+      if(selectedQueueItems.size === 0) return alert("No items selected.");
+      if(!confirm(`Remove ${selectedQueueItems.size} items from queue?`)) return;
+      try {
+          const res = await fetch('/queue/delete', {
+              method: 'POST', headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({ links: Array.from(selectedQueueItems) })
+          });
+          const d = await res.json();
+          if(d.status === 'success') {
+              alert(`Removed ${d.count} items.`);
+              setSelectedQueueItems(new Set());
+              setRefreshTrigger(p => p+1);
+          }
+      } catch(e) { alert("Error deleting queue items."); }
+  };
+
+  const stopProcessing = async () => {
+      if(!confirm("Stop batch processing?")) return;
+      await fetch('/queue/stop', { method: 'POST' });
+      setLogs(prev => prev + '\n[SYSTEM] Stop Signal Sent.\n');
+  };
+
   const startProcessing = async () => {
       if (isProcessing) return;
       setIsProcessing(true);
@@ -307,7 +399,8 @@ function App() {
       fd.append('gemini_model_name', modelName); fd.append('vertex_project_id', projectId);
       fd.append('vertex_location', location); fd.append('vertex_model_name', modelName);
       fd.append('include_comments', includeComments.toString()); fd.append('reasoning_method', reasoningMethod);
-      fd.append('prompt_template', promptTemplate);
+      fd.append('prompt_template', promptTemplate); fd.append('custom_query', customQuery);
+      fd.append('max_reprompts', maxRetries.toString());
 
       try {
           const res = await fetch('/queue/run', { method: 'POST', body: fd });
@@ -338,7 +431,7 @@ function App() {
                {id:'queue', l:'Ingest Queue', i:List}, 
                {id:'profiles', l:'User Profiles', i:Users}, 
                {id:'manual', l:'Labeling Studio', i:PenTool},
-               {id:'dataset', l:'Data Manager', i:Archive}, // Renamed & Icon Changed
+               {id:'dataset', l:'Data Manager', i:Archive}, 
                {id:'groundtruth', l:'Ground Truth (Verified)', i:ShieldCheck},
                {id:'community', l:'Community Trust', i:MessageSquare}, 
                {id:'analytics', l:'Analytics', i:BarChart2}
@@ -389,65 +482,6 @@ function App() {
                         </div>
                     </div>
 
-                    {/* NEW: Model Architecture Leaderboard */}
-                    <div>
-                         <h3 className="text-sm font-bold text-slate-300 uppercase mb-4 flex items-center gap-2">
-                            <Zap className="w-4 h-4"/> Architecture Leaderboard (Benchmark Placeholders)
-                        </h3>
-                        <div className="grid grid-cols-3 gap-6">
-                            {/* Predictive */}
-                            <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-5 flex flex-col gap-4">
-                                <div className="flex items-center gap-2 text-sky-400 font-bold text-xs uppercase"><Activity className="w-4 h-4"/> Predictive Models</div>
-                                {modelLeaderboard.predictive.map((m, i) => (
-                                    <div key={i} className="bg-slate-950 p-3 rounded border border-slate-800">
-                                        <div className="flex justify-between items-center mb-1">
-                                            <span className="text-xs font-bold text-white">{m.name}</span>
-                                            <span className={`text-xs font-mono font-bold ${m.text}`}>{m.score}%</span>
-                                        </div>
-                                        <div className="w-full bg-slate-900 h-1.5 rounded-full mb-1">
-                                            <div className={`h-1.5 rounded-full ${m.color}`} style={{width: `${m.score}%`}}></div>
-                                        </div>
-                                        <div className="text-[10px] text-slate-500">{m.desc}</div>
-                                    </div>
-                                ))}
-                            </div>
-
-                            {/* Generative */}
-                            <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-5 flex flex-col gap-4">
-                                <div className="flex items-center gap-2 text-indigo-400 font-bold text-xs uppercase"><BrainCircuit className="w-4 h-4"/> Generative AI</div>
-                                {modelLeaderboard.generative.map((m, i) => (
-                                    <div key={i} className="bg-slate-950 p-3 rounded border border-slate-800">
-                                        <div className="flex justify-between items-center mb-1">
-                                            <span className="text-xs font-bold text-white">{m.name}</span>
-                                            <span className={`text-xs font-mono font-bold ${m.text}`}>{m.score}%</span>
-                                        </div>
-                                        <div className="w-full bg-slate-900 h-1.5 rounded-full mb-1">
-                                            <div className={`h-1.5 rounded-full ${m.color}`} style={{width: `${m.score}%`}}></div>
-                                        </div>
-                                        <div className="text-[10px] text-slate-500">{m.desc}</div>
-                                    </div>
-                                ))}
-                            </div>
-
-                            {/* Agentic */}
-                            <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-5 flex flex-col gap-4">
-                                <div className="flex items-center gap-2 text-emerald-400 font-bold text-xs uppercase"><Network className="w-4 h-4"/> Agentic Systems</div>
-                                {modelLeaderboard.agentic.map((m, i) => (
-                                    <div key={i} className="bg-slate-950 p-3 rounded border border-slate-800">
-                                        <div className="flex justify-between items-center mb-1">
-                                            <span className="text-xs font-bold text-white">{m.name}</span>
-                                            <span className={`text-xs font-mono font-bold ${m.text}`}>{m.score}%</span>
-                                        </div>
-                                        <div className="w-full bg-slate-900 h-1.5 rounded-full mb-1">
-                                            <div className={`h-1.5 rounded-full ${m.color}`} style={{width: `${m.score}%`}}></div>
-                                        </div>
-                                        <div className="text-[10px] text-slate-500">{m.desc}</div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-
                     {/* System Stats */}
                     <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-6">
                         <h3 className="text-sm font-bold text-white uppercase mb-4 flex items-center gap-2">
@@ -480,27 +514,8 @@ function App() {
                 <div className="flex h-full gap-6">
                     <div className="w-1/3 bg-slate-900/50 border border-slate-800 rounded-xl p-6 flex flex-col gap-6">
                         <div>
-                            <h2 className="text-lg font-bold text-white flex items-center gap-2 mb-2"><FlaskConical className="w-5 h-5"/> Model Sandbox</h2>
+                            <h2 className="text-lg font-bold text-white flex items-center gap-2"><FlaskConical className="w-5 h-5"/> Model Sandbox</h2>
                             <p className="text-xs text-slate-400">Train models on the text features of the current Ground Truth dataset.</p>
-                        </div>
-                        <div className="space-y-4">
-                            <div className="p-3 bg-slate-950 rounded border border-slate-800">
-                                <label className="text-xs text-slate-500 block mb-2">Algorithm</label>
-                                <select value={predictiveModelType} onChange={e => setPredictiveModelType(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-white">
-                                    <option value="logistic">Logistic Regression (Simple)</option>
-                                    <option value="autogluon">AutoGluon (Gradient Boosting)</option>
-                                </select>
-                            </div>
-                            <div className="flex items-center justify-between p-3 bg-slate-950 rounded border border-slate-800">
-                                <span className="text-xs text-slate-300">Use Visual Meta</span>
-                                <input type="checkbox" onClick={(e) => runPredictiveTraining(e.currentTarget.checked)} className="accent-indigo-500"/>
-                            </div>
-                        </div>
-                         <div className="mt-4 pt-4 border-t border-slate-800">
-                             <div className="text-xs font-bold text-slate-500 uppercase mb-2">Target Schema</div>
-                             <pre className="text-[9px] font-mono text-slate-400 bg-black p-2 rounded overflow-x-auto whitespace-pre-wrap">
-                                 visual_integrity_score, audio_integrity_score, source_credibility_score, logical_consistency_score, emotional_manipulation_score, video_audio_score, video_caption_score, audio_caption_score, final_veracity_score, tags, stats_likes, stats_shares, stats_comments
-                             </pre>
                         </div>
                         <button onClick={() => runPredictiveTraining(false)} className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded font-bold text-xs">Train Baseline</button>
                     </div>
@@ -523,6 +538,23 @@ function App() {
             {activeTab === 'queue' && (
                 <div className="flex h-full gap-6">
                     <div className="w-[300px] bg-slate-900/50 border border-slate-800 rounded-xl p-4 flex flex-col gap-4 overflow-y-auto">
+                        
+                        {/* Quick Add Section */}
+                        <div className="bg-slate-950 border border-slate-800 rounded p-3">
+                            <label className="text-[10px] text-slate-500 uppercase font-bold mb-2 block">Quick Ingest</label>
+                            <div className="flex gap-2">
+                                <input 
+                                    value={singleLinkInput} 
+                                    onChange={e => setSingleLinkInput(e.target.value)} 
+                                    className="flex-1 bg-slate-900 border border-slate-700 rounded p-1.5 text-xs text-white placeholder-slate-600"
+                                    placeholder="https://x.com/..."
+                                />
+                                <button onClick={addSingleLink} className="bg-indigo-600 hover:bg-indigo-500 text-white rounded p-1.5">
+                                    <Plus className="w-4 h-4" />
+                                </button>
+                            </div>
+                        </div>
+
                         <div className="text-xs font-bold text-indigo-400 uppercase">Config</div>
                         <div className="space-y-1">
                             <label className="text-[10px] text-slate-500">Provider</label>
@@ -567,19 +599,56 @@ function App() {
                                 )) : <option value="standard">Standard</option>}
                             </select>
                         </div>
-                        <button onClick={startProcessing} disabled={isProcessing} className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded font-bold text-xs flex items-center justify-center gap-2">
-                             {isProcessing ? <><RefreshCw className="w-3 h-3 animate-spin"/> Processing...</> : <><Play className="w-3 h-3"/> Start Batch</>}
-                        </button>
+                        <div className="space-y-1">
+                            <label className="text-[10px] text-slate-500">Max Reprompts</label>
+                            <input type="number" min="0" max="5" value={maxRetries} onChange={e => setMaxRetries(parseInt(e.target.value))} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs"/>
+                        </div>
+                        
+                        {/* Process Controls */}
+                        {isProcessing ? (
+                            <button onClick={stopProcessing} className="w-full py-2 bg-red-600 hover:bg-red-500 text-white rounded font-bold text-xs flex items-center justify-center gap-2 animate-pulse">
+                                 <StopCircle className="w-3 h-3"/> STOP PROCESSING
+                            </button>
+                        ) : (
+                            <button onClick={startProcessing} className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded font-bold text-xs flex items-center justify-center gap-2">
+                                 <Play className="w-3 h-3"/> Start Batch
+                            </button>
+                        )}
+                        
+                        <div className="flex gap-2">
+                            <button onClick={clearProcessed} className="flex-1 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded font-bold text-[10px] flex items-center justify-center gap-1">
+                                 <Trash2 className="w-3 h-3"/> Clear Done
+                            </button>
+                            <button onClick={deleteQueueItems} className="flex-1 py-2 bg-red-900/50 hover:bg-red-900 text-red-300 border border-red-900 rounded font-bold text-[10px] flex items-center justify-center gap-1">
+                                 <Trash2 className="w-3 h-3"/> Delete Sel
+                            </button>
+                        </div>
                     </div>
                     <div className="flex-1 flex flex-col gap-4 overflow-hidden">
                         <div className="flex-1 bg-slate-900/30 border border-slate-800 rounded-xl overflow-auto">
                             <table className="w-full text-left text-xs text-slate-400">
-                                <thead className="bg-slate-950 sticky top-0"><tr><th className="p-3">Link</th><th className="p-3">Status</th></tr></thead>
+                                <thead className="bg-slate-950 sticky top-0">
+                                    <tr>
+                                        <th className="p-3 w-8"><Square className="w-4 h-4 text-slate-600"/></th>
+                                        <th className="p-3">Link</th>
+                                        <th className="p-3">Status</th>
+                                    </tr>
+                                </thead>
                                 <tbody>
                                     {queueList.map((q, i) => (
-                                        <tr key={i} className="border-t border-slate-800/50 hover:bg-white/5">
-                                            <td className="p-3 text-sky-500 font-mono">{q.link}</td>
-                                            <td className="p-3">{q.status === 'Processed' ? <span className="text-emerald-500 flex items-center gap-1"><CheckCircle2 className="w-3 h-3"/> Done</span> : <span className="text-amber-500">Pending</span>}</td>
+                                        <tr key={i} className={`border-t border-slate-800/50 hover:bg-white/5 ${selectedQueueItems.has(q.link) ? 'bg-indigo-900/20' : ''}`}>
+                                            <td className="p-3 cursor-pointer" onClick={() => toggleQueueSelection(q.link)}>
+                                                {selectedQueueItems.has(q.link) ? <CheckSquare className="w-4 h-4 text-indigo-400"/> : <Square className="w-4 h-4 text-slate-600"/>}
+                                            </td>
+                                            <td className="p-3 text-sky-500 font-mono break-all">{q.link}</td>
+                                            <td className="p-3">
+                                                {q.status === 'Processed' ? 
+                                                    <span className="text-emerald-500 flex items-center gap-1"><CheckCircle2 className="w-3 h-3"/> Done</span> : 
+                                                    q.status === 'Error' ? 
+                                                    <span className="text-red-500 flex items-center gap-1"><AlertCircle className="w-3 h-3"/> Error</span> :
+                                                    <span className="text-amber-500">Pending</span>
+                                                }
+                                            </td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -649,6 +718,14 @@ function App() {
                                  <span>AI: {datasetList.filter(d => d.source === 'AI').length}</span>
                                  <span>Manual: {datasetList.filter(d => d.source === 'Manual').length}</span>
                              </div>
+                             {selectedItems.size === 1 && (
+                                <button onClick={editSelectedLabel} className="bg-sky-600 text-white text-xs px-3 py-1 rounded font-bold hover:bg-sky-500 flex items-center gap-2">
+                                     <Edit3 className="w-3 h-3"/> Edit Label
+                                </button>
+                             )}
+                             <button onClick={deleteDataEntries} className="bg-red-600 text-white text-xs px-3 py-1 rounded font-bold hover:bg-red-500 flex items-center gap-2">
+                                <Trash2 className="w-3 h-3"/> Delete Selected
+                             </button>
                              <button onClick={promoteSelected} className="bg-emerald-600 text-white text-xs px-3 py-1 rounded font-bold hover:bg-emerald-500 flex items-center gap-2">
                                  <ShieldCheck className="w-3 h-3"/> Add Selected to Ground Truth
                              </button>
@@ -753,77 +830,141 @@ function App() {
                             ))}
                         </div>
                     </div>
-                    <div className="flex-1 bg-slate-900/50 border border-slate-800 rounded-xl p-6 overflow-y-auto">
-                        <div className="flex justify-between items-center mb-6 pb-4 border-b border-slate-800">
-                             <h2 className="text-lg font-bold text-white flex items-center gap-2"><PenTool className="w-5 h-5"/> Studio</h2>
-                             <div className="flex gap-2">
-                                <a href={manualLink} target="_blank" rel="noreferrer" className={`bg-slate-800 text-white px-3 py-2 rounded-lg font-bold flex gap-2 ${!manualLink && 'opacity-50 pointer-events-none'}`}><ExternalLink className="w-4 h-4"/> Open</a>
-                                <button onClick={submitManualLabel} className="bg-emerald-600 text-white px-6 py-2 rounded-lg font-bold flex gap-2"><ClipboardCheck className="w-4 h-4"/> Save & Add to GT</button>
-                             </div>
-                        </div>
-                        <div className="space-y-6">
-                             <div className="bg-slate-950 p-4 rounded-lg border border-slate-800">
-                                 <div className="mb-4">
-                                     <label className="text-xs uppercase text-slate-500 font-bold">Link</label>
-                                     <input value={manualLink} onChange={e => setManualLink(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-indigo-400 font-mono mt-1"/>
+                    
+                    {/* Main Workspace with Split View Support */}
+                    <div className="flex-1 bg-slate-900/50 border border-slate-800 rounded-xl overflow-hidden flex">
+                        
+                        {/* THE FORM */}
+                        <div className="flex-1 p-6 overflow-y-auto">
+                            <div className="flex justify-between items-center mb-6 pb-4 border-b border-slate-800">
+                                 <h2 className="text-lg font-bold text-white flex items-center gap-2"><PenTool className="w-5 h-5"/> Studio</h2>
+                                 <div className="flex gap-2">
+                                    <a href={manualLink} target="_blank" rel="noreferrer" className={`bg-slate-800 text-white px-3 py-2 rounded-lg font-bold flex gap-2 ${!manualLink && 'opacity-50 pointer-events-none'}`}><ExternalLink className="w-4 h-4"/> Open</a>
+                                    <button onClick={submitManualLabel} className="bg-emerald-600 text-white px-6 py-2 rounded-lg font-bold flex gap-2"><ClipboardCheck className="w-4 h-4"/> Save & Add to GT</button>
                                  </div>
-                                 <div>
-                                     <label className="text-xs uppercase text-slate-500 font-bold">Caption</label>
-                                     <textarea value={manualCaption} onChange={e => setManualCaption(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-slate-300 mt-1 h-20"/>
+                            </div>
+                            <div className="space-y-6">
+                                 <div className="bg-slate-950 p-4 rounded-lg border border-slate-800">
+                                     <div className="mb-4">
+                                         <label className="text-xs uppercase text-slate-500 font-bold">Link</label>
+                                         <input value={manualLink} onChange={e => setManualLink(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-indigo-400 font-mono mt-1"/>
+                                     </div>
+                                     <div>
+                                         <label className="text-xs uppercase text-slate-500 font-bold">Caption</label>
+                                         <textarea value={manualCaption} onChange={e => setManualCaption(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-slate-300 mt-1 h-20"/>
+                                     </div>
                                  </div>
-                             </div>
-                             
-                             <div className="grid grid-cols-2 gap-8">
-                                 <div>
-                                     <h3 className="text-sm font-bold text-indigo-400 uppercase mb-4 border-b border-slate-800 pb-2">Veracity Vectors</h3>
-                                     {['visual', 'audio', 'source', 'logic', 'emotion'].map(k => (
-                                         <div key={k} className="mb-4">
-                                             <div className="flex justify-between text-xs mb-1">
-                                                 <span className="capitalize text-slate-300 font-bold">{k}</span>
-                                                 <span className="text-indigo-400 font-mono font-bold">{(manualScores as any)[k]}/10</span>
+                                 
+                                 <div className="grid grid-cols-2 gap-8">
+                                     <div>
+                                         <h3 className="text-sm font-bold text-indigo-400 uppercase mb-4 border-b border-slate-800 pb-2">Veracity Vectors</h3>
+                                         {['visual', 'audio', 'source', 'logic', 'emotion'].map(k => (
+                                             <div key={k} className="mb-4">
+                                                 <div className="flex justify-between text-xs mb-1">
+                                                     <span className="capitalize text-slate-300 font-bold">{k}</span>
+                                                     <span className="text-indigo-400 font-mono font-bold">{(manualScores as any)[k]}/10</span>
+                                                 </div>
+                                                 <input type="range" min="1" max="10" value={(manualScores as any)[k]} onChange={e => setManualScores({...manualScores, [k]: parseInt(e.target.value)})} className="w-full accent-indigo-500"/>
                                              </div>
-                                             <input type="range" min="1" max="10" value={(manualScores as any)[k]} onChange={e => setManualScores({...manualScores, [k]: parseInt(e.target.value)})} className="w-full accent-indigo-500"/>
-                                         </div>
-                                     ))}
-                                 </div>
-                                 <div>
-                                     <h3 className="text-sm font-bold text-emerald-400 uppercase mb-4 border-b border-slate-800 pb-2">Modality Alignment</h3>
-                                     {['va', 'vc', 'ac'].map(k => (
-                                         <div key={k} className="mb-4">
-                                              <div className="flex justify-between text-xs mb-1">
-                                                 <span className="capitalize text-slate-300 font-bold">{k.replace('v', 'Video-').replace('a', 'Audio-').replace('c', 'Caption')}</span>
-                                                 <span className="text-emerald-400 font-mono font-bold">{(manualScores as any)[k]}/10</span>
+                                         ))}
+                                     </div>
+                                     <div>
+                                         <h3 className="text-sm font-bold text-emerald-400 uppercase mb-4 border-b border-slate-800 pb-2">Modality Alignment</h3>
+                                         {['va', 'vc', 'ac'].map(k => (
+                                             <div key={k} className="mb-4">
+                                                  <div className="flex justify-between text-xs mb-1">
+                                                     <span className="capitalize text-slate-300 font-bold">{k.replace('v', 'Video-').replace('a', 'Audio-').replace('c', 'Caption')}</span>
+                                                     <span className="text-emerald-400 font-mono font-bold">{(manualScores as any)[k]}/10</span>
+                                                 </div>
+                                                 <input type="range" min="1" max="10" value={(manualScores as any)[k]} onChange={e => setManualScores({...manualScores, [k]: parseInt(e.target.value)})} className="w-full accent-emerald-500"/>
                                              </div>
-                                             <input type="range" min="1" max="10" value={(manualScores as any)[k]} onChange={e => setManualScores({...manualScores, [k]: parseInt(e.target.value)})} className="w-full accent-emerald-500"/>
-                                         </div>
-                                     ))}
+                                         ))}
+                                     </div>
                                  </div>
-                             </div>
 
-                             <div className="bg-slate-950 p-4 rounded-lg border border-slate-800">
-                                  <div className="flex justify-between items-center mb-4">
-                                      <h3 className="text-sm font-bold text-white uppercase">Final Veracity Score</h3>
-                                      <span className="text-2xl font-bold font-mono text-emerald-400">{manualScores.final}</span>
-                                  </div>
-                                  <input type="range" min="0" max="100" value={manualScores.final} onChange={e => setManualScores({...manualScores, final: parseInt(e.target.value)})} className="w-full accent-white mb-6"/>
-                                  
-                                  <div className="mb-4">
-                                     <label className="text-xs uppercase text-slate-500 font-bold">Reasoning</label>
-                                     <textarea value={manualReasoning} onChange={e => setManualReasoning(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-slate-300 mt-1 h-24" placeholder="Justification..."/>
+                                 <div className="bg-slate-950 p-4 rounded-lg border border-slate-800">
+                                      <div className="flex justify-between items-center mb-4">
+                                          <h3 className="text-sm font-bold text-white uppercase">Final Veracity Score</h3>
+                                          <span className="text-2xl font-bold font-mono text-emerald-400">{manualScores.final}</span>
+                                      </div>
+                                      <input type="range" min="0" max="100" value={manualScores.final} onChange={e => setManualScores({...manualScores, final: parseInt(e.target.value)})} className="w-full accent-white mb-6"/>
+                                      
+                                      <div className="mb-4">
+                                         <label className="text-xs uppercase text-slate-500 font-bold">Reasoning</label>
+                                         <textarea value={manualReasoning} onChange={e => setManualReasoning(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-slate-300 mt-1 h-24" placeholder="Justification..."/>
+                                     </div>
+                                     <div>
+                                         <label className="text-xs uppercase text-slate-500 font-bold">Tags</label>
+                                         <input value={manualTags} onChange={handleTagsChange} className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-slate-300 mt-1" placeholder="politics, satire..."/>
+                                         {existingTags.length > 0 && (
+                                             <div className="flex flex-wrap gap-2 mt-2">
+                                                 {existingTags.map(t => (
+                                                     <button key={t} onClick={() => toggleTag(t)} className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-[10px] rounded text-slate-400 border border-slate-700">{t}</button>
+                                                 ))}
+                                             </div>
+                                         )}
+                                     </div>
                                  </div>
-                                 <div>
-                                     <label className="text-xs uppercase text-slate-500 font-bold">Tags</label>
-                                     <input value={manualTags} onChange={handleTagsChange} className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-slate-300 mt-1" placeholder="politics, satire..."/>
-                                     {existingTags.length > 0 && (
-                                         <div className="flex flex-wrap gap-2 mt-2">
-                                             {existingTags.map(t => (
-                                                 <button key={t} onClick={() => toggleTag(t)} className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-[10px] rounded text-slate-400 border border-slate-700">{t}</button>
-                                             ))}
-                                         </div>
-                                     )}
-                                 </div>
-                             </div>
+                            </div>
                         </div>
+
+                        {/* AI REFERENCE PANEL */}
+                        {aiReference && (
+                            <div className="w-[300px] bg-slate-950 border-l border-slate-800 p-4 overflow-y-auto">
+                                <h3 className="text-xs font-bold text-indigo-400 uppercase mb-4 flex items-center gap-2">
+                                    <BrainCircuit className="w-4 h-4"/> AI Reference
+                                </h3>
+                                <div className="text-[10px] text-slate-500 mb-2 font-mono break-all">ID: {aiReference.id}</div>
+                                
+                                <div className="mb-6 bg-slate-900 p-3 rounded border border-slate-800">
+                                    <div className="text-xs text-slate-400 font-bold uppercase mb-1">AI Score</div>
+                                    <div className={`text-2xl font-mono font-bold ${aiReference.final_veracity_score < 50 ? 'text-red-400' : 'text-emerald-400'}`}>
+                                        {aiReference.final_veracity_score}/100
+                                    </div>
+                                </div>
+                                
+                                <div className="mb-4">
+                                    <div className="text-xs text-slate-400 font-bold uppercase mb-1">Reasoning</div>
+                                    <div className="text-xs text-slate-400 whitespace-pre-wrap leading-relaxed p-2 bg-slate-900 rounded border border-slate-800/50">
+                                        {aiReference.reasoning || "No reasoning provided."}
+                                    </div>
+                                </div>
+
+                                <div className="mb-4">
+                                    <div className="text-xs text-slate-400 font-bold uppercase mb-1">Vector Breakdown</div>
+                                    <div className="grid grid-cols-2 gap-2 text-[10px]">
+                                        <div className="bg-slate-900 p-2 rounded flex justify-between">
+                                            <span className="text-slate-500">Visual</span>
+                                            <span className="text-white font-mono">{aiReference.visual_score || '-'}</span>
+                                        </div>
+                                        <div className="bg-slate-900 p-2 rounded flex justify-between">
+                                            <span className="text-slate-500">Audio</span>
+                                            <span className="text-white font-mono">{aiReference.audio_score || '-'}</span>
+                                        </div>
+                                        <div className="bg-slate-900 p-2 rounded flex justify-between">
+                                            <span className="text-slate-500">Logic</span>
+                                            <span className="text-white font-mono">{aiReference.logic_score || '-'}</span>
+                                        </div>
+                                        <div className="bg-slate-900 p-2 rounded flex justify-between">
+                                            <span className="text-slate-500">Alignment</span>
+                                            <span className="text-white font-mono">{aiReference.align_video_caption || '-'}</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {aiReference.raw_toon && (
+                                    <div className="mt-4 pt-4 border-t border-slate-800">
+                                        <details>
+                                            <summary className="text-[10px] cursor-pointer text-indigo-400 hover:text-indigo-300 font-bold">Show Raw TOON Output</summary>
+                                            <pre className="text-[9px] text-slate-500 whitespace-pre-wrap mt-2 bg-black p-2 rounded border border-slate-800 overflow-x-auto">
+                                                {aiReference.raw_toon}
+                                            </pre>
+                                        </details>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
                     </div>
                 </div>
             )}

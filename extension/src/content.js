@@ -335,6 +335,14 @@ function createButtonUI(container, link, caption, platform, stats, tweetElement)
     btnIngest.title = "Add to Queue";
     btnIngest.onclick = (e) => { e.stopPropagation(); handleIngest(link, btnIngest); };
     
+    // Ingest with Comments (New)
+    const btnIngestComments = document.createElement('button');
+    btnIngestComments.className = 'vchat-btn';
+    btnIngestComments.innerHTML = '⚡+💬';
+    btnIngestComments.title = "Queue + 10 Comments";
+    btnIngestComments.style.backgroundColor = '#8b5cf6'; // Violet
+    btnIngestComments.onclick = (e) => { e.stopPropagation(); handleIngestWithComments(link, tweetElement, btnIngestComments); };
+
     // Analyze
     const btnOpen = document.createElement('button');
     btnOpen.className = 'vchat-btn comments';
@@ -350,16 +358,75 @@ function createButtonUI(container, link, caption, platform, stats, tweetElement)
     btnComments.className = 'vchat-btn';
     btnComments.style.backgroundColor = '#10b981';
     btnComments.innerHTML = '💬';
-    btnComments.title = "Scrape Comments";
+    btnComments.title = "Scrape Comments (Save Only)";
     btnComments.onclick = (e) => {
         e.stopPropagation();
         handleScrapeComments(link, tweetElement, btnComments);
     };
 
     wrapper.appendChild(btnIngest);
+    wrapper.appendChild(btnIngestComments); // Add the new button
     wrapper.appendChild(btnOpen);
     wrapper.appendChild(btnComments);
     container.appendChild(wrapper);
+}
+
+// Scrapes ~10 comments and returns them (helper)
+async function scrapeLocalComments(tweetElement, amount=10) {
+    if (!window.location.href.includes('/status/')) return [];
+    
+    // Auto-scroll slightly to trigger load
+    window.scrollBy(0, 500);
+    await new Promise(r => setTimeout(r, 1000));
+    
+    const comments = [];
+    const replyNodes = document.querySelectorAll('article[data-testid="tweet"]');
+    
+    replyNodes.forEach(node => {
+        if(node === tweetElement) return;
+        const textNode = node.querySelector('[data-testid="tweetText"]');
+        const userNode = node.querySelector('[data-testid="User-Name"]');
+        if(textNode) {
+            comments.push({
+                author: userNode ? userNode.innerText.split('\n')[0] : "Unknown",
+                text: textNode.innerText
+            });
+        }
+    });
+    return comments.slice(0, amount);
+}
+
+async function handleIngestWithComments(link, tweetElement, btn) {
+    btn.innerHTML = '⏳';
+    
+    try {
+        if (!window.location.href.includes('/status/')) {
+            // If not on detail page, just ingest link
+            handleIngest(link, btn);
+            return;
+        }
+
+        const comments = await scrapeLocalComments(tweetElement, 10);
+        
+        chrome.runtime.sendMessage({
+            type: 'INGEST_LINK_COMMENTS', 
+            link: link,
+            comments: comments
+        }, (res) => {
+             if (res && res.success) {
+                btn.innerHTML = '✔';
+                btn.style.backgroundColor = '#10b981';
+            } else {
+                btn.innerHTML = '❌';
+                btn.style.backgroundColor = '#ef4444';
+            }
+            setTimeout(() => { btn.innerHTML = '⚡+💬'; btn.style.backgroundColor = '#8b5cf6'; }, 2000);
+        });
+
+    } catch (e) {
+        console.error(e);
+        btn.innerHTML = '❌';
+    }
 }
 
 async function handleScrapeComments(link, tweetElement, btn) {

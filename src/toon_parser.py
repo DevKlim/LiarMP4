@@ -1,6 +1,7 @@
 import re
 import logging
 import csv
+import json
 from io import StringIO
 
 logger = logging.getLogger(__name__)
@@ -86,53 +87,12 @@ def parse_veracity_toon(text: str) -> dict:
     Parses the Veracity Vector TOON output into a standardized dictionary.
     Handles "Simple", "Reasoning", and new "Modalities" blocks.
     Robust against Markdown formatting artifacts and nested reports.
+    Also handles JSON fallback if the model outputs JSON instead of TOON.
     """
     if not text:
         return {}
 
-    # 1. Cleanup
-    text = re.sub(r'```\w*', '', text)
-    text = re.sub(r'```', '', text)
-    text = text.strip()
-
-    parsed_sections = {}
-
-    # 2. Robust Regex for TOON Block Headers
-    # Matches: key : type [ count ] { headers } :
-    block_pattern = re.compile(
-        r'([a-zA-Z0-9_]+)\s*:\s*(?:\w+\s*)?(?:\[\s*(\d+)\s*\])?\s*\{\s*(.*?)\s*\}\s*:\s*', 
-        re.MULTILINE
-    )
-    
-    matches = list(block_pattern.finditer(text))
-    
-    for i, match in enumerate(matches):
-        key = match.group(1).lower()
-        # Default to 1 if count is missing
-        count = int(match.group(2)) if match.group(2) else 1
-        headers_str = match.group(3)
-        headers = [h.strip().lower() for h in headers_str.split(',')]
-        
-        start_idx = match.end()
-        # End at next match or end of text
-        end_idx = matches[i+1].start() if i + 1 < len(matches) else len(text)
-        block_content = text[start_idx:end_idx].strip()
-        
-        lines = [line.strip() for line in block_content.splitlines() if line.strip()]
-        
-        data_items = []
-        valid_lines = [l for l in lines if len(l) > 1] 
-        
-        for line in valid_lines[:count]:
-            item = parse_toon_line({'key': key, 'headers': headers}, line)
-            data_items.append(item)
-            
-        if count == 1 and data_items:
-            parsed_sections[key] = data_items[0]
-        else:
-            parsed_sections[key] = data_items
-
-    # --- Flatten logic to standardized structure ---
+    # Initialize Flat Result
     flat_result = {
         'veracity_vectors': {
             'visual_integrity_score': '0',
@@ -148,30 +108,188 @@ def parse_veracity_toon(text: str) -> dict:
         },
         'video_context_summary': '',
         'tags': [],
-        'factuality_factors': {},
-        'disinformation_analysis': {},
-        'final_assessment': {}
+        'factuality_factors': {
+            'claim_accuracy': 'Unverifiable',
+            'evidence_gap': '',
+            'grounding_check': ''
+        },
+        'disinformation_analysis': {
+            'classification': 'None',
+            'intent': 'None',
+            'threat_vector': 'None'
+        },
+        'final_assessment': {
+            'veracity_score_total': '0',
+            'reasoning': ''
+        }
     }
+
+    # Clean text
+    clean_text = re.sub(r'```\w*', '', text)
+    clean_text = re.sub(r'```', '', clean_text)
+    clean_text = clean_text.strip()
+
+    parsed_sections = {}
+
+    # --- STRATEGY 1: Strict Block Regex (Original) ---
+    # Matches: key : type [ count ] { headers } :
+    block_pattern = re.compile(
+        r'([a-zA-Z0-9_]+)\s*:\s*(?:\w+\s*)?(?:\[\s*(\d+)\s*\])?\s*\{\s*(.*?)\s*\}\s*:\s*', 
+        re.MULTILINE
+    )
+    
+    matches = list(block_pattern.finditer(clean_text))
+    toon_success = False
+    
+    if matches:
+        toon_success = True
+        for i, match in enumerate(matches):
+            key = match.group(1).lower()
+            count = int(match.group(2)) if match.group(2) else 1
+            headers_str = match.group(3)
+            headers = [h.strip().lower() for h in headers_str.split(',')]
+            
+            start_idx = match.end()
+            end_idx = matches[i+1].start() if i + 1 < len(matches) else len(clean_text)
+            block_content = clean_text[start_idx:end_idx].strip()
+            
+            lines = [line.strip() for line in block_content.splitlines() if line.strip()]
+            valid_lines = [l for l in lines if len(l) > 1] 
+            
+            data_items = []
+            for line in valid_lines[:max(1, count)]:
+                item = parse_toon_line({'key': key, 'headers': headers}, line)
+                data_items.append(item)
+                
+            if count == 1 and data_items:
+                parsed_sections[key] = data_items[0]
+            else:
+                parsed_sections[key] = data_items
+
+    # --- STRATEGY 2: Flexible Line Scanner (New Robust Fallback) ---
+    # Used if strict regex finds nothing, but text looks like TOON (line-based)
+    if not toon_success:
+        lines = clean_text.splitlines()
+        current_key = None
+        KNOWN_KEYS = {'summary', 'tags', 'vectors', 'modalities', 'factuality', 'disinfo', 'final'}
+        
+        temp_sections = {}
+        
+        for line in lines:
+            line = line.strip()
+            if not line: continue
+            
+            # Check for header "key:"
+            potential_key = line.split(':')[0].strip().lower()
+            if potential_key in KNOWN_KEYS:
+                current_key = potential_key
+                if current_key not in temp_sections: temp_sections[current_key] = []
+                
+                # Check for inline value "key: value"
+                if ':' in line:
+                    val = line.split(':', 1)[1].strip()
+                    if val:
+                        # Special handling for tags array syntax
+                        if val.startswith('[') and val.endswith(']'):
+                            try:
+                                val_list = json.loads(val)
+                                temp_sections[current_key] = val_list
+                            except:
+                                temp_sections[current_key] = [val]
+                        # Special handling for final: assessment(...)
+                        elif current_key == 'final' and val.startswith('assessment'):
+                            val_content = val.replace('assessment', '', 1).strip()
+                            if val_content.startswith('(') and val_content.endswith(')'):
+                                val_content = val_content[1:-1]
+                            temp_sections[current_key] = parse_toon_line({'headers': ['score', 'reasoning']}, val_content)
+                        else:
+                            # It's a string value, treat as single item dict or direct text
+                            if current_key == 'summary':
+                                temp_sections[current_key] = {'text': val}
+                            else:
+                                temp_sections[current_key].append(parse_toon_line({}, val))
+                continue
+            
+            if current_key:
+                # Handle YAML style "Subkey: Value" lines for Vectors/Modalities
+                # Example: "Visual: (7/10, ...)"
+                if ':' in line and current_key in ['vectors', 'modalities']:
+                    parts = line.split(':', 1)
+                    subkey = parts[0].strip() # e.g. "Visual"
+                    subval = parts[1].strip() # e.g. "(7/10, ...)"
+                    
+                    # Convert to comma-separated line for parse_toon_line
+                    # Remove parens if present
+                    if subval.startswith('(') and subval.endswith(')'):
+                        subval = subval[1:-1]
+                    
+                    # Construct pseudo-CSV: "Visual, 7/10, ..."
+                    pseudo_line = f"{subkey}, {subval}"
+                    headers = ['category', 'score', 'reasoning']
+                    
+                    # Ensure container is list
+                    if isinstance(temp_sections[current_key], dict): 
+                        temp_sections[current_key] = [temp_sections[current_key]]
+                    
+                    temp_sections[current_key].append(parse_toon_line({'headers': headers}, pseudo_line))
+                    continue
+
+                if ':' not in line and not line.startswith('{'):
+                    # Data line for current key (Standard TOON)
+                    headers = []
+                    if current_key in ['vectors', 'modalities']:
+                        headers = ['category', 'score', 'reasoning']
+                    elif current_key == 'disinfo':
+                        headers = ['class', 'intent', 'threat']
+                    elif current_key == 'final':
+                        headers = ['score', 'reasoning']
+                    elif current_key == 'factuality':
+                        headers = ['accuracy', 'gap', 'grounding']
+                    
+                    if isinstance(temp_sections[current_key], dict):
+                        temp_sections[current_key] = [temp_sections[current_key]]
+                    
+                    if isinstance(temp_sections[current_key], list):
+                        temp_sections[current_key].append(parse_toon_line({'headers': headers}, line))
+                    
+        if temp_sections:
+            parsed_sections = temp_sections
+            toon_success = True
+
+    # --- STRATEGY 3: JSON Parsing Fallback ---
+    if not toon_success or ('vectors' not in parsed_sections and 'final' not in parsed_sections):
+        try:
+            json_match = re.search(r'\{.*\}', text, re.DOTALL)
+            if json_match:
+                json_str = json_match.group(0)
+                json_data = json.loads(json_str)
+                parsed_sections = json_data
+                toon_success = True
+        except Exception as e:
+            logger.debug(f"JSON Parsing failed: {e}")
+
+    # --- Flatten logic ---
     
     got_vectors = False
     got_modalities = False
 
     # 1. Process 'vectors'
     vectors_data = parsed_sections.get('vectors', [])
-    if isinstance(vectors_data, dict): # Simple schema
+    if isinstance(vectors_data, dict): 
         v = vectors_data
-        if any(val and val != '0' for val in v.values()):
-            if 'visual' in v: flat_result['veracity_vectors']['visual_integrity_score'] = v['visual']
-            if 'audio' in v: flat_result['veracity_vectors']['audio_integrity_score'] = v['audio']
-            if 'source' in v: flat_result['veracity_vectors']['source_credibility_score'] = v['source']
-            if 'logic' in v: flat_result['veracity_vectors']['logical_consistency_score'] = v['logic']
-            if 'emotion' in v: flat_result['veracity_vectors']['emotional_manipulation_score'] = v['emotion']
+        if 'visual' in v: flat_result['veracity_vectors']['visual_integrity_score'] = str(v['visual'])
+        if 'audio' in v: flat_result['veracity_vectors']['audio_integrity_score'] = str(v['audio'])
+        if 'source' in v: flat_result['veracity_vectors']['source_credibility_score'] = str(v['source'])
+        if 'logic' in v: flat_result['veracity_vectors']['logical_consistency_score'] = str(v['logic'])
+        if 'emotion' in v: flat_result['veracity_vectors']['emotional_manipulation_score'] = str(v['emotion'])
+        if any(str(val) != '0' for val in v.values()):
             got_vectors = True
 
-    elif isinstance(vectors_data, list): # Reasoning schema
+    elif isinstance(vectors_data, list): 
         for item in vectors_data:
+            if not isinstance(item, dict): continue
             cat = item.get('category', '').lower()
-            score = item.get('score', '0')
+            score = str(item.get('score', '0'))
             if score and score != '0': 
                 got_vectors = True
             if 'visual' in cat: flat_result['veracity_vectors']['visual_integrity_score'] = score
@@ -182,19 +300,20 @@ def parse_veracity_toon(text: str) -> dict:
 
     # 2. Process 'modalities'
     modalities_data = parsed_sections.get('modalities', [])
-    if isinstance(modalities_data, dict): # Simple schema
+    if isinstance(modalities_data, dict):
         m = modalities_data
         for k, v in m.items():
             k_clean = k.lower().replace(' ', '').replace('-', '').replace('_', '')
-            if 'videoaudio' in k_clean: flat_result['modalities']['video_audio_score'] = v
-            elif 'videocaption' in k_clean: flat_result['modalities']['video_caption_score'] = v
-            elif 'audiocaption' in k_clean: flat_result['modalities']['audio_caption_score'] = v
-            if v and v != '0': got_modalities = True
+            if 'videoaudio' in k_clean: flat_result['modalities']['video_audio_score'] = str(v)
+            elif 'videocaption' in k_clean: flat_result['modalities']['video_caption_score'] = str(v)
+            elif 'audiocaption' in k_clean: flat_result['modalities']['audio_caption_score'] = str(v)
+            if str(v) != '0': got_modalities = True
 
-    elif isinstance(modalities_data, list): # Reasoning schema
+    elif isinstance(modalities_data, list):
         for item in modalities_data:
+            if not isinstance(item, dict): continue
             cat = item.get('category', '').lower().replace(' ', '').replace('-', '').replace('_', '')
-            score = item.get('score', '0')
+            score = str(item.get('score', '0'))
             if score and score != '0':
                 got_modalities = True
             if 'videoaudio' in cat: flat_result['modalities']['video_audio_score'] = score
@@ -218,40 +337,49 @@ def parse_veracity_toon(text: str) -> dict:
     # 3. Factuality
     f = parsed_sections.get('factuality', {})
     if isinstance(f, list): f = f[0] if f else {}
-    flat_result['factuality_factors'] = {
-        'claim_accuracy': f.get('accuracy', 'Unverifiable'),
-        'evidence_gap': f.get('gap', ''),
-        'grounding_check': f.get('grounding', '')
-    }
+    if f:
+        flat_result['factuality_factors']['claim_accuracy'] = f.get('accuracy', 'Unverifiable')
+        flat_result['factuality_factors']['evidence_gap'] = f.get('gap', '')
+        flat_result['factuality_factors']['grounding_check'] = f.get('grounding', '')
 
     # 4. Disinfo
     d = parsed_sections.get('disinfo', {})
     if isinstance(d, list): d = d[0] if d else {}
-    flat_result['disinformation_analysis'] = {
-        'classification': d.get('class', 'None'),
-        'intent': d.get('intent', 'None'),
-        'threat_vector': d.get('threat', 'None')
-    }
+    if d:
+        flat_result['disinformation_analysis']['classification'] = d.get('class', 'None')
+        flat_result['disinformation_analysis']['intent'] = d.get('intent', 'None')
+        flat_result['disinformation_analysis']['threat_vector'] = d.get('threat', 'None')
 
     # 5. Final Assessment
     fn = parsed_sections.get('final', {})
     if isinstance(fn, list): fn = fn[0] if fn else {}
-    flat_result['final_assessment'] = {
-        'veracity_score_total': fn.get('score', '0'),
-        'reasoning': fn.get('reasoning', '')
-    }
+    if fn:
+        flat_result['final_assessment']['veracity_score_total'] = str(fn.get('score', '0'))
+        flat_result['final_assessment']['reasoning'] = fn.get('reasoning', '')
 
-    # 6. Tags (New)
-    t = parsed_sections.get('tags', {})
-    if isinstance(t, list): t = t[0] if t else {}
-    raw_tags = t.get('keywords', '')
-    if raw_tags:
-        flat_result['tags'] = [x.strip() for x in raw_tags.split(',')]
+    # 6. Tags
+    t = parsed_sections.get('tags', [])
+    if isinstance(t, list) and t and isinstance(t[0], str):
+        flat_result['tags'] = t
+    elif isinstance(t, list) and t and isinstance(t[0], dict):
+        raw_tags = t[0].get('keywords', '')
+        if raw_tags:
+            flat_result['tags'] = [x.strip() for x in raw_tags.split(',')]
+    elif isinstance(t, dict):
+        raw_tags = t.get('keywords', '')
+        if raw_tags:
+             flat_result['tags'] = [x.strip() for x in raw_tags.split(',')]
 
     # 7. Summary
     s = parsed_sections.get('summary', {})
     if isinstance(s, list): s = s[0] if s else {}
-    flat_result['video_context_summary'] = s.get('text', '')
+    if isinstance(s, dict):
+        if 'text' in s: flat_result['video_context_summary'] = s['text']
+        else:
+             for k,v in s.items():
+                 if isinstance(v, str): flat_result['video_context_summary'] = v; break
+    elif isinstance(s, str):
+        flat_result['video_context_summary'] = s
 
     flat_result['raw_parsed_structure'] = parsed_sections
     

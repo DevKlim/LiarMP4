@@ -29,6 +29,7 @@ einops
 google-generativeai
 google-cloud-aiplatform
 google-genai
+google-adk
 # CORRECTED: The ML Croissant library package name
 mlcroissant
 

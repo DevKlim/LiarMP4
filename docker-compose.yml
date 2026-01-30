@@ -5,7 +5,10 @@ services:
     ports:
       - "8005:8000"
       - "8006:8001"
-    
+
+    environment:
+      - GEMINI_API_KEY=AIzaSyBTD4gnzLUEwYjVf-Aocz-IXGQe9YauNuk
+
     shm_size: '8gb'
 
     volumes:
@@ -25,8 +28,8 @@ services:
           devices:
             - driver: nvidia
               count: 1
-              capabilities: [gpu]
-    
+              capabilities: [ gpu ]
+
     stdin_open: true
     tty: true
 

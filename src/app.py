@@ -24,6 +24,7 @@ from factuality_logic import parse_vtt
 from toon_parser import parse_veracity_toon
 from labeling_logic import PROMPT_VARIANTS, LABELING_PROMPT_TEMPLATE, FCOT_MACRO_PROMPT
 import benchmarking
+import adk_veracity_scoring
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -191,6 +192,118 @@ async def run_predictive_training(config: dict = Body(...)):
 @app.get("/config/prompts")
 async def list_prompts():
     return [{"id": k, "name": v['description']} for k, v in PROMPT_VARIANTS.items()]
+
+# ============================================================================
+# Multi-Agent Auto-Scoring
+# ============================================================================
+
+@app.post("/api/score")
+async def auto_score_video(request: Request):
+    """
+    Runs 8 parallel sub-agents to score video content.
+    
+    Accepts:
+        {
+            "link": "https://...",  # Required
+            "caption": "...",       # Optional, will be extracted if not provided
+        }
+    
+    Returns:
+        {
+            "trace_id": "uuid",
+            "timestamp": "ISO-8601",
+            "agent_scores": {
+                "visual": {"score": int, "reasoning": str, "latency_ms": int, "status": str},
+                "audio": {...},
+                ...
+            },
+            "final_veracity_score": int (0-100),
+            "tags": ["tag1", "tag2"],
+            "aggregation_method": "average_available"
+        }
+    """
+    try:
+        data = await request.json()
+        link = data.get("link")
+        
+        if not link:
+            return JSONResponse(
+                {"status": "error", "message": "Link is required"},
+                status_code=400
+            )
+        
+        # Generate unique ID for this request
+        tweet_id = extract_tweet_id(link) or hashlib.md5(link.encode()).hexdigest()[:10]
+        
+        # Prepare video assets (download if needed)
+        logger.info(f"Auto-scoring request for link: {link}")
+        assets = await prepare_video_assets(link, tweet_id)
+        
+        if not assets:
+            return JSONResponse(
+                {"status": "error", "message": "Failed to download or process video"},
+                status_code=500
+            )
+        
+        # Extract caption and transcript
+        caption = data.get("caption") or assets.get("caption", "")
+        transcript = ""
+        if assets.get("transcript"):
+            transcript = parse_vtt(assets["transcript"])
+        
+        # Prepare metadata and stats for ADK scoring
+        metadata = {
+            "platform": "twitter",  # Could be extracted from link
+            "url": link,
+            "source": "auto_score_api"
+        }
+        
+        stats = {
+            "likes": 0,
+            "shares": 0,
+            "comments": 0
+        }
+        
+        # Run ADK-based text-only scoring
+        logger.info(f"Starting ADK text-only scoring for {tweet_id}")
+        
+        result = await adk_veracity_scoring.score_text_only(
+            caption=caption,
+            transcript=transcript,
+            metadata=metadata,
+            stats=stats
+        )
+        
+        logger.info(f"ADK scoring complete for {tweet_id}: final_score={result['final_veracity_score_0_100']}")
+        
+        # Transform result to match frontend expectations
+        # Frontend expects: agent_scores.visual.score, final_veracity_score (not _0_100)
+        response = {
+            "trace_id": result["trace_id"],
+            "timestamp": datetime.datetime.now().isoformat(),
+            "agent_scores": {
+                "visual": {"score": result["scores"]["visual_integrity_score"] or 5},
+                "audio": {"score": result["scores"]["audio_integrity_score"] or 5},
+                "source": {"score": result["scores"]["source_credibility_score"] or 5},
+                "logic": {"score": result["scores"]["logical_consistency_score"] or 5},
+                "emotion": {"score": result["scores"]["emotional_manipulation_score"] or 5},
+                "video_audio": {"score": result["scores"]["video_audio_score"] or 5},
+                "video_caption": {"score": result["scores"]["video_caption_score"] or 5},
+                "audio_caption": {"score": result["scores"]["audio_caption_score"] or 5}
+            },
+            "final_veracity_score": result["final_veracity_score_0_100"],
+            "tags": result["tags"],
+            "failed_or_missing": result.get("failed_or_missing", [])
+        }
+        
+        return response
+        
+    except Exception as e:
+        logger.error(f"Error in auto-scoring: {e}", exc_info=True)
+        return JSONResponse(
+            {"status": "error", "message": str(e)},
+            status_code=500
+        )
 
 # ============================================================================
 # Manual & Ground Truth Management

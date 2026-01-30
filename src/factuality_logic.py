@@ -8,6 +8,9 @@ from pathlib import Path
 import inference_logic
 from toon_parser import parse_toon_line
 
+from audio_agent import score_audio_factuality
+
+
 logger = logging.getLogger(__name__)
 
 # --- Enhanced TOON Prompts for Individual Checks ---
@@ -99,6 +102,19 @@ async def run_factuality_pipeline(paths: dict, checks: dict, generation_config: 
         await asyncio.sleep(0.1)
 
         try:
+            # ---- Audio step: ADK LlmAgent (agentified) ----
+            if title == "Audio Forensics":
+                yield f"  - Using ADK AudioFactualityAgent...\n\n"
+                audio_out = await score_audio_factuality(transcript)
+
+                yield f"===== ANALYSIS RESULT: {title.upper()} =====\n"
+                yield f"SCORE: {audio_out.score}/10\n"
+                yield f"Reasoning (Step-by-Step): (handled by audio agent)\n"
+                yield f"Final Justification: {audio_out.justification}\n\n"
+                yield f"========================================\n\n"
+                continue
+
+
             current_gen_config = generation_config.copy()
             sampling_fps = current_gen_config.pop("sampling_fps", 2.0)
             current_gen_config.pop("num_perceptions", None)

@@ -34,11 +34,11 @@ if __name__ == "__main__":
     target_dir = '../vChat' 
     
     # Define what to ignore
-    dirs_to_ignore = {'.git', '__pycache__', 'node_modules', 'dist', 'build', '.venv', 'venv'}
+    dirs_to_ignore = {'.git', '__pycache__', 'node_modules', 'dist', 'build', '.venv', 'venv', 'data/prompts', 'data/responses'}
     
     files_to_ignore = {'.DS_Store', 'package-lock.json', 'yarn.lock'}
     
-    extensions_to_ignore = {'.pyc', '.jpg', '.png', '.mp4', '.toon', '.vtt', '.json', '.wav', '.pk1'}
+    extensions_to_ignore = {'.pyc', '.jpg', '.png', '.mp4', '.toon', '.vtt', '.json', '.wav', '.pk1', '.txt'}
 
     # Generate the structure
     try:

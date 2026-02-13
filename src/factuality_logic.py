@@ -7,6 +7,8 @@ import asyncio
 from pathlib import Path
 import inference_logic
 from toon_parser import parse_toon_line
+# Reuse parsing logic from common_utils if desired, or keep as duplicate if standalone
+from common_utils import parse_vtt
 
 logger = logging.getLogger(__name__)
 
@@ -38,29 +40,6 @@ PROMPT_AUDIO_ANALYSIS = (
     "audio_analysis: result[2]{score,justification}:\n"
     "Score(1-10),\"Justification text\""
 )
-
-
-def parse_vtt(file_path: str) -> str:
-    """Parses a .vtt subtitle file and returns the clean text content."""
-    try:
-        if not os.path.exists(file_path):
-            return "Transcript file not found."
-        
-        with open(file_path, 'r', encoding='utf-8') as f:
-            lines = f.readlines()
-        
-        text_lines = []
-        for line in lines:
-            line = line.strip()
-            if line and not line.startswith('WEBVTT') and not '-->' in line and not line.isdigit():
-                clean_line = re.sub(r'<[^>]+>', '', line)
-                if clean_line and (not text_lines or clean_line != text_lines[-1]):
-                     text_lines.append(clean_line)
-        
-        return "\n".join(text_lines) if text_lines else "No speech found in transcript."
-    except Exception as e:
-        logger.error(f"Error parsing VTT file {file_path}: {e}")
-        return f"Error reading transcript: {e}"
 
 async def run_factuality_pipeline(paths: dict, checks: dict, generation_config: dict):
     """

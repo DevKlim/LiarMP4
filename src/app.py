@@ -20,7 +20,11 @@ import inference_logic
 import factuality_logic
 import transcription
 import user_analysis_logic 
-from factuality_logic import parse_vtt
+# Import the new Agent Logic factory
+import agent_logic 
+# Import common utils
+import common_utils
+
 from toon_parser import parse_veracity_toon
 from labeling_logic import PROMPT_VARIANTS, LABELING_PROMPT_TEMPLATE, FCOT_MACRO_PROMPT
 import benchmarking
@@ -38,6 +42,14 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# --- Mount A2A Agent Application ---
+try:
+    a2a_agent_app = agent_logic.create_a2a_app()
+    app.mount("/a2a", a2a_agent_app)
+    logger.info("A2A Agent App mounted at /a2a")
+except Exception as e:
+    logger.error(f"Failed to mount A2A Agent: {e}")
 
 STATIC_DIR = "static"
 if os.path.isdir("/usr/share/vchat/static"):
@@ -118,46 +130,21 @@ def ensure_csv_schema(file_path: Path, fieldnames: list):
     except Exception as e:
         logger.error(f"Error during schema migration for {file_path}: {e}")
 
-def robust_read_csv(file_path: Path):
-    if not file_path.exists(): 
-        return
-
-    try:
-        with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
-            clean_lines = (line.replace('\0', '') for line in f)
-            reader = csv.DictReader(clean_lines)
-            for row in reader:
-                if row:
-                    yield row
-    except Exception as e:
-        logger.error(f"Error reading CSV {file_path}: {e}")
-        return
-
-def extract_tweet_id(url: str) -> str | None:
-    if not url: return None
-    match = re.search(r"(?:twitter|x)\.com/[^/]+/status/(\d+)", url)
-    if match: return match.group(1)
-    return None
-
-def normalize_link(link: str) -> str:
-    if not link: return ""
-    return link.split('?')[0].strip().rstrip('/').replace('http://', '').replace('https://', '').replace('www.', '')
-
 def get_processed_indices():
     processed_ids = set()
     processed_links = set()
     
     for filename in ["data/dataset.csv", "data/manual_dataset.csv"]:
         path = Path(filename)
-        for row in robust_read_csv(path):
+        for row in common_utils.robust_read_csv(path):
             if row.get('id'): processed_ids.add(row.get('id'))
-            if row.get('link'): processed_links.add(normalize_link(row.get('link')))
+            if row.get('link'): processed_links.add(common_utils.normalize_link(row.get('link')))
             
     return processed_ids, processed_links
 
 def check_if_processed(link: str, processed_ids=None, processed_links=None) -> bool:
-    target_id = extract_tweet_id(link)
-    link_clean = normalize_link(link)
+    target_id = common_utils.extract_tweet_id(link)
+    link_clean = common_utils.normalize_link(link)
     
     if processed_ids is None or processed_links is None:
         p_ids, p_links = get_processed_indices()
@@ -174,7 +161,7 @@ def update_queue_status(link: str, status: str):
     
     rows = []
     updated = False
-    norm_target = normalize_link(link)
+    norm_target = common_utils.normalize_link(link)
     
     with open(q_path, 'r', encoding='utf-8') as f:
         reader = csv.DictReader(f)
@@ -182,7 +169,7 @@ def update_queue_status(link: str, status: str):
         if "status" not in fieldnames: fieldnames.append("status")
         
         for row in reader:
-            if normalize_link(row.get("link", "")) == norm_target:
+            if common_utils.normalize_link(row.get("link", "")) == norm_target:
                 row["status"] = status
                 updated = True
             rows.append(row)
@@ -201,48 +188,6 @@ def log_queue_error(link: str, error_msg: str):
             writer.writerow(["link", "timestamp", "error"])
         writer.writerow([link, datetime.datetime.now().isoformat(), error_msg])
     update_queue_status(link, "Error")
-
-async def prepare_video_assets(link: str, output_id: str) -> dict:
-    video_dir = Path("data/videos")
-    video_path = video_dir / f"{output_id}.mp4"
-    audio_path = video_dir / f"{output_id}.wav"
-    transcript_path = video_dir / f"{output_id}.vtt"
-    
-    caption = ""
-    video_downloaded = False
-    
-    ydl_opts = {
-        'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/mp4',
-        'outtmpl': str(video_path),
-        'quiet': True, 'ignoreerrors': True, 'no_warnings': True, 'skip_download': False 
-    }
-    
-    try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(link, download=False)
-            if info:
-                caption = info.get('description', '') or info.get('title', '')
-                formats = info.get('formats', [])
-                if not formats and not info.get('url'):
-                     logger.info(f"No video formats found for {link}. Treating as text-only.")
-                else:
-                    if not video_path.exists(): ydl.download([link])
-    except Exception as e:
-        logger.error(f"Download error for {link}: {e}")
-    
-    if video_path.exists() and video_path.stat().st_size > 0:
-        video_downloaded = True
-        if not audio_path.exists():
-            subprocess.run(["ffmpeg", "-y", "-i", str(video_path), "-vn", "-acodec", "pcm_s16le", "-ar", "16000", "-ac", "1", str(audio_path)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        if audio_path.exists() and not transcript_path.exists():
-            transcription.load_model()
-            transcription.generate_transcript(str(audio_path))
-
-    return {
-        "video": str(video_path) if video_downloaded else None,
-        "transcript": str(transcript_path) if video_downloaded and transcript_path.exists() else None,
-        "caption": caption
-    }
 
 @app.on_event("startup")
 async def startup_event():
@@ -284,7 +229,7 @@ async def list_all_tags():
     tags_count = {}
     path = Path("data/dataset.csv")
     if path.exists():
-        for row in robust_read_csv(path):
+        for row in common_utils.robust_read_csv(path):
             t_str = row.get("tags", "")
             if t_str:
                 for t in t_str.split(','):
@@ -305,9 +250,9 @@ async def extension_ingest_link(request: Request):
         q_path = Path("data/batch_queue.csv")
         existing = set()
         if q_path.exists():
-            for r in robust_read_csv(q_path): existing.add(normalize_link(r.get('link')))
+            for r in common_utils.robust_read_csv(q_path): existing.add(common_utils.normalize_link(r.get('link')))
             
-        normalized = normalize_link(link)
+        normalized = common_utils.normalize_link(link)
         if normalized not in existing:
             with open(q_path, 'a', newline='', encoding='utf-8') as f:
                 writer = csv.writer(f)
@@ -315,7 +260,7 @@ async def extension_ingest_link(request: Request):
                 writer.writerow([link.strip(), datetime.datetime.now().isoformat(), "Pending"])
         
         if comments:
-            tid = extract_tweet_id(link) or hashlib.md5(link.encode()).hexdigest()[:10]
+            tid = common_utils.extract_tweet_id(link) or hashlib.md5(link.encode()).hexdigest()[:10]
             context_path = Path(f"data/comments/{tid}_ingest.json")
             with open(context_path, 'w', encoding='utf-8') as f:
                 json.dump({
@@ -342,14 +287,14 @@ async def promote_to_ground_truth(request: Request):
         ai_path = Path("data/dataset.csv")
         ai_rows = {}
         if ai_path.exists():
-            for row in robust_read_csv(ai_path):
+            for row in common_utils.robust_read_csv(ai_path):
                 if row.get('id'): ai_rows[str(row['id'])] = row
         
         manual_path = Path("data/manual_dataset.csv")
         manual_exists = manual_path.exists()
         existing_ids = set()
         if manual_exists:
-            for row in robust_read_csv(manual_path):
+            for row in common_utils.robust_read_csv(manual_path):
                 if row.get('id'): existing_ids.add(str(row['id']))
 
         new_rows = []
@@ -431,7 +376,7 @@ async def delete_dataset_items(request: Request):
 
         rows = []
         deleted_count = 0
-        for row in robust_read_csv(path):
+        for row in common_utils.robust_read_csv(path):
             if str(row.get('id')) in target_ids:
                 deleted_count += 1
             else:
@@ -469,12 +414,12 @@ async def get_profile_posts(username: str):
     if not csv_path.exists(): return posts
     p_ids, p_links = get_processed_indices()
     try:
-        for row in robust_read_csv(csv_path):
+        for row in common_utils.robust_read_csv(csv_path):
             link = row.get('link', '')
             is_labeled = False
-            t_id = extract_tweet_id(link)
+            t_id = common_utils.extract_tweet_id(link)
             if t_id and t_id in p_ids: is_labeled = True
-            elif normalize_link(link) in p_links: is_labeled = True
+            elif common_utils.normalize_link(link) in p_links: is_labeled = True
             row['is_labeled'] = is_labeled
             posts.append(row)
     except Exception: pass
@@ -493,7 +438,7 @@ async def ingest_user_history(request: Request):
         file_exists = csv_path.exists()
         existing = set()
         if file_exists:
-            for row in robust_read_csv(csv_path): existing.add(row.get('link'))
+            for row in common_utils.robust_read_csv(csv_path): existing.add(row.get('link'))
         
         with open(csv_path, 'a', newline='', encoding='utf-8') as f:
             fieldnames = ["link", "timestamp", "text", "is_reply", "metric_replies", "metric_reposts", "metric_likes", "metric_views", "ingested_at"]
@@ -522,7 +467,7 @@ async def extension_save_comments(request: Request):
         link = data.get("link")
         comments = data.get("comments", [])
         if not link: raise HTTPException(status_code=400)
-        tweet_id = extract_tweet_id(link) or hashlib.md5(link.encode()).hexdigest()[:10]
+        tweet_id = common_utils.extract_tweet_id(link) or hashlib.md5(link.encode()).hexdigest()[:10]
         csv_path = Path(f"data/comments/{tweet_id}.csv")
         with open(csv_path, 'w', newline='', encoding='utf-8') as f:
             writer = csv.DictWriter(f, fieldnames=["author", "text", "timestamp"])
@@ -542,7 +487,7 @@ async def save_manual_label(request: Request):
         if not link: 
             return JSONResponse({"status": "error", "message": "Link required"}, status_code=400)
         
-        tweet_id = extract_tweet_id(link) or hashlib.md5(link.encode()).hexdigest()[:10]
+        tweet_id = common_utils.extract_tweet_id(link) or hashlib.md5(link.encode()).hexdigest()[:10]
         labels = data.get("labels", data)
 
         row = {
@@ -623,7 +568,7 @@ async def save_manual_label(request: Request):
         rows = []
         found = False
         if exists:
-            for r in robust_read_csv(manual_path):
+            for r in common_utils.robust_read_csv(manual_path):
                 if str(r.get('id')) == str(tweet_id):
                     clean_row = {k: row.get(k, "") for k in GROUND_TRUTH_FIELDS}
                     rows.append(clean_row)
@@ -659,7 +604,7 @@ async def list_community_datasets():
 async def analyze_community(dataset_id: str = Body(..., embed=True)):
     path = Path(f"data/comments/{dataset_id}.csv")
     if not path.exists(): raise HTTPException(status_code=404)
-    comments = list(robust_read_csv(path))
+    comments = list(common_utils.robust_read_csv(path))
     if not comments: return {"score": 0, "verdict": "No Data"}
     s_keys = ["fake", "lie", "staged", "bs", "propaganda", "ai", "deepfake"]
     t_keys = ["true", "real", "confirmed", "fact", "source", "proof"]
@@ -675,14 +620,14 @@ async def get_dataset_list():
     m_path = Path("data/manual_dataset.csv")
     manual_ids = set()
     if m_path.exists():
-         for row in robust_read_csv(m_path):
+         for row in common_utils.robust_read_csv(m_path):
              row['source'] = 'Manual'
              if row.get('id'): manual_ids.add(str(row['id']))
              dataset.append(row)
     
     path = Path("data/dataset.csv")
     if path.exists():
-         for row in robust_read_csv(path):
+         for row in common_utils.robust_read_csv(path):
              tid = str(row.get('id', ''))
              if tid not in manual_ids:
                  row['source'] = 'AI'
@@ -695,13 +640,13 @@ async def get_account_integrity():
     prof_dir = Path("data/profiles")
     if prof_dir.exists():
         for d in prof_dir.iterdir():
-            for row in robust_read_csv(d/"history.csv"):
-                tid = extract_tweet_id(row.get('link',''))
+            for row in common_utils.robust_read_csv(d/"history.csv"):
+                tid = common_utils.extract_tweet_id(row.get('link',''))
                 if tid: id_map[tid] = d.name
 
     scores_map = {}
     for fname in ["data/dataset.csv", "data/manual_dataset.csv"]:
-        for row in robust_read_csv(Path(fname)):
+        for row in common_utils.robust_read_csv(Path(fname)):
             tid = row.get('id')
             sc = row.get('final_veracity_score', '0')
             try: val = float(re.sub(r'[^\d.]', '', str(sc)))
@@ -719,9 +664,9 @@ async def add_queue_item(link: str = Body(..., embed=True)):
     q_path = Path("data/batch_queue.csv")
     existing = set()
     if q_path.exists():
-        for r in robust_read_csv(q_path): existing.add(normalize_link(r.get('link')))
+        for r in common_utils.robust_read_csv(q_path): existing.add(common_utils.normalize_link(r.get('link')))
         
-    normalized = normalize_link(link)
+    normalized = common_utils.normalize_link(link)
     if not normalized: raise HTTPException(status_code=400, detail="Invalid link")
     if normalized in existing: return {"status": "ignored", "message": "Link already in queue"}
         
@@ -738,7 +683,7 @@ async def upload_csv(file: UploadFile = File(...)):
     q_path = Path("data/batch_queue.csv")
     existing = set()
     if q_path.exists():
-        for r in robust_read_csv(q_path): existing.add(normalize_link(r.get('link')))
+        for r in common_utils.robust_read_csv(q_path): existing.add(common_utils.normalize_link(r.get('link')))
     
     added = 0
     with open(q_path, 'a', newline='', encoding='utf-8') as f:
@@ -747,7 +692,7 @@ async def upload_csv(file: UploadFile = File(...)):
         for line in lines:
             if 'http' in line:
                 raw = line.split(',')[0].strip()
-                if normalize_link(raw) not in existing:
+                if common_utils.normalize_link(raw) not in existing:
                     writer.writerow([raw, datetime.datetime.now().isoformat(), "Pending"])
                     added += 1
     return {"status": "success", "added_count": added}
@@ -765,7 +710,7 @@ async def clear_processed_queue():
     p_ids, p_links = get_processed_indices()
     kept_rows = []
     removed_count = 0
-    for row in robust_read_csv(q_path):
+    for row in common_utils.robust_read_csv(q_path):
         link = row.get("link")
         status = row.get("status", "Pending")
         if status == "Processed" or check_if_processed(link, p_ids, p_links): removed_count += 1
@@ -780,13 +725,13 @@ async def clear_processed_queue():
 async def delete_queue_items(request: Request):
     try:
         data = await request.json()
-        target_links = set(normalize_link(l) for l in data.get("links", []))
+        target_links = set(common_utils.normalize_link(l) for l in data.get("links", []))
         q_path = Path("data/batch_queue.csv")
         if not q_path.exists(): return {"status": "success", "count": 0}
         kept_rows = []
         deleted_count = 0
-        for row in robust_read_csv(q_path):
-            if normalize_link(row.get('link')) in target_links: deleted_count += 1
+        for row in common_utils.robust_read_csv(q_path):
+            if common_utils.normalize_link(row.get('link')) in target_links: deleted_count += 1
             else: kept_rows.append(row)
         with open(q_path, 'w', newline='', encoding='utf-8') as f:
             writer = csv.DictWriter(f, fieldnames=["link", "ingest_timestamp", "status"])
@@ -812,7 +757,7 @@ async def get_queue_list():
     q_path = Path("data/batch_queue.csv")
     items = []
     p_ids, p_links = get_processed_indices()
-    for row in robust_read_csv(q_path):
+    for row in common_utils.robust_read_csv(q_path):
         if row:
             l = row.get("link")
             status = row.get("status", "Pending")
@@ -840,7 +785,7 @@ async def run_queue_processing(
 
     async def queue_stream():
         q_path = Path("data/batch_queue.csv")
-        items = [r for r in robust_read_csv(q_path) if r.get("link") and r.get("status", "Pending") == "Pending"]
+        items = [r for r in common_utils.robust_read_csv(q_path) if r.get("link") and r.get("status", "Pending") == "Pending"]
         p_ids, p_links = get_processed_indices()
         yield f"data: [SYSTEM] Persona: {sel_p['description']}\n\n"
         
@@ -854,14 +799,14 @@ async def run_queue_processing(
                 continue
             
             yield f"data: [START] {link}\n\n"
-            tid = extract_tweet_id(link) or hashlib.md5(link.encode()).hexdigest()[:10]
-            assets = await prepare_video_assets(link, tid)
+            tid = common_utils.extract_tweet_id(link) or hashlib.md5(link.encode()).hexdigest()[:10]
+            assets = await common_utils.prepare_video_assets(link, tid)
             if not assets or (not assets.get('video') and not assets.get('caption')):
                 log_queue_error(link, "Download/Fetch Error (No Content)")
                 yield f"data:   - Download Error.\n\n"
                 continue
 
-            trans = parse_vtt(assets['transcript']) if assets.get('transcript') else "No transcript (Audio/Video missing)."
+            trans = common_utils.parse_vtt(assets['transcript']) if assets.get('transcript') else "No transcript (Audio/Video missing)."
             video_file = assets.get('video')
             if not video_file: 
                 yield f"data:   - No video found. Text-only analysis.\n\n"
@@ -927,7 +872,7 @@ async def run_queue_processing(
                 except Exception as e: logger.error(f"Sidecar Error: {e}")
 
                 p_ids.add(tid)
-                p_links.add(normalize_link(link))
+                p_links.add(common_utils.normalize_link(link))
                 update_queue_status(link, "Processed")
                 yield f"data: [SUCCESS] Saved.\n\n"
             else: 

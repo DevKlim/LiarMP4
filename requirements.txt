@@ -42,3 +42,9 @@ datasets
 # --- Audio ---
 openai-whisper
 yt-dlp
+
+# --- Agent Ecosystem (A2A) ---
+google-adk
+a2a-sdk
+nest-asyncio
+python-dotenv

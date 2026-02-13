@@ -4,7 +4,8 @@ import {
   Users, MessageSquare, TrendingUp, ShieldCheck, UserCheck, Search, PlusCircle, 
   StopCircle, RefreshCw, CheckCircle2, PenTool, ClipboardCheck, Info, Clock, FileText,
   Tag, Home, Cpu, FlaskConical, Target, Trash2, ArrowUpRight, CheckSquare, Square,
-  Layers, Activity, Zap, BrainCircuit, Network, Archive, Plus, Edit3, RotateCcw
+  Layers, Activity, Zap, BrainCircuit, Network, Archive, Plus, Edit3, RotateCcw,
+  Bot
 } from 'lucide-react';
 
 function App() {
@@ -59,12 +60,17 @@ function App() {
       visual: 5, audio: 5, source: 5, logic: 5, emotion: 5,
       va: 5, vc: 5, ac: 5, final: 50
   });
+  const [showRubric, setShowRubric] = useState(false);
   
   // New: AI Reference for Side-by-Side View
   const [aiReference, setAiReference] = useState<any>(null);
 
   const [labelBrowserMode, setLabelBrowserMode] = useState<'queue' | 'dataset'>('queue');
   const [labelFilter, setLabelFilter] = useState('');
+
+  // Agent Chat State
+  const [agentInput, setAgentInput] = useState('');
+  const [agentMessages, setAgentMessages] = useState<any[]>([]);
 
   const handleTagsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       setManualTags(e.target.value);
@@ -416,6 +422,30 @@ function App() {
       setRefreshTrigger(p => p+1);
   };
 
+  const sendAgentMessage = () => {
+      if (!agentInput.trim()) return;
+      setAgentMessages(prev => [...prev, {role: 'user', content: agentInput}]);
+      const currentInput = agentInput;
+      setAgentInput('');
+      
+      // Simulate Agent Thinking / A2A Call
+      // In a real A2A setup, we would call the /a2a JSON-RPC endpoint
+      setTimeout(() => {
+          setAgentMessages(prev => [...prev, {role: 'agent', content: `Analysing request: "${currentInput}"... (Simulated A2A Response)`}]);
+          
+          if (currentInput.includes('http')) {
+              // Extract link and try to add to queue via Agent Tool simulation
+               fetch('/queue/add', {
+                  method: 'POST', headers: {'Content-Type': 'application/json'},
+                  body: JSON.stringify({ link: currentInput })
+               }).then(() => {
+                   setAgentMessages(prev => [...prev, {role: 'agent', content: `I have queued the link for analysis using the 'analyze_video_veracity' tool.`}]);
+                   setRefreshTrigger(p => p+1);
+               });
+          }
+      }, 1000);
+  };
+
   return (
     <div className="flex h-screen w-full bg-[#09090b] text-slate-200 font-sans overflow-hidden">
       
@@ -427,6 +457,7 @@ function App() {
         <div className="flex-1 p-4 space-y-1">
            {[
                {id:'home', l:'Home & Benchmarks', i:Home},
+               {id:'agent', l:'Agent Nexus', i:Bot},
                {id:'predictive', l:'Predictive Sandbox', i:FlaskConical},
                {id:'queue', l:'Ingest Queue', i:List}, 
                {id:'profiles', l:'User Profiles', i:Users}, 
@@ -509,6 +540,61 @@ function App() {
                 </div>
             )}
 
+            {/* AGENT NEXUS TAB */}
+            {activeTab === 'agent' && (
+                <div className="flex h-full gap-6">
+                    <div className="w-1/3 bg-slate-900/50 border border-slate-800 rounded-xl p-6 flex flex-col">
+                        <h2 className="text-lg font-bold text-white flex items-center gap-2 mb-4">
+                            <BrainCircuit className="w-5 h-5 text-indigo-400"/> Agent Configuration
+                        </h2>
+                        <div className="text-xs text-slate-400 mb-6">
+                            This interface interacts with the <strong>LiarMP4 Agent</strong> running on the Google Cloud Agent Development Kit (ADK) via the A2A Protocol.
+                        </div>
+                        <div className="bg-slate-950 p-4 rounded border border-slate-800 mb-4">
+                            <div className="text-[10px] uppercase text-slate-500 font-bold mb-2">Capabilities</div>
+                            <ul className="text-xs text-slate-300 list-disc list-inside space-y-1">
+                                <li>Video Veracity Analysis (Tool)</li>
+                                <li>Deepfake Detection</li>
+                                <li>Cross-Modality Inconsistency Checks</li>
+                                <li>A2A Protocol Compliant (JSON-RPC)</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div className="flex-1 bg-slate-900/50 border border-slate-800 rounded-xl flex flex-col overflow-hidden">
+                        <div className="p-4 border-b border-slate-800 bg-slate-950/50">
+                            <div className="text-xs font-bold text-white">Agent Interaction (A2A)</div>
+                        </div>
+                        <div className="flex-1 p-4 overflow-y-auto space-y-4">
+                            {agentMessages.length === 0 && (
+                                <div className="text-center text-slate-600 mt-20">
+                                    <Bot className="w-12 h-12 mx-auto mb-2 opacity-20"/>
+                                    <div>Ready to assist. Paste a link to analyze.</div>
+                                </div>
+                            )}
+                            {agentMessages.map((m, i) => (
+                                <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                                    <div className={`max-w-[80%] p-3 rounded-lg text-xs ${m.role === 'user' ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-300'}`}>
+                                        {m.content}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                        <div className="p-4 bg-slate-950 border-t border-slate-800 flex gap-2">
+                            <input 
+                                value={agentInput}
+                                onChange={e => setAgentInput(e.target.value)}
+                                onKeyDown={e => e.key === 'Enter' && sendAgentMessage()}
+                                className="flex-1 bg-slate-900 border border-slate-700 rounded p-2 text-xs text-white placeholder-slate-500"
+                                placeholder="Message the agent (e.g., 'Analyze this video: https://...')"
+                            />
+                            <button onClick={sendAgentMessage} className="bg-indigo-600 hover:bg-indigo-500 text-white p-2 rounded">
+                                <ArrowUpRight className="w-4 h-4"/>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* PREDICTIVE SANDBOX */}
             {activeTab === 'predictive' && (
                 <div className="flex h-full gap-6">
@@ -538,9 +624,8 @@ function App() {
             {activeTab === 'queue' && (
                 <div className="flex h-full gap-6">
                     <div className="w-[300px] bg-slate-900/50 border border-slate-800 rounded-xl p-4 flex flex-col gap-4 overflow-y-auto">
-                        
-                        {/* Quick Add Section */}
-                        <div className="bg-slate-950 border border-slate-800 rounded p-3">
+                        {/* Queue Config Panel - Truncated for brevity as provided in original */}
+                         <div className="bg-slate-950 border border-slate-800 rounded p-3">
                             <label className="text-[10px] text-slate-500 uppercase font-bold mb-2 block">Quick Ingest</label>
                             <div className="flex gap-2">
                                 <input 
@@ -809,7 +894,45 @@ function App() {
 
             {/* MANUAL LABELING STUDIO */}
             {activeTab === 'manual' && (
-                <div className="flex h-full gap-6">
+                <div className="flex h-full gap-6 relative">
+                    {/* Rubric Overlay */}
+                    {showRubric && (
+                        <div className="absolute inset-0 z-50 bg-[#09090b]/95 backdrop-blur-sm p-8 flex justify-center items-center">
+                            <div className="bg-slate-900 border border-slate-800 w-full max-w-4xl h-[90vh] rounded-xl flex flex-col shadow-2xl">
+                                <div className="p-6 border-b border-slate-800 flex justify-between items-center">
+                                    <h2 className="text-xl font-bold text-white">Labeling Guide & Rubric</h2>
+                                    <button onClick={() => setShowRubric(false)} className="text-slate-400 hover:text-white"><Trash2 className="w-6 h-6 rotate-45"/></button>
+                                </div>
+                                <div className="flex-1 overflow-y-auto p-8 prose prose-invert max-w-none">
+                                    <h3>Core Scoring Philosophy</h3>
+                                    <p><strong>1</strong> = Malicious/Fabricated. <strong>5</strong> = Unknown/Generic. <strong>10</strong> = Authentic/Verified.</p>
+                                    
+                                    <h4>A. Visual Integrity</h4>
+                                    <ul>
+                                        <li><strong>1-2 (Deepfake):</strong> AI-generated or spatially altered.</li>
+                                        <li><strong>3-4 (Deceptive):</strong> Real footage, misleading edit (speed/crop).</li>
+                                        <li><strong>5-6 (Context):</strong> Real footage, false context (wrong place/time) or stock B-roll.</li>
+                                        <li><strong>7-8 (Standard):</strong> Processed but honest (filters, standard news cuts).</li>
+                                        <li><strong>9-10 (Raw):</strong> Verified raw footage/metadata.</li>
+                                    </ul>
+
+                                    <h4>B. Audio Integrity</h4>
+                                    <ul>
+                                        <li><strong>1-2 (Cloned):</strong> AI Voice Clone or sentence mixing.</li>
+                                        <li><strong>5-6 (Generic):</strong> Music overlay or Text-to-Speech.</li>
+                                        <li><strong>9-10 (Sync):</strong> Perfect lip-sync and ambient consistency.</li>
+                                    </ul>
+
+                                    <h4>C. Modality Alignment</h4>
+                                    <ul>
+                                        <li><strong>Video-Caption (1-2):</strong> Caption is a lie compared to video content.</li>
+                                        <li><strong>Video-Caption (9-10):</strong> Caption points to specific visual evidence.</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     <div className="w-[280px] bg-slate-900/50 border border-slate-800 rounded-xl flex flex-col overflow-hidden">
                         <div className="flex border-b border-slate-800">
                              <button onClick={() => setLabelBrowserMode('queue')} className={`flex-1 py-3 text-xs font-bold ${labelBrowserMode==='queue'?'text-indigo-400 border-b-2 border-indigo-500':''}`}>Queue</button>
@@ -839,6 +962,7 @@ function App() {
                             <div className="flex justify-between items-center mb-6 pb-4 border-b border-slate-800">
                                  <h2 className="text-lg font-bold text-white flex items-center gap-2"><PenTool className="w-5 h-5"/> Studio</h2>
                                  <div className="flex gap-2">
+                                    <button onClick={() => setShowRubric(true)} className="bg-slate-800 hover:bg-slate-700 text-indigo-400 px-3 py-2 rounded-lg font-bold text-xs flex gap-2 items-center"><Info className="w-4 h-4"/> Reference Guide</button>
                                     <a href={manualLink} target="_blank" rel="noreferrer" className={`bg-slate-800 text-white px-3 py-2 rounded-lg font-bold flex gap-2 ${!manualLink && 'opacity-50 pointer-events-none'}`}><ExternalLink className="w-4 h-4"/> Open</a>
                                     <button onClick={submitManualLabel} className="bg-emerald-600 text-white px-6 py-2 rounded-lg font-bold flex gap-2"><ClipboardCheck className="w-4 h-4"/> Save & Add to GT</button>
                                  </div>

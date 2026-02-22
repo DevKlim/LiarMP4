@@ -1,5 +1,11 @@
 import os
 import sys
+
+# --- FIX: Ensure 'src' is in sys.path so sibling imports work ---
+current_dir = os.path.dirname(os.path.abspath(__file__))
+if current_dir not in sys.path:
+    sys.path.append(current_dir)
+
 import asyncio
 import subprocess
 from pathlib import Path
@@ -20,9 +26,7 @@ import inference_logic
 import factuality_logic
 import transcription
 import user_analysis_logic 
-# Import the new Agent Logic factory
 import agent_logic 
-# Import common utils
 import common_utils
 
 from toon_parser import parse_veracity_toon
@@ -43,14 +47,37 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- Mount A2A Agent Application ---
+# --- CRITICAL: Mount A2A Agent Application FIRST ---
+agent_mount_status = "pending"
 try:
+    logger.info("Attempting to build A2A Agent App...")
     a2a_agent_app = agent_logic.create_a2a_app()
-    app.mount("/a2a", a2a_agent_app)
-    logger.info("A2A Agent App mounted at /a2a")
+    if a2a_agent_app:
+        app.mount("/a2a", a2a_agent_app)
+        agent_mount_status = "success"
+        logger.info("✅ A2A Agent App successfully mounted at /a2a")
+    else:
+        logger.warning("⚠️ Agent factory returned None. Mounting internal fallback.")
+        from fastapi import FastAPI as InnerFastAPI
+        fallback = InnerFastAPI()
+        @fallback.post("/")
+        @fallback.post("/jsonrpc")
+        async def fallback_endpoint(request: Request):
+            return {"jsonrpc": "2.0", "result": {"text": "Fallback Agent (Factory returned None)", "data": {"status": "fallback"}}}
+        app.mount("/a2a", fallback)
+        agent_mount_status = "fallback_none"
 except Exception as e:
-    logger.error(f"Failed to mount A2A Agent: {e}")
+    logger.critical(f"❌ Failed to mount A2A Agent: {e}", exc_info=True)
+    from fastapi import FastAPI as InnerFastAPI
+    fallback = InnerFastAPI()
+    @fallback.post("/")
+    @fallback.post("/jsonrpc")
+    async def fallback_endpoint(request: Request):
+        return {"jsonrpc": "2.0", "result": {"text": f"Emergency Agent (Mount Error: {str(e)})", "data": {"status": "error"}}}
+    app.mount("/a2a", fallback)
+    agent_mount_status = f"error_{str(e)}"
 
+# --- Static Files & Frontend ---
 STATIC_DIR = "static"
 if os.path.isdir("/usr/share/vchat/static"):
     STATIC_DIR = "/usr/share/vchat/static"
@@ -60,6 +87,11 @@ elif not os.path.isdir(STATIC_DIR):
     os.makedirs(STATIC_DIR, exist_ok=True)
     
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+# --- FIX: Explicitly mount assets for Vite support ---
+assets_path = os.path.join(STATIC_DIR, "assets")
+if os.path.exists(assets_path):
+    app.mount("/assets", StaticFiles(directory=assets_path), name="assets")
 
 if not os.path.isdir("data/videos"):
     os.makedirs("data/videos", exist_ok=True)
@@ -89,91 +121,67 @@ GROUND_TRUTH_FIELDS = [
     "tags", "classification", "source"
 ]
 
-# Standard columns for AI Dataset
 DATASET_COLUMNS = [
     "id", "link", "timestamp", "caption", 
     "final_veracity_score", "visual_score", "audio_score", "logic_score", 
-    "align_video_caption", "classification", "reasoning", "tags", "raw_toon"
+    "align_video_caption", "classification", "reasoning", "tags", "raw_toon",
+    "config_type", "config_model", "config_prompt", "config_reasoning", "config_params"
 ]
 
-# --- Helper: Schema Migration ---
 def ensure_csv_schema(file_path: Path, fieldnames: list):
-    if not file_path.exists():
-        return
-
-    rows = []
+    if not file_path.exists(): return
     try:
+        rows = []
         with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
-            try:
-                start_pos = f.tell()
-                line = f.readline()
-                if not line: return
-                existing_header = [h.strip() for h in line.split(',')]
-                missing = [col for col in fieldnames if col not in existing_header]
-                if not missing: return
-                logger.info(f"Schema mismatch detected in {file_path}. Missing columns: {missing}. Migrating...")
-                f.seek(start_pos)
-                dict_reader = csv.DictReader(f)
-                rows = list(dict_reader)
-            except Exception as e:
-                logger.warning(f"Could not parse CSV for schema check: {e}")
-                return
+            start_pos = f.tell()
+            line = f.readline()
+            if not line: return
+            existing_header = [h.strip() for h in line.split(',')]
+            missing = [col for col in fieldnames if col not in existing_header]
+            if not missing: return
+            f.seek(start_pos)
+            dict_reader = csv.DictReader(f)
+            rows = list(dict_reader)
 
         with open(file_path, 'w', newline='', encoding='utf-8') as f:
             writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction='ignore')
             writer.writeheader()
-            for row in rows:
-                writer.writerow(row)
-        
-        logger.info(f"Schema migration complete for {file_path}.")
-
-    except Exception as e:
-        logger.error(f"Error during schema migration for {file_path}: {e}")
+            for row in rows: writer.writerow(row)
+    except Exception as e: logger.error(f"Schema migration error: {e}")
 
 def get_processed_indices():
     processed_ids = set()
     processed_links = set()
-    
     for filename in ["data/dataset.csv", "data/manual_dataset.csv"]:
         path = Path(filename)
         for row in common_utils.robust_read_csv(path):
             if row.get('id'): processed_ids.add(row.get('id'))
             if row.get('link'): processed_links.add(common_utils.normalize_link(row.get('link')))
-            
     return processed_ids, processed_links
 
 def check_if_processed(link: str, processed_ids=None, processed_links=None) -> bool:
     target_id = common_utils.extract_tweet_id(link)
     link_clean = common_utils.normalize_link(link)
-    
     if processed_ids is None or processed_links is None:
         p_ids, p_links = get_processed_indices()
-    else:
-        p_ids, p_links = processed_ids, processed_links
-
-    if target_id and target_id in p_ids: return True
-    if link_clean and link_clean in p_links: return True
-    return False
+    else: p_ids, p_links = processed_ids, processed_links
+    return (target_id and target_id in p_ids) or (link_clean and link_clean in p_links)
 
 def update_queue_status(link: str, status: str):
     q_path = Path("data/batch_queue.csv")
     if not q_path.exists(): return
-    
     rows = []
     updated = False
     norm_target = common_utils.normalize_link(link)
-    
     with open(q_path, 'r', encoding='utf-8') as f:
         reader = csv.DictReader(f)
         fieldnames = reader.fieldnames or ["link", "ingest_timestamp", "status"]
         if "status" not in fieldnames: fieldnames.append("status")
-        
         for row in reader:
             if common_utils.normalize_link(row.get("link", "")) == norm_target:
                 row["status"] = status
                 updated = True
             rows.append(row)
-            
     if updated:
         with open(q_path, 'w', newline='', encoding='utf-8') as f:
             writer = csv.DictWriter(f, fieldnames=fieldnames)
@@ -184,23 +192,29 @@ def log_queue_error(link: str, error_msg: str):
     p = Path("data/queue_errors.csv")
     with open(p, 'a', newline='', encoding='utf-8') as f:
         writer = csv.writer(f)
-        if not p.exists() or p.stat().st_size == 0:
-            writer.writerow(["link", "timestamp", "error"])
+        if not p.exists() or p.stat().st_size == 0: writer.writerow(["link", "timestamp", "error"])
         writer.writerow([link, datetime.datetime.now().isoformat(), error_msg])
     update_queue_status(link, "Error")
 
 @app.on_event("startup")
 async def startup_event():
-    logging.info("Application starting up...")
     ensure_csv_schema(Path("data/dataset.csv"), DATASET_COLUMNS)
     ensure_csv_schema(Path("data/manual_dataset.csv"), GROUND_TRUTH_FIELDS)
     if not LITE_MODE:
         try: inference_logic.load_models()
         except Exception: pass
 
+@app.get("/health")
+async def health_check():
+    return {"status": "ok", "agent_mount": agent_mount_status}
+
 @app.get("/benchmarks/stats")
 async def get_benchmark_stats():
     return benchmarking.calculate_benchmarks()
+
+@app.get("/benchmarks/leaderboard")
+async def get_benchmark_leaderboard():
+    return benchmarking.generate_leaderboard()
 
 @app.post("/benchmarks/train_predictive")
 async def run_predictive_training(config: dict = Body(...)):
@@ -220,8 +234,7 @@ async def list_configured_tags():
 @app.post("/config/tags")
 async def save_configured_tags(tags: dict = Body(...)):
     path = Path("data/tags.json")
-    with open(path, 'w', encoding='utf-8') as f:
-        json.dump(tags, f, indent=2)
+    with open(path, 'w', encoding='utf-8') as f: json.dump(tags, f, indent=2)
     return {"status": "success"}
 
 @app.get("/tags/list")
@@ -299,7 +312,6 @@ async def promote_to_ground_truth(request: Request):
 
         new_rows = []
         promoted_count = 0
-        
         for tid in target_ids:
             tid_str = str(tid)
             if tid_str in existing_ids: continue 
@@ -340,8 +352,8 @@ async def delete_ground_truth(request: Request):
         data = await request.json()
         target_ids = data.get("ids", [])
         if not target_ids and data.get("id"): target_ids = [data.get("id")]
-        
         if not target_ids: raise HTTPException(status_code=400)
+        
         target_ids = [str(t) for t in target_ids]
         manual_path = Path("data/manual_dataset.csv")
         if not manual_path.exists(): return {"status": "error", "message": "File not found"}
@@ -351,10 +363,8 @@ async def delete_ground_truth(request: Request):
         with open(manual_path, 'r', encoding='utf-8') as f:
             reader = csv.DictReader(f)
             for row in reader:
-                if str(row.get('id')) in target_ids:
-                    deleted_count += 1
-                    continue
-                rows.append(row)
+                if str(row.get('id')) in target_ids: deleted_count += 1
+                else: rows.append(row)
         with open(manual_path, 'w', newline='', encoding='utf-8') as f:
             writer = csv.DictWriter(f, fieldnames=GROUND_TRUTH_FIELDS)
             writer.writeheader()
@@ -363,31 +373,42 @@ async def delete_ground_truth(request: Request):
         return {"status": "success", "deleted_count": deleted_count}
     except Exception as e: return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
 
-@app.post("/dataset/delete")
-async def delete_dataset_items(request: Request):
+@app.post("/manual/verify_queue")
+async def verify_queue_items(request: Request):
     try:
         data = await request.json()
         target_ids = data.get("ids", [])
-        if not target_ids: raise HTTPException(status_code=400)
-        target_ids = set(str(t) for t in target_ids)
+        if not target_ids: return JSONResponse({"status": "error", "message": "No IDs provided"}, status_code=400)
+        
+        # Read Manual Dataset to get links
+        manual_path = Path("data/manual_dataset.csv")
+        links_to_queue = []
+        if manual_path.exists():
+            for row in common_utils.robust_read_csv(manual_path):
+                if str(row.get('id')) in target_ids:
+                    links_to_queue.append(row.get('link'))
+        
+        if not links_to_queue:
+            return {"status": "error", "message": "No matching links found in Ground Truth."}
 
-        path = Path("data/dataset.csv")
-        if not path.exists(): return {"status": "success", "count": 0}
+        # Add to Batch Queue
+        q_path = Path("data/batch_queue.csv")
+        existing_in_queue = set()
+        if q_path.exists():
+             for row in common_utils.robust_read_csv(q_path):
+                 if row.get('status') == 'Pending':
+                     existing_in_queue.add(common_utils.normalize_link(row.get('link')))
 
-        rows = []
-        deleted_count = 0
-        for row in common_utils.robust_read_csv(path):
-            if str(row.get('id')) in target_ids:
-                deleted_count += 1
-            else:
-                rows.append(row)
-
-        with open(path, 'w', newline='', encoding='utf-8') as f:
-            writer = csv.DictWriter(f, fieldnames=DATASET_COLUMNS, extrasaction='ignore')
-            writer.writeheader()
-            writer.writerows(rows)
-            
-        return {"status": "success", "deleted_count": deleted_count}
+        added_count = 0
+        with open(q_path, 'a', newline='', encoding='utf-8') as f:
+            writer = csv.writer(f)
+            if not q_path.exists() or q_path.stat().st_size == 0: writer.writerow(["link", "ingest_timestamp", "status"])
+            for link in links_to_queue:
+                if common_utils.normalize_link(link) not in existing_in_queue:
+                    writer.writerow([link, datetime.datetime.now().isoformat(), "Pending"])
+                    added_count += 1
+        
+        return {"status": "success", "queued_count": added_count, "message": f"Added {added_count} items to queue for verification."}
     except Exception as e:
         return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
 
@@ -740,6 +761,34 @@ async def delete_queue_items(request: Request):
         return {"status": "success", "count": deleted_count}
     except Exception as e: return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
 
+@app.post("/dataset/delete")
+async def delete_dataset_items(request: Request):
+    try:
+        data = await request.json()
+        target_ids = data.get("ids", [])
+        if not target_ids: raise HTTPException(status_code=400)
+        target_ids = set(str(t) for t in target_ids)
+
+        path = Path("data/dataset.csv")
+        if not path.exists(): return {"status": "success", "count": 0}
+
+        rows = []
+        deleted_count = 0
+        for row in common_utils.robust_read_csv(path):
+            if str(row.get('id')) in target_ids:
+                deleted_count += 1
+            else:
+                rows.append(row)
+
+        with open(path, 'w', newline='', encoding='utf-8') as f:
+            writer = csv.DictWriter(f, fieldnames=DATASET_COLUMNS, extrasaction='ignore')
+            writer.writeheader()
+            writer.writerows(rows)
+            
+        return {"status": "success", "deleted_count": deleted_count}
+    except Exception as e:
+        return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
+
 @app.post("/analyze/user_context")
 async def analyze_user_context(request: Request):
     try:
@@ -782,6 +831,15 @@ async def run_queue_processing(
     if custom_query.strip(): system_persona_txt += f"\n\nSPECIAL INSTRUCTION FOR THIS BATCH: {custom_query}"
     
     active_config = vertex_config if model_selection == 'vertex' else gemini_config
+    active_model_name = vertex_model_name if model_selection == 'vertex' else gemini_model_name
+
+    # Create config params string for tracking
+    config_params_dict = {
+        "reprompts": max_reprompts,
+        "include_comments": include_comments,
+        "agent_active": False 
+    }
+    config_params_str = json.dumps(config_params_dict)
 
     async def queue_stream():
         q_path = Path("data/batch_queue.csv")
@@ -794,15 +852,23 @@ async def run_queue_processing(
             if STOP_QUEUE_SIGNAL: 
                 yield f"data: [SYSTEM] Stopping by user request.\n\n"
                 break
+            
+            # NOTE: For verification runs, we might want to re-process even if it exists.
+            # But standard check prevents duplicates. 
+            # Benchmarking logic will handle duplicates by ID matching later.
             if check_if_processed(link, p_ids, p_links): 
-                update_queue_status(link, "Processed")
-                continue
+                 update_queue_status(link, "Processed")
+                 continue
+
+            yield f"data: [START] {link}\n\n"
+            tid = common_utils.extract_tweet_id(link) or hashlib.md5(link.encode()).hexdigest()[:10]
+            assets = await common_utils.prepare_video_assets(link, tid)
             
             yield f"data: [START] {link}\n\n"
             tid = common_utils.extract_tweet_id(link) or hashlib.md5(link.encode()).hexdigest()[:10]
             assets = await common_utils.prepare_video_assets(link, tid)
             if not assets or (not assets.get('video') and not assets.get('caption')):
-                log_queue_error(link, "Download/Fetch Error (No Content)")
+                log_queue_error(link, "Download/Fetch Error")
                 yield f"data:   - Download Error.\n\n"
                 continue
 
@@ -856,7 +922,12 @@ async def run_queue_processing(
                             "classification": parsed['disinformation_analysis'].get('classification', 'None'),
                             "reasoning": parsed['final_assessment'].get('reasoning', ''),
                             "tags": ",".join(parsed.get('tags', [])),
-                            "raw_toon": res_data.get("raw_toon", "")
+                            "raw_toon": res_data.get("raw_toon", ""),
+                            "config_type": "GenAI",
+                            "config_model": active_model_name,
+                            "config_prompt": prompt_template,
+                            "config_reasoning": reasoning_method,
+                            "config_params": config_params_str
                         }
                         writer = csv.DictWriter(f, fieldnames=DATASET_COLUMNS, extrasaction='ignore')
                         if not exists: writer.writeheader()
@@ -867,7 +938,16 @@ async def run_queue_processing(
                     ts = datetime.datetime.now().isoformat()
                     ts_clean = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
                     flat_parsed = parsed.copy()
-                    flat_parsed["meta_info"] = { "id": tid, "timestamp": ts, "link": link, "prompt_used": res_data.get("prompt_used", ""), "model_selection": model_selection }
+                    flat_parsed["meta_info"] = { 
+                        "id": tid, "timestamp": ts, "link": link, 
+                        "prompt_used": res_data.get("prompt_used", ""), 
+                        "model_selection": model_selection,
+                        "config_type": "GenAI",
+                        "config_model": active_model_name,
+                        "config_prompt": prompt_template,
+                        "config_reasoning": reasoning_method,
+                        "config_params": config_params_dict
+                    }
                     with open(Path(f"data/labels/{tid}_{ts_clean}.json"), 'w', encoding='utf-8') as f: json.dump(flat_parsed, f, indent=2, ensure_ascii=False)
                 except Exception as e: logger.error(f"Sidecar Error: {e}")
 

@@ -1,16 +1,13 @@
 import pandas as pd
 import numpy as np
 import shutil
+import json
+import math
 from pathlib import Path
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
-from sklearn.feature_extraction.text import CountVectorizer
-from sklearn.pipeline import make_pipeline
-from sklearn.metrics import accuracy_score, classification_report
-import re
-import math
 
-# Lazy import to avoid startup overhead if not used immediately
+# Lazy import to avoid startup overhead
 try:
     from autogluon.tabular import TabularPredictor
     AUTOGLUON_AVAILABLE = True
@@ -21,12 +18,9 @@ DATA_AI = Path("data/dataset.csv")
 DATA_MANUAL = Path("data/manual_dataset.csv")
 
 def sanitize_for_json(obj):
-    """
-    Recursively replace NaN/Infinity with None for JSON serialization.
-    """
+    """Recursively clean floats for JSON output."""
     if isinstance(obj, float):
-        if math.isnan(obj) or math.isinf(obj):
-            return None
+        if math.isnan(obj) or math.isinf(obj): return None
         return obj
     elif isinstance(obj, dict):
         return {k: sanitize_for_json(v) for k, v in obj.items()}
@@ -42,24 +36,22 @@ def get_combined_dataset():
         return None
 
     try:
-        # Use keep_default_na=False to prevent empty strings becoming NaN floats for string columns,
-        # BUT numeric columns still need care.
-        # Actually safer to let pandas handle NAs then replace them.
+        # Load datasets
         df_ai = pd.read_csv(DATA_AI)
         df_manual = pd.read_csv(DATA_MANUAL)
         
-        # Ensure IDs are strings
-        df_ai['id'] = df_ai['id'].astype(str)
-        df_manual['id'] = df_manual['id'].astype(str)
+        # Normalize IDs (Trim spaces, ensure string)
+        df_ai['id'] = df_ai['id'].astype(str).str.strip()
+        df_manual['id'] = df_manual['id'].astype(str).str.strip()
 
-        # FIX: Force numeric conversion for scores to avoid 'str' >= 'int' TypeError
+        # Force numeric conversion for scores
         df_ai['final_veracity_score'] = pd.to_numeric(df_ai['final_veracity_score'], errors='coerce').fillna(0)
         df_manual['final_veracity_score'] = pd.to_numeric(df_manual['final_veracity_score'], errors='coerce').fillna(0)
         
         # Merge on ID
         merged = pd.merge(
-            df_ai[['id', 'final_veracity_score', 'timestamp', 'classification']], 
-            df_manual[['id', 'final_veracity_score', 'classification', 'caption']], 
+            df_ai,
+            df_manual[['id', 'final_veracity_score', 'classification']], 
             on='id', 
             suffixes=('_ai', '_manual'),
             how='inner'
@@ -74,24 +66,37 @@ def get_combined_dataset():
         print(f"Error merging datasets: {e}")
         return None
 
+def format_config_params(params_raw):
+    """Parses the config_params JSON string into a readable format for the leaderboard."""
+    if pd.isna(params_raw) or not params_raw:
+        return "Defaults"
+    try:
+        if isinstance(params_raw, str):
+            p = json.loads(params_raw)
+        else:
+            p = params_raw
+            
+        # Extract key differentiators
+        reprompts = p.get('reprompts', 0)
+        comments = "Yes" if p.get('include_comments') == 'true' or p.get('include_comments') is True else "No"
+        return f"Retries:{reprompts} | Context:{comments}"
+    except:
+        return "Legacy/Unknown"
+
 def calculate_benchmarks():
-    """
-    Returns statistical comparison between AI and Ground Truth.
-    """
+    """Global stats (All AI models vs Ground Truth)."""
     merged = get_combined_dataset()
     if merged is None or len(merged) == 0:
         return {"status": "no_data"}
     
     mae = merged['abs_error'].mean()
-    mse = (merged['abs_error'] ** 2).mean()
     
-    # Categorize Agreement (Binary: Fake < 50, Real >= 50)
+    # Binary Accuracy (Threshold 50)
     merged['bin_ai'] = merged['final_veracity_score_ai'] >= 50
     merged['bin_manual'] = merged['final_veracity_score_manual'] >= 50
     accuracy = (merged['bin_ai'] == merged['bin_manual']).mean()
     
-    # Handle NaNs in the samples before converting to dict
-    recent_samples = merged.tail(5).replace({np.nan: None}).to_dict(orient='records')
+    recent_samples = merged.tail(5)[['id', 'abs_error', 'final_veracity_score_ai', 'final_veracity_score_manual']].to_dict(orient='records')
 
     result = {
         "count": int(len(merged)),
@@ -99,126 +104,83 @@ def calculate_benchmarks():
         "accuracy_percent": round(accuracy * 100, 1),
         "recent_samples": recent_samples
     }
-    
     return sanitize_for_json(result)
 
-def train_with_autogluon(df, feature_cols, target_col):
-    if not AUTOGLUON_AVAILABLE:
-        return {"error": "AutoGluon library not installed."}
+def generate_leaderboard():
+    """
+    Groups results by Configuration to rank models/prompts.
+    """
+    merged = get_combined_dataset()
+    if merged is None or len(merged) == 0:
+        return []
 
-    # Setup Sandbox Directory
-    sandbox_path = "models/sandbox_autogluon"
-    if Path(sandbox_path).exists():
-        shutil.rmtree(sandbox_path)
-    
-    # Prepare Data
-    train_data, test_data = train_test_split(df[feature_cols + [target_col]], test_size=0.3, random_state=42)
-    
-    try:
-        # Train
-        predictor = TabularPredictor(label=target_col, path=sandbox_path, verbosity=2).fit(
-            train_data=train_data,
-            time_limit=45, # Fast sandbox
-            presets='medium_quality' # XGBoost, CatBoost, LightGBM, RF
-        )
+    # Fill missing config columns for legacy data
+    for col in ['config_model', 'config_prompt', 'config_reasoning', 'config_params']:
+        if col not in merged.columns: merged[col] = "Unknown"
         
-        # Leaderboard
-        lb = predictor.leaderboard(test_data, silent=True)
-        # Convert to simple list of dicts and sanitize
-        results = lb[['model', 'score_test', 'score_val', 'fit_time']].replace({np.nan: None}).to_dict(orient='records')
-        
-        return {
-            "status": "success",
-            "type": "autogluon",
-            "leaderboard": results,
-            "best_model": predictor.get_model_best(),
-            "message": "AutoML training complete. Evaluated multiple gradient boosting frameworks."
-        }
-    except Exception as e:
-        return {"error": f"AutoGluon training failed: {str(e)}"}
+    merged = merged.fillna({'config_model': 'Unknown', 'config_prompt': 'Standard', 'config_reasoning': 'None'})
+
+    # Make params readable
+    merged['params_readable'] = merged['config_params'].apply(format_config_params)
+
+    # Calculate Correctness
+    merged['bin_ai'] = merged['final_veracity_score_ai'] >= 50
+    merged['bin_manual'] = merged['final_veracity_score_manual'] >= 50
+    merged['is_correct'] = (merged['bin_ai'] == merged['bin_manual']).astype(int)
+
+    # Group By Configuration
+    grouped = merged.groupby(['config_model', 'config_prompt', 'config_reasoning', 'params_readable']).agg(
+        mae=('abs_error', 'mean'),
+        accuracy=('is_correct', 'mean'),
+        count=('id', 'count')
+    ).reset_index()
+
+    # Format Output
+    leaderboard = []
+    for _, row in grouped.iterrows():
+        leaderboard.append({
+            "type": "GenAI",
+            "model": row['config_model'],
+            "prompt": row['config_prompt'],
+            "reasoning": row['config_reasoning'],
+            "params": row['params_readable'],
+            "mae": round(row['mae'], 2),
+            "accuracy": round(row['accuracy'] * 100, 1),
+            "samples": int(row['count'])
+        })
+
+    # Sort: Highest Accuracy, then Lowest MAE
+    leaderboard.sort(key=lambda x: (-x['accuracy'], x['mae']))
+    
+    return sanitize_for_json(leaderboard)
 
 def train_predictive_sandbox(features_config: dict):
     """
-    Trains models on the Manual Dataset (Ground Truth).
-    Supports 'logistic' (sklearn) and 'autogluon' (AutoML).
+    Trains simple models on Ground Truth to set a baseline.
     """
-    if not DATA_MANUAL.exists():
-        return {"error": "No ground truth data found."}
-        
-    df = pd.read_csv(DATA_MANUAL)
-    # Ensure mandatory fields
-    if 'caption' not in df.columns or 'final_veracity_score' not in df.columns:
-        return {"error": "Dataset missing 'caption' or 'final_veracity_score' columns."}
+    if not DATA_MANUAL.exists(): return {"error": "No data"}
+    df = pd.read_csv(DATA_MANUAL).dropna(subset=['caption', 'final_veracity_score'])
+    if len(df) < 5: return {"error": "Not enough data"}
 
-    df = df.dropna(subset=['caption', 'final_veracity_score'])
+    # Features
+    df['len'] = df['caption'].astype(str).apply(len)
+    keywords = ["shocking", "breaking", "watch"]
+    df['kw_count'] = df['caption'].astype(str).apply(lambda x: sum(1 for k in keywords if k in x.lower()))
+    feat_cols = ['len', 'kw_count']
     
-    if len(df) < 5:
-        return {"error": "Need at least 5 manual labels to train."}
+    # Target
+    df['target'] = (pd.to_numeric(df['final_veracity_score'], errors='coerce').fillna(0) >= 50).astype(int)
 
-    # --- Feature Engineering ---
-    # 1. Caption Length
-    df['feat_len'] = df['caption'].astype(str).apply(len)
-    
-    # 2. Keyword Flags (Simple Heuristic)
-    keywords = ["shocking", "breaking", "urgent", "watch", "leaked", "official"]
-    df['feat_keywords'] = df['caption'].astype(str).apply(lambda x: sum(1 for k in keywords if k in x.lower()))
-    
-    # 3. New granular features if available in Ground Truth
-    feature_cols = ['feat_len', 'feat_keywords']
-    
-    # Check for the requested "visual_integrity_score" etc.
-    use_visual = features_config.get('use_visual_meta', False)
-    
-    if use_visual:
-        # Try to use specific columns if they exist, fallback to generic 'visual_score'
-        if 'visual_integrity_score' in df.columns:
-             # Clean and convert to float
-             df['visual_integrity_score'] = pd.to_numeric(df['visual_integrity_score'], errors='coerce').fillna(0)
-             feature_cols.append('visual_integrity_score')
-        elif 'visual_score' in df.columns:
-             df['visual_score'] = pd.to_numeric(df['visual_score'], errors='coerce').fillna(0)
-             feature_cols.append('visual_score')
-
-    # Target: High Veracity (>=50) vs Low
-    target_col = 'target_veracity'
-    # FIX: Explicit numeric conversion here as well
-    df['final_veracity_score'] = pd.to_numeric(df['final_veracity_score'], errors='coerce').fillna(0)
-    df[target_col] = (df['final_veracity_score'] >= 50).astype(int)
-
-    model_type = features_config.get('model_type', 'logistic')
-
-    # --- AutoGluon Branch ---
-    if model_type == 'autogluon':
-        return train_with_autogluon(df, feature_cols, target_col)
-
-    # --- Logistic Branch ---
-    X = df[feature_cols]
-    y = df[target_col]
-    
+    # Simple Logistic Regression Baseline
     try:
-        # Train/Test Split
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
-        
-        # Train Model
+        X_train, X_test, y_train, y_test = train_test_split(df[feat_cols], df['target'], test_size=0.3, random_state=42)
         clf = LogisticRegression()
         clf.fit(X_train, y_train)
-        
-        # Evaluate
-        train_acc = clf.score(X_train, y_train)
-        test_acc = clf.score(X_test, y_test)
-        
-        # Coefficients interpretation
-        coefs = dict(zip(feature_cols, clf.coef_[0].tolist()))
-        
-        result = {
+        return {
             "status": "success",
-            "type": "logistic",
-            "samples": len(df),
-            "train_accuracy": round(train_acc * 100, 1),
-            "test_accuracy": round(test_acc * 100, 1),
-            "feature_importance": coefs,
-            "message": "Model trained on available features."
+            "type": "logistic_regression",
+            "accuracy": round(clf.score(X_test, y_test) * 100, 1),
+            "message": "Baseline trained on Caption Length + Keywords."
         }
-        return sanitize_for_json(result)
     except Exception as e:
         return {"error": str(e)}

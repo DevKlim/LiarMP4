@@ -1,16 +1,14 @@
 #!/bin/bash
+set -e
 
-# 1. Start Python FastAPI in the background
-# We set PYTHONPATH to include the /app/src directory so imports work correctly
-# We run from /app so that data/ and videos/ directories are created in the root volume mount
-echo "Starting Python Inference Engine..."
-export PYTHONPATH=$PYTHONPATH:/app/src
-python -m uvicorn src.app:app --host 127.0.0.1 --port 8001 &
+echo "Starting vChat Server..."
 
-# Wait for Python to initialize
-sleep 5
+# Ensure data directories exist
+mkdir -p /app/data/videos
+mkdir -p /app/data/labels
 
-# 2. Start Golang Web Server
-echo "Starting Go Web Server..."
-# FIXED: Run the binary from the system path
-/usr/local/bin/vchat-server
+# Run Uvicorn (FastAPI)
+# Host 0.0.0.0 is critical for Docker
+# Port 8000 is what docker-compose maps to 8005
+echo "Launching uvicorn on port 8000..."
+exec uvicorn src.app:app --host 0.0.0.0 --port 8000 --reload

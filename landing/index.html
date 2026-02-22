@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>liarMP4 | Multimodal Content Moderation</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        background: '#09090b',
+                        surface: '#0c0c0e',
+                        primary: '#4f46e5',
+                        accent: '#10b981'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                        mono: ['Fira Code', 'monospace'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Inter:wght@300;400;600;700&display=swap');
+        
+        body { font-family: 'Inter', sans-serif; background-color: #09090b; color: #e2e8f0; }
+        .gradient-text {
+            background: linear-gradient(to right, #818cf8, #34d399);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(51, 65, 85, 0.5);
+        }
+        .hero-glow {
+            position: absolute;
+            top: 20%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, rgba(79, 70, 229, 0.15) 0%, rgba(9, 9, 11, 0) 70%);
+            z-index: -1;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body class="antialiased overflow-x-hidden selection:bg-primary selection:text-white">
+
+    <!-- Background Glow -->
+    <div class="hero-glow"></div>
+
+    <!-- Navigation -->
+    <nav class="fixed w-full z-50 glass-panel border-b-0 border-slate-800">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-shield-halved text-primary text-xl"></i>
+                    <span class="font-bold text-xl tracking-tight text-white">liar<span class="text-slate-500">MP4</span></span>
+                </div>
+                <div class="hidden md:block">
+                    <div class="ml-10 flex items-baseline space-x-8">
+                        <a href="#research" class="hover:text-primary transition-colors px-3 py-2 rounded-md text-sm font-medium">Research</a>
+                        <a href="#architecture" class="hover:text-primary transition-colors px-3 py-2 rounded-md text-sm font-medium">Architecture</a>
+                        <a href="#features" class="hover:text-primary transition-colors px-3 py-2 rounded-md text-sm font-medium">Features</a>
+                    </div>
+                </div>
+                <div class="flex gap-4">
+                    <a href="https://github.com/DevKlim/LiarMP4" target="_blank" class="text-slate-300 hover:text-white transition">
+                        <i class="fa-brands fa-github text-2xl"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="pt-32 pb-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto flex flex-col items-center text-center">
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-900/30 border border-indigo-500/30 text-indigo-300 text-xs font-mono mb-8">
+            <span class="w-2 h-2 rounded-full bg-indigo-400 animate-pulse"></span>
+            Capstone AI 4 Good Project
+        </div>
+        <h1 class="text-5xl md:text-7xl font-bold tracking-tight mb-6 text-white">
+            Multimodal Moderation via <br/>
+            <span class="gradient-text">Fractal Chain-of-Thought</span>
+        </h1>
+        <p class="mt-4 max-w-2xl text-lg text-slate-400 mb-10">
+            Transitioning from stochastic engagement models to engineering-grade agentic systems. We detect contextual malformation in video content by analyzing semantic dissonance across visual, audio, and textual layers.
+        </p>
+        <div class="flex gap-4 flex-col sm:flex-row">
+            <a href="https://github.com/DevKlim/LiarMP4" class="px-8 py-3 rounded-lg bg-primary hover:bg-indigo-500 text-white font-semibold transition flex items-center justify-center gap-2">
+                <i class="fa-solid fa-code"></i> View Source Code
+            </a>
+            <a href="https://huggingface.co/spaces/GlazedDon0t/liarMP4" target="_blank" class="px-8 py-3 rounded-lg glass-panel hover:bg-slate-800 text-white font-semibold transition flex items-center justify-center gap-2">
+                <i class="fa-solid fa-play"></i> Live Demonstration
+            </a>
+        </div>
+    </section>
+
+    <!-- Research Concept Section -->
+    <section id="research" class="py-20 border-t border-slate-800/50 bg-black/20">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="grid md:grid-cols-2 gap-12 items-center">
+                <div>
+                    <h2 class="text-3xl font-bold text-white mb-6">The Research Problem</h2>
+                    <p class="text-slate-400 mb-4 leading-relaxed">
+                        Traditional content moderation relies on Predictive AI (PredAI) analyzing engagement metadata or scalar probabilities. These models fail to catch <strong>"contextual malformation"</strong>—where the video is real, but the narrative and audio are deceptively recontextualized.
+                    </p>
+                    <p class="text-slate-400 mb-6 leading-relaxed">
+                        LiarMP4 investigates the efficacy of Generative AI (GenAI) and Multi-Agent Systems. Instead of looking at spread velocity, our agents recursively analyze the actual semantic dissonance between the pixels, waveforms, and claims.
+                    </p>
+                    <ul class="space-y-3 text-sm text-slate-300">
+                        <li class="flex items-center gap-3"><i class="fa-solid fa-check text-accent"></i> Beyond tabular metadata analysis.</li>
+                        <li class="flex items-center gap-3"><i class="fa-solid fa-check text-accent"></i> Evaluated against a rigorous Human-in-the-Loop Ground Truth.</li>
+                        <li class="flex items-center gap-3"><i class="fa-solid fa-check text-accent"></i> strict output schemas mapping abstract thought to database records.</li>
+                    </ul>
+                </div>
+                <div class="glass-panel p-6 rounded-2xl relative overflow-hidden group">
+                    <div class="absolute inset-0 bg-gradient-to-br from-indigo-500/10 to-emerald-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                    <pre class="text-[10px] sm:text-xs font-mono text-slate-400 overflow-x-auto"><code class="language-json">
+// Token-Oriented Object Notation (TOON)
+summary: text[1]{text}:
+"Video shows a 2015 protest, claimed as 2026."
+
+vectors: details[3]{category,score,reasoning}:
+Visual,6,"Real footage, but false context."
+Audio,4,"Crowd noise artificially amplified."
+Logic,2,"Claim directly contradicts visual evidence."
+
+modalities: details[3]{category,score,reasoning}:
+VideoCaption,2,"Caption claims X, video shows Y."
+                    </code></pre>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Engineering Architecture Section -->
+    <section id="architecture" class="py-20">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16">
+                <h2 class="text-3xl font-bold text-white mb-4">Engineering-Grade Agentic Systems</h2>
+                <p class="text-slate-400 max-w-2xl mx-auto">Implementing robust software engineering principles to transition from stochastic "vibe-based" outputs to deterministic verification pipelines.</p>
+            </div>
+
+            <div class="grid md:grid-cols-3 gap-8">
+                <!-- Arch Card 1 -->
+                <div class="glass-panel p-6 rounded-xl border-t-4 border-t-indigo-500">
+                    <div class="w-12 h-12 rounded-lg bg-indigo-500/20 flex items-center justify-center mb-4">
+                        <i class="fa-solid fa-network-wired text-indigo-400 text-xl"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-white mb-3">Agent-as-a-Proxy</h3>
+                    <p class="text-sm text-slate-400">
+                        Directly calling statistical models creates opaque black boxes. We wrap models in `AgentTool` classes, creating a conceptual wall that allows for pre-execution reasoning and post-execution validation by the ReAct orchestrator.
+                    </p>
+                </div>
+                
+                <!-- Arch Card 2 -->
+                <div class="glass-panel p-6 rounded-xl border-t-4 border-t-emerald-500">
+                    <div class="w-12 h-12 rounded-lg bg-emerald-500/20 flex items-center justify-center mb-4">
+                        <i class="fa-solid fa-layer-group text-emerald-400 text-xl"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-white mb-3">Fractal Chain-of-Thought</h3>
+                    <p class="text-sm text-slate-400">
+                        A recursive, multi-scale reasoning architecture. The agent forms a macro-hypothesis (Wide Aperture), decomposes it into meso-scale verifications (Visual/Audio branches), and synthesizes inter-scale consensus to prevent instruction drift.
+                    </p>
+                </div>
+
+                <!-- Arch Card 3 -->
+                <div class="glass-panel p-6 rounded-xl border-t-4 border-t-sky-500">
+                    <div class="w-12 h-12 rounded-lg bg-sky-500/20 flex items-center justify-center mb-4">
+                        <i class="fa-solid fa-scale-balanced text-sky-400 text-xl"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-white mb-3">Instruction Fidelity</h3>
+                    <p class="text-sm text-slate-400">
+                        Combating "Sequential Delegation Bugs" where orchestrators stop prematurely. We strictly enforce multi-turn persistence and mandate Rationale outputs to combat the "Hallucination of Alignment."
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Key Features & Metrics -->
+    <section id="features" class="py-20 border-t border-slate-800/50 bg-black/20">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="grid md:grid-cols-2 gap-16 items-center">
+                <div class="space-y-8">
+                    <div class="flex gap-4">
+                        <div class="mt-1"><i class="fa-solid fa-chart-radar text-2xl text-primary"></i></div>
+                        <div>
+                            <h4 class="text-lg font-bold text-white">Veracity Vectors</h4>
+                            <p class="text-sm text-slate-400 mt-1">Multi-dimensional 1-10 scoring framework quantifying Visual Integrity, Audio Forensics, Logical Consistency, and Source Credibility.</p>
+                        </div>
+                    </div>
+                    <div class="flex gap-4">
+                        <div class="mt-1"><i class="fa-solid fa-users text-2xl text-primary"></i></div>
+                        <div>
+                            <h4 class="text-lg font-bold text-white">Human-in-the-Loop (HITL)</h4>
+                            <p class="text-sm text-slate-400 mt-1">A dedicated browser extension and labeling studio workflow. Human intelligence calibrates the baseline Ground Truth to benchmark AI accuracy.</p>
+                        </div>
+                    </div>
+                    <div class="flex gap-4">
+                        <div class="mt-1"><i class="fa-solid fa-server text-2xl text-primary"></i></div>
+                        <div>
+                            <h4 class="text-lg font-bold text-white">Google Cloud ADK Integration</h4>
+                            <p class="text-sm text-slate-400 mt-1">Built atop the Agent Development Kit (ADK) utilizing the A2A (Agent-to-Agent) JSON-RPC protocol for seamless orchestration.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glass-panel p-8 rounded-2xl border border-slate-800 text-center">
+                    <h3 class="text-sm font-bold uppercase tracking-widest text-slate-500 mb-6">System Architecture Pipeline</h3>
+                    <div class="flex flex-col gap-4">
+                        <div class="p-3 bg-slate-900 rounded border border-slate-700 text-sm font-mono text-slate-300">Browser Ext. / Scraper (Ingest)</div>
+                        <i class="fa-solid fa-arrow-down text-slate-600"></i>
+                        <div class="p-3 bg-indigo-900/30 rounded border border-indigo-700/50 text-sm font-mono text-indigo-300">ReAct Orchestrator (ADK)</div>
+                        <i class="fa-solid fa-arrow-down text-slate-600"></i>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="p-3 bg-slate-900 rounded border border-slate-700 text-xs font-mono text-slate-300">AgentTool: Vision</div>
+                            <div class="p-3 bg-slate-900 rounded border border-slate-700 text-xs font-mono text-slate-300">AgentTool: Audio</div>
+                        </div>
+                        <i class="fa-solid fa-arrow-down text-slate-600"></i>
+                        <div class="p-3 bg-emerald-900/30 rounded border border-emerald-700/50 text-sm font-mono text-emerald-300">TOON Output & Verification Base</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="border-t border-slate-800 bg-[#0c0c0e] py-12">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center gap-6">
+            <div>
+                <div class="flex items-center gap-2 mb-2">
+                    <i class="fa-solid fa-shield-halved text-slate-500"></i>
+                    <span class="font-bold text-lg text-white">liar<span class="text-slate-500">MP4</span></span>
+                </div>
+                <p class="text-xs text-slate-500">An open-source research initiative.</p>
+            </div>
+            <div class="text-sm text-slate-400 text-center md:text-right">
+                <p class="mb-1"><strong>Authors:</strong> Kliment Ho, Shiwei Yang, Keqing Li</p>
+                <p>Capstone AI 4 Good Project</p>
+            </div>
+        </div>
+    </footer>
+
+</body>
+</html>

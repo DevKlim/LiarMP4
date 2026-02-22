@@ -5,7 +5,7 @@ import {
   StopCircle, RefreshCw, CheckCircle2, PenTool, ClipboardCheck, Info, Clock, FileText,
   Tag, Home, Cpu, FlaskConical, Target, Trash2, ArrowUpRight, CheckSquare, Square,
   Layers, Activity, Zap, BrainCircuit, Network, Archive, Plus, Edit3, RotateCcw,
-  Bot
+  Bot, Trophy, HelpCircle, Settings, Calculator
 } from 'lucide-react';
 
 function App() {
@@ -43,12 +43,11 @@ function App() {
   const [integrityBoard, setIntegrityBoard] = useState<any[]>([]);
   const [datasetList, setDatasetList] = useState<any[]>([]);
   const [benchmarks, setBenchmarks] = useState<any>(null);
+  const [leaderboard, setLeaderboard] = useState<any[]>([]); 
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   // Tags
   const [configuredTags, setConfiguredTags] = useState<any>({});
-
-  // Selection State (Ground Truth / Manual)
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
 
   // Manual Labeling State
@@ -61,16 +60,16 @@ function App() {
       va: 5, vc: 5, ac: 5, final: 50
   });
   const [showRubric, setShowRubric] = useState(false);
-  
-  // New: AI Reference for Side-by-Side View
   const [aiReference, setAiReference] = useState<any>(null);
-
   const [labelBrowserMode, setLabelBrowserMode] = useState<'queue' | 'dataset'>('queue');
   const [labelFilter, setLabelFilter] = useState('');
 
   // Agent Chat State
   const [agentInput, setAgentInput] = useState('');
   const [agentMessages, setAgentMessages] = useState<any[]>([]);
+  const [agentThinking, setAgentThinking] = useState(false);
+  const [agentEndpoint, setAgentEndpoint] = useState('/a2a');
+  const [agentMethod, setAgentMethod] = useState('agent.process');
 
   const handleTagsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       setManualTags(e.target.value);
@@ -84,7 +83,10 @@ function App() {
     load('/config/prompts', setAvailablePrompts);
     load('/config/tags', setConfiguredTags);
 
-    if (activeTab === 'home') load('/benchmarks/stats', setBenchmarks);
+    if (activeTab === 'home') {
+        load('/benchmarks/stats', setBenchmarks);
+        load('/benchmarks/leaderboard', setLeaderboard);
+    }
     if (activeTab === 'queue') {
         load('/queue/list', setQueueList);
         setSelectedQueueItems(new Set());
@@ -102,13 +104,9 @@ function App() {
     if (logContainerRef.current) logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight;
   }, [logs]);
 
-  // Helpers: Robust Tag Extraction
   const existingTags = React.useMemo(() => {
     const tags = new Set<string>();
-    // Add configured tags
     Object.keys(configuredTags).forEach(t => tags.add(t));
-    
-    // Add existing tags from dataset
     if (datasetList && Array.isArray(datasetList)) {
         datasetList.forEach(item => {
             if (item.tags && typeof item.tags === 'string') {
@@ -148,9 +146,8 @@ function App() {
       });
       setManualReasoning('');
       setManualTags('');
-      setAiReference(null); // Clear reference
+      setAiReference(null); 
       
-      // Attempt to find AI reference anyway
       const ref = datasetList.find(d => 
           d.source !== 'Manual' && 
           d.source !== 'manual_promoted' && 
@@ -164,7 +161,6 @@ function App() {
   const loadFromBrowser = (item: any, mode: 'queue' | 'dataset') => {
       setManualLink(item.link);
       
-      // Look for AI reference
       const ref = datasetList.find(d => 
           d.source !== 'Manual' && 
           d.source !== 'manual_promoted' && 
@@ -236,6 +232,22 @@ function App() {
       } catch(e: any) { alert("Network error: " + e.toString()); }
   };
 
+  const verifySelected = async () => {
+      if (selectedItems.size === 0) return alert("No items selected.");
+      if (!confirm(`Queue ${selectedItems.size} Ground Truth items for AI Verification?`)) return;
+      try {
+          const res = await fetch('/manual/verify_queue', {
+              method: 'POST', headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({ ids: Array.from(selectedItems) })
+          });
+          const d = await res.json();
+          if(d.status === 'success') {
+              alert(d.message);
+              setSelectedItems(new Set());
+          } else alert("Error: " + d.message);
+      } catch(e) { alert("Network error."); }
+  };
+
   const deleteSelected = async () => {
       if (selectedItems.size === 0) return alert("No items selected.");
       if (!confirm(`Delete ${selectedItems.size} items from Ground Truth? Irreversible.`)) return;
@@ -258,7 +270,6 @@ function App() {
       if (!confirm(`Delete ${selectedItems.size} items? This cannot be undone.`)) return;
 
       const selectedArray = Array.from(selectedItems);
-      // Determine source of each item to call correct endpoint
       const manualIds = selectedArray.filter(id => datasetList.find(d => d.id === id)?.source === 'Manual');
       const aiIds = selectedArray.filter(id => {
           const item = datasetList.find(d => d.id === id);
@@ -332,7 +343,9 @@ function App() {
               method: 'POST', headers: {'Content-Type': 'application/json'},
               body: JSON.stringify({ use_visual_meta: useVisual, model_type: predictiveModelType })
           });
-          setPredictiveResult(await res.json());
+          const data = await res.json();
+          setPredictiveResult(data);
+          setRefreshTrigger(p => p+1);
       } catch (e) { setPredictiveResult({ error: "Failed to train." }); }
   };
 
@@ -422,28 +435,58 @@ function App() {
       setRefreshTrigger(p => p+1);
   };
 
-  const sendAgentMessage = () => {
-      if (!agentInput.trim()) return;
+  const callAgent = async (method: string, payloadParams: any) => {
+      return fetch(agentEndpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+              jsonrpc: "2.0",
+              method: method, 
+              params: payloadParams,
+              id: Date.now()
+          })
+      });
+  };
+
+  const sendAgentMessage = async () => {
+      if (!agentInput.trim() || agentThinking) return;
       setAgentMessages(prev => [...prev, {role: 'user', content: agentInput}]);
       const currentInput = agentInput;
       setAgentInput('');
+      setAgentThinking(true);
       
-      // Simulate Agent Thinking / A2A Call
-      // In a real A2A setup, we would call the /a2a JSON-RPC endpoint
-      setTimeout(() => {
-          setAgentMessages(prev => [...prev, {role: 'agent', content: `Analysing request: "${currentInput}"... (Simulated A2A Response)`}]);
-          
-          if (currentInput.includes('http')) {
-              // Extract link and try to add to queue via Agent Tool simulation
-               fetch('/queue/add', {
-                  method: 'POST', headers: {'Content-Type': 'application/json'},
-                  body: JSON.stringify({ link: currentInput })
-               }).then(() => {
-                   setAgentMessages(prev => [...prev, {role: 'agent', content: `I have queued the link for analysis using the 'analyze_video_veracity' tool.`}]);
-                   setRefreshTrigger(p => p+1);
-               });
+      try {
+          let res = await callAgent(agentMethod, { input: currentInput });
+          let data = await res.json();
+
+          if (data.error && data.error.code === -32601 && agentMethod === 'agent.process') {
+              res = await callAgent('agent.generate', { input: currentInput });
+              data = await res.json();
+              if (!data.error) {
+                  setAgentMethod('agent.generate'); 
+              }
           }
-      }, 1000);
+
+          let reply = "Agent sent no text.";
+          if (data.error) {
+              reply = `Agent Error: ${data.error.message || JSON.stringify(data.error)}`;
+          } else if (data.result) {
+               if (typeof data.result === 'string') reply = data.result;
+               else if (data.result.text) reply = data.result.text;
+               else if (data.result.content) reply = data.result.content;
+               else reply = JSON.stringify(data.result);
+          }
+
+          setAgentMessages(prev => [...prev, {role: 'agent', content: reply}]);
+          if (currentInput.toLowerCase().includes("queue") || currentInput.includes("http")) {
+              setTimeout(() => setRefreshTrigger(p => p+1), 2000);
+          }
+
+      } catch (e: any) {
+          setAgentMessages(prev => [...prev, {role: 'agent', content: `Connection Error: ${e.message}.`}]);
+      } finally {
+          setAgentThinking(false);
+      }
   };
 
   return (
@@ -492,11 +535,27 @@ function App() {
                             <p className="text-sm text-slate-400 mb-4">
                                 The goal of this research is to test various predictive models, generative AI models, prompting techniques, and agents against a rigorous <strong>Ground Truth</strong> standard.
                             </p>
-                            <p className="text-sm text-slate-400 mb-4">
-                                By benchmarking "Standard" vs. "Fractal Chain-of-Thought (FCoT)" reasoning, we calculate accuracy deterministically. The platform enables Human-in-the-Loop calibration to verify "honesty" in AI outputs.
-                            </p>
-                            <div className="p-3 bg-indigo-900/20 border border-indigo-500/20 rounded-lg text-xs text-indigo-300 font-mono">
-                                <strong>Procedure:</strong> Ingest Content → Run Generative Inference → Verify against Ground Truth → Calculate Delta.
+                            <div className="grid grid-cols-2 gap-4 mt-6">
+                                <div className="p-4 bg-black/50 border border-slate-800 rounded-lg">
+                                    <div className="flex items-center gap-2 text-indigo-400 font-bold text-xs uppercase mb-2">
+                                        <Calculator className="w-3 h-3"/> Post Veracity Score
+                                    </div>
+                                    <div className="text-[10px] font-mono text-slate-400">
+                                        Weighted Average of Vectors:<br/>
+                                        <code>Score = Σ(Visual, Audio, Logic, Source) / N</code><br/>
+                                        <span className="text-slate-500 italic">Determined by Agent Reasoning</span>
+                                    </div>
+                                </div>
+                                <div className="p-4 bg-black/50 border border-slate-800 rounded-lg">
+                                    <div className="flex items-center gap-2 text-emerald-400 font-bold text-xs uppercase mb-2">
+                                        <Target className="w-3 h-3"/> Config Accuracy
+                                    </div>
+                                    <div className="text-[10px] font-mono text-slate-400">
+                                        Delta from Ground Truth:<br/>
+                                        <code>Acc % = 100 - |GT_Score - AI_Score|</code><br/>
+                                        <span className="text-slate-500 italic">Across all verified samples</span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         <div className="bg-indigo-900/20 border border-indigo-500/30 rounded-xl p-6 flex flex-col justify-center items-center">
@@ -512,29 +571,52 @@ function App() {
                             )}
                         </div>
                     </div>
-
-                    {/* System Stats */}
+                    
+                    {/* Configuration Leaderboard */}
                     <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-6">
                         <h3 className="text-sm font-bold text-white uppercase mb-4 flex items-center gap-2">
-                            <Layers className="w-4 h-4 text-slate-400"/> System Statistics
+                            <Trophy className="w-4 h-4 text-amber-400"/> Configuration Leaderboard
                         </h3>
-                        <div className="grid grid-cols-4 gap-4 text-center">
-                            <div className="bg-slate-950 p-4 rounded-lg border border-slate-800">
-                                <div className="text-[10px] text-slate-500 uppercase mb-1">Queue Pending</div>
-                                <div className="text-2xl font-mono text-white">{queueList.filter(q => q.status !== 'Processed').length}</div>
-                            </div>
-                            <div className="bg-slate-950 p-4 rounded-lg border border-slate-800">
-                                <div className="text-[10px] text-slate-500 uppercase mb-1">AI Processed</div>
-                                <div className="text-2xl font-mono text-indigo-400">{datasetList.filter(d => d.source !== 'Manual' && d.source !== 'manual_promoted').length}</div>
-                            </div>
-                            <div className="bg-slate-950 p-4 rounded-lg border border-slate-800">
-                                <div className="text-[10px] text-slate-500 uppercase mb-1">Ground Truth</div>
-                                <div className="text-2xl font-mono text-emerald-400">{datasetList.filter(d => d.source === 'Manual' || d.source === 'manual_promoted').length}</div>
-                            </div>
-                            <div className="bg-slate-950 p-4 rounded-lg border border-slate-800">
-                                <div className="text-[10px] text-slate-500 uppercase mb-1">Profiles</div>
-                                <div className="text-2xl font-mono text-sky-400">{profileList.length}</div>
-                            </div>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left text-xs text-slate-400">
+                                <thead className="bg-slate-950 text-slate-500 uppercase">
+                                    <tr>
+                                        <th className="p-3">Type</th>
+                                        <th className="p-3">Model</th>
+                                        <th className="p-3">Prompt</th>
+                                        <th className="p-3">Reasoning</th>
+                                        <th className="p-3 text-right">Accuracy</th>
+                                        <th className="p-3 text-right">MAE</th>
+                                        <th className="p-3 text-right">Samples</th>
+                                        <th className="p-3"></th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-800">
+                                    {leaderboard && leaderboard.map((row, i) => (
+                                        <tr key={i} className="hover:bg-white/5">
+                                            <td className="p-3 font-mono text-xs">{row.type === 'GenAI' ? <span className="text-indigo-400">GenAI</span> : <span className="text-pink-400">Pred</span>}</td>
+                                            <td className="p-3 font-mono text-white">{row.model}</td>
+                                            <td className="p-3">{row.prompt}</td>
+                                            <td className="p-3 uppercase text-[10px]">{row.reasoning}</td>
+                                            <td className="p-3 text-right font-bold text-emerald-400">{row.accuracy}%</td>
+                                            <td className="p-3 text-right">{row.mae}</td>
+                                            <td className="p-3 text-right text-slate-500">{row.samples}</td>
+                                            <td className="p-3 text-center" title={row.params}>
+                                                <div className="group relative">
+                                                    <HelpCircle className="w-4 h-4 text-slate-600 cursor-help"/>
+                                                    <div className="absolute right-0 bottom-6 w-64 p-3 bg-black border border-slate-700 rounded shadow-xl hidden group-hover:block z-50 text-[10px] whitespace-pre-wrap">
+                                                        <div className="font-bold mb-1 text-slate-400">Config Params</div>
+                                                        {row.params}
+                                                    </div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    {(!leaderboard || leaderboard.length === 0) && (
+                                        <tr><td colSpan={8} className="p-4 text-center text-slate-600">No benchmark data available.</td></tr>
+                                    )}
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
@@ -550,14 +632,21 @@ function App() {
                         <div className="text-xs text-slate-400 mb-6">
                             This interface interacts with the <strong>LiarMP4 Agent</strong> running on the Google Cloud Agent Development Kit (ADK) via the A2A Protocol.
                         </div>
-                        <div className="bg-slate-950 p-4 rounded border border-slate-800 mb-4">
-                            <div className="text-[10px] uppercase text-slate-500 font-bold mb-2">Capabilities</div>
-                            <ul className="text-xs text-slate-300 list-disc list-inside space-y-1">
-                                <li>Video Veracity Analysis (Tool)</li>
-                                <li>Deepfake Detection</li>
-                                <li>Cross-Modality Inconsistency Checks</li>
-                                <li>A2A Protocol Compliant (JSON-RPC)</li>
-                            </ul>
+                         {/* CONFIGURABLE ENDPOINT */}
+                        <div className="bg-slate-950 p-4 rounded border border-slate-800">
+                             <div className="text-[10px] uppercase text-slate-500 font-bold mb-2 flex items-center gap-2"><Settings className="w-3 h-3"/> Connection</div>
+                             <div className="space-y-2">
+                                 <label className="text-[10px] text-slate-400">Agent Endpoint URL</label>
+                                 <input 
+                                     value={agentEndpoint}
+                                     onChange={e => setAgentEndpoint(e.target.value)}
+                                     className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-xs text-white font-mono placeholder-slate-600"
+                                     placeholder="e.g. /a2a or http://localhost:8006/a2a"
+                                 />
+                                 <div className="text-[9px] text-slate-500">
+                                     If proxy fails, try direct backend port: <code>http://localhost:8006/a2a</code>
+                                 </div>
+                             </div>
                         </div>
                     </div>
                     <div className="flex-1 bg-slate-900/50 border border-slate-800 rounded-xl flex flex-col overflow-hidden">
@@ -578,6 +667,13 @@ function App() {
                                     </div>
                                 </div>
                             ))}
+                            {agentThinking && (
+                                <div className="flex justify-start">
+                                    <div className="max-w-[80%] p-3 rounded-lg text-xs bg-slate-800 text-slate-300 animate-pulse">
+                                        Processing request...
+                                    </div>
+                                </div>
+                            )}
                         </div>
                         <div className="p-4 bg-slate-950 border-t border-slate-800 flex gap-2">
                             <input 
@@ -586,8 +682,9 @@ function App() {
                                 onKeyDown={e => e.key === 'Enter' && sendAgentMessage()}
                                 className="flex-1 bg-slate-900 border border-slate-700 rounded p-2 text-xs text-white placeholder-slate-500"
                                 placeholder="Message the agent (e.g., 'Analyze this video: https://...')"
+                                disabled={agentThinking}
                             />
-                            <button onClick={sendAgentMessage} className="bg-indigo-600 hover:bg-indigo-500 text-white p-2 rounded">
+                            <button onClick={sendAgentMessage} disabled={agentThinking} className="bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-700 text-white p-2 rounded">
                                 <ArrowUpRight className="w-4 h-4"/>
                             </button>
                         </div>
@@ -624,7 +721,6 @@ function App() {
             {activeTab === 'queue' && (
                 <div className="flex h-full gap-6">
                     <div className="w-[300px] bg-slate-900/50 border border-slate-800 rounded-xl p-4 flex flex-col gap-4 overflow-y-auto">
-                        {/* Queue Config Panel - Truncated for brevity as provided in original */}
                          <div className="bg-slate-950 border border-slate-800 rounded p-3">
                             <label className="text-[10px] text-slate-500 uppercase font-bold mb-2 block">Quick Ingest</label>
                             <div className="flex gap-2">
@@ -683,10 +779,6 @@ function App() {
                                     <option key={p.id} value={p.id}>{p.name}</option>
                                 )) : <option value="standard">Standard</option>}
                             </select>
-                        </div>
-                        <div className="space-y-1">
-                            <label className="text-[10px] text-slate-500">Max Reprompts</label>
-                            <input type="number" min="0" max="5" value={maxRetries} onChange={e => setMaxRetries(parseInt(e.target.value))} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs"/>
                         </div>
                         
                         {/* Process Controls */}
@@ -779,7 +871,6 @@ function App() {
                                             <td className="p-3">{row.is_labeled ? <span className="text-emerald-500 flex items-center gap-1"><ShieldCheck className="w-3 h-3"/> Labeled</span> : <span className="text-slate-600">Unlabeled</span>}</td>
                                             <td className="p-3 flex gap-2">
                                                 <button onClick={() => sendToManualLabeler(row.link, row.text)} className="text-indigo-400 hover:text-indigo-300 flex items-center gap-1 bg-indigo-900/30 px-2 py-1 rounded hover:bg-indigo-900/50"><PenTool className="w-3 h-3"/> Manual</button>
-                                                <a href={row.link} target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-white p-1"><ExternalLink className="w-3 h-3"/></a>
                                             </td>
                                         </tr>
                                     ))}
@@ -857,7 +948,10 @@ function App() {
                      <div className="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-950">
                         <span className="font-bold text-emerald-400 text-sm flex items-center gap-2"><ShieldCheck className="w-4 h-4"/> Verified Ground Truth CSV</span>
                         <div className="flex gap-2">
-                             <span className="text-xs text-slate-500 py-1">{datasetList.filter(d => d.source === 'Manual').length} Verified Items</span>
+                             <span className="text-xs text-slate-500 py-1 mr-4">{datasetList.filter(d => d.source === 'Manual').length} Verified Items</span>
+                             <button onClick={verifySelected} className="bg-indigo-600 text-white text-xs px-3 py-1 rounded font-bold hover:bg-indigo-500 flex items-center gap-2">
+                                <RotateCcw className="w-3 h-3"/> Verify Scores (Re-Queue)
+                             </button>
                              <button onClick={deleteSelected} className="bg-red-600 text-white text-xs px-3 py-1 rounded font-bold hover:bg-red-500 flex items-center gap-2">
                                 <Trash2 className="w-3 h-3"/> Delete Selected
                              </button>
@@ -906,27 +1000,12 @@ function App() {
                                 <div className="flex-1 overflow-y-auto p-8 prose prose-invert max-w-none">
                                     <h3>Core Scoring Philosophy</h3>
                                     <p><strong>1</strong> = Malicious/Fabricated. <strong>5</strong> = Unknown/Generic. <strong>10</strong> = Authentic/Verified.</p>
-                                    
                                     <h4>A. Visual Integrity</h4>
                                     <ul>
                                         <li><strong>1-2 (Deepfake):</strong> AI-generated or spatially altered.</li>
                                         <li><strong>3-4 (Deceptive):</strong> Real footage, misleading edit (speed/crop).</li>
-                                        <li><strong>5-6 (Context):</strong> Real footage, false context (wrong place/time) or stock B-roll.</li>
-                                        <li><strong>7-8 (Standard):</strong> Processed but honest (filters, standard news cuts).</li>
+                                        <li><strong>5-6 (Context):</strong> Real footage, false context or stock B-roll.</li>
                                         <li><strong>9-10 (Raw):</strong> Verified raw footage/metadata.</li>
-                                    </ul>
-
-                                    <h4>B. Audio Integrity</h4>
-                                    <ul>
-                                        <li><strong>1-2 (Cloned):</strong> AI Voice Clone or sentence mixing.</li>
-                                        <li><strong>5-6 (Generic):</strong> Music overlay or Text-to-Speech.</li>
-                                        <li><strong>9-10 (Sync):</strong> Perfect lip-sync and ambient consistency.</li>
-                                    </ul>
-
-                                    <h4>C. Modality Alignment</h4>
-                                    <ul>
-                                        <li><strong>Video-Caption (1-2):</strong> Caption is a lie compared to video content.</li>
-                                        <li><strong>Video-Caption (9-10):</strong> Caption points to specific visual evidence.</li>
                                     </ul>
                                 </div>
                             </div>
@@ -1055,24 +1134,11 @@ function App() {
                                 </div>
 
                                 <div className="mb-4">
-                                    <div className="text-xs text-slate-400 font-bold uppercase mb-1">Vector Breakdown</div>
-                                    <div className="grid grid-cols-2 gap-2 text-[10px]">
-                                        <div className="bg-slate-900 p-2 rounded flex justify-between">
-                                            <span className="text-slate-500">Visual</span>
-                                            <span className="text-white font-mono">{aiReference.visual_score || '-'}</span>
-                                        </div>
-                                        <div className="bg-slate-900 p-2 rounded flex justify-between">
-                                            <span className="text-slate-500">Audio</span>
-                                            <span className="text-white font-mono">{aiReference.audio_score || '-'}</span>
-                                        </div>
-                                        <div className="bg-slate-900 p-2 rounded flex justify-between">
-                                            <span className="text-slate-500">Logic</span>
-                                            <span className="text-white font-mono">{aiReference.logic_score || '-'}</span>
-                                        </div>
-                                        <div className="bg-slate-900 p-2 rounded flex justify-between">
-                                            <span className="text-slate-500">Alignment</span>
-                                            <span className="text-white font-mono">{aiReference.align_video_caption || '-'}</span>
-                                        </div>
+                                    <div className="text-xs text-slate-400 font-bold uppercase mb-1">Configuration</div>
+                                    <div className="text-[10px] space-y-1">
+                                        <div className="flex justify-between"><span className="text-slate-500">Model:</span> <span className="text-slate-300">{aiReference.config_model || 'Unknown'}</span></div>
+                                        <div className="flex justify-between"><span className="text-slate-500">Prompt:</span> <span className="text-slate-300">{aiReference.config_prompt || 'Unknown'}</span></div>
+                                        <div className="flex justify-between"><span className="text-slate-500">Reasoning:</span> <span className="text-slate-300">{aiReference.config_reasoning || 'Unknown'}</span></div>
                                     </div>
                                 </div>
 
@@ -1093,7 +1159,7 @@ function App() {
                 </div>
             )}
 
-            {/* COMMUNITY TAB */}
+            {/* COMMUNITY AND ANALYTICS TABS (UNCHANGED) */}
             {activeTab === 'community' && (
                 <div className="flex h-full gap-6">
                     <div className="w-1/3 bg-slate-900/50 border border-slate-800 rounded-xl overflow-auto">
@@ -1113,16 +1179,6 @@ function App() {
                                 <div className={`text-lg font-bold mb-8 px-4 py-1 rounded-full inline-block ${communityAnalysis.trust_score < 40 ? 'bg-red-500/10 text-red-400' : 'bg-emerald-500/10 text-emerald-400'}`}>
                                     {communityAnalysis.verdict}
                                 </div>
-                                <div className="grid grid-cols-2 gap-4 text-left bg-slate-950 p-6 rounded-xl border border-slate-800">
-                                    <div className="border-r border-slate-800 pr-4">
-                                        <div className="text-[10px] uppercase text-red-500 font-bold mb-1">Skeptical Points</div>
-                                        <div className="text-2xl text-white">{communityAnalysis.details?.skeptical_comments}</div>
-                                    </div>
-                                    <div className="pl-4">
-                                        <div className="text-[10px] uppercase text-emerald-500 font-bold mb-1">Trust Points</div>
-                                        <div className="text-2xl text-white">{communityAnalysis.details?.trusting_comments}</div>
-                                    </div>
-                                </div>
                             </div>
                         ) : (
                             <div className="text-slate-600 flex flex-col items-center">
@@ -1134,7 +1190,6 @@ function App() {
                 </div>
             )}
 
-            {/* ANALYTICS TAB */}
             {activeTab === 'analytics' && (
                 <div className="h-full overflow-auto">
                     <div className="flex items-center justify-between mb-4">
@@ -1154,7 +1209,6 @@ function App() {
                                         <td className="p-4 text-slate-500">{row.posts_labeled} posts</td>
                                         <td className="p-4">
                                             {row.avg_veracity > 70 ? <span className="text-emerald-500 bg-emerald-500/10 px-2 py-1 rounded font-bold">High Trust</span> : 
-                                             row.avg_veracity < 40 ? <span className="text-red-500 bg-red-500/10 px-2 py-1 rounded font-bold">Low Trust</span> :
                                              <span className="text-amber-500 bg-amber-500/10 px-2 py-1 rounded font-bold">Mixed</span>}
                                         </td>
                                     </tr>

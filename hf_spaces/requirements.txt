@@ -1,0 +1,41 @@
+torch
+torchvision
+torchaudio
+# --- Core Server ---
+fastapi
+uvicorn[standard]
+python-multipart
+requests
+aiofiles
+jinja2
+python-dotenv
+
+# --- AI & Vision Processing ---
+transformers
+accelerate
+Pillow
+packaging
+av
+# Use headless to avoid installing X11/GL libraries in Docker
+opencv-python-headless
+decord
+imageio
+numpy
+einops
+
+# --- Google Cloud & APIs ---
+google-generativeai>=0.4.0
+google-cloud-aiplatform
+google-genai
+mlcroissant
+
+# --- Fine-Tuning (LoRA/QLoRA) ---
+peft
+bitsandbytes
+trl
+datasets
+
+# --- Audio ---
+openai-whisper
+yt-dlp
+ffmpeg-python

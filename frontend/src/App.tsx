@@ -10,66 +10,89 @@ import {
 
 function App() {
   const [activeTab, setActiveTab] = useState('home');
-  const [logs, setLogs] = useState<string>('System Ready.\n');
+  const[logs, setLogs] = useState<string>('System Ready.\n');
   const [isProcessing, setIsProcessing] = useState(false);
   const logContainerRef = useRef<HTMLDivElement>(null);
   
   // Processing Config State
-  const [modelProvider, setModelProvider] = useState('vertex');
+  const [modelProvider, setModelProvider] = useState('nrp');
   const [apiKey, setApiKey] = useState('');
-  const [modelName, setModelName] = useState('gemini-1.5-pro-preview-0409');
+  const [baseUrl, setBaseUrl] = useState('https://ellm.nrp-nautilus.io/v1'); // NRP Default
+  const [modelName, setModelName] = useState('qwen3'); // NRP Default
   const [projectId, setProjectId] = useState('');
   const [location, setLocation] = useState('us-central1');
-  const [includeComments, setIncludeComments] = useState(false);
-  const [reasoningMethod, setReasoningMethod] = useState('cot');
-  const [promptTemplate, setPromptTemplate] = useState('standard');
-  const [customQuery, setCustomQuery] = useState('');
-  const [maxRetries, setMaxRetries] = useState(1);
-  const [availablePrompts, setAvailablePrompts] = useState<any[]>([]);
+  const[includeComments, setIncludeComments] = useState(false);
+  const[reasoningMethod, setReasoningMethod] = useState('cot');
+  const[promptTemplate, setPromptTemplate] = useState('standard');
+  const[customQuery, setCustomQuery] = useState('');
+  const[maxRetries, setMaxRetries] = useState(1);
+  const[availablePrompts, setAvailablePrompts] = useState<any[]>([]);
 
   // Predictive Config
-  const [predictiveModelType, setPredictiveModelType] = useState('logistic');
+  const[predictiveModelType, setPredictiveModelType] = useState('logistic');
   const [predictiveResult, setPredictiveResult] = useState<any>(null);
 
   // Data States
   const [queueList, setQueueList] = useState<any[]>([]);
-  const [selectedQueueItems, setSelectedQueueItems] = useState<Set<string>>(new Set());
-  const [singleLinkInput, setSingleLinkInput] = useState(''); 
+  const[selectedQueueItems, setSelectedQueueItems] = useState<Set<string>>(new Set());
+  const[lastQueueIndex, setLastQueueIndex] = useState<number | null>(null);
+  
+  const[singleLinkInput, setSingleLinkInput] = useState(''); 
   const [profileList, setProfileList] = useState<any[]>([]);
-  const [selectedProfile, setSelectedProfile] = useState<any>(null);
+  const[selectedProfile, setSelectedProfile] = useState<any>(null);
   const [profilePosts, setProfilePosts] = useState<any[]>([]);
-  const [communityDatasets, setCommunityDatasets] = useState<any[]>([]);
-  const [communityAnalysis, setCommunityAnalysis] = useState<any>(null);
-  const [integrityBoard, setIntegrityBoard] = useState<any[]>([]);
+  const[communityDatasets, setCommunityDatasets] = useState<any[]>([]);
+  const[communityAnalysis, setCommunityAnalysis] = useState<any>(null);
+  const[integrityBoard, setIntegrityBoard] = useState<any[]>([]);
+  
   const [datasetList, setDatasetList] = useState<any[]>([]);
+  const[selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  const[lastDatasetIndex, setLastDatasetIndex] = useState<number | null>(null);
+
   const [benchmarks, setBenchmarks] = useState<any>(null);
-  const [leaderboard, setLeaderboard] = useState<any[]>([]); 
+  const[leaderboard, setLeaderboard] = useState<any[]>([]); 
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   // Tags
-  const [configuredTags, setConfiguredTags] = useState<any>({});
-  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  const[configuredTags, setConfiguredTags] = useState<any>({});
 
   // Manual Labeling State
-  const [manualLink, setManualLink] = useState('');
+  const[manualLink, setManualLink] = useState('');
   const [manualCaption, setManualCaption] = useState('');
   const [manualTags, setManualTags] = useState('');
-  const [manualReasoning, setManualReasoning] = useState('');
-  const [manualScores, setManualScores] = useState({
+  const[manualReasoning, setManualReasoning] = useState('');
+  const[manualScores, setManualScores] = useState({
       visual: 5, audio: 5, source: 5, logic: 5, emotion: 5,
       va: 5, vc: 5, ac: 5, final: 50
   });
   const [showRubric, setShowRubric] = useState(false);
-  const [aiReference, setAiReference] = useState<any>(null);
+  const[aiReference, setAiReference] = useState<any>(null);
   const [labelBrowserMode, setLabelBrowserMode] = useState<'queue' | 'dataset'>('queue');
   const [labelFilter, setLabelFilter] = useState('');
 
   // Agent Chat State
-  const [agentInput, setAgentInput] = useState('');
-  const [agentMessages, setAgentMessages] = useState<any[]>([]);
-  const [agentThinking, setAgentThinking] = useState(false);
-  const [agentEndpoint, setAgentEndpoint] = useState('/a2a');
-  const [agentMethod, setAgentMethod] = useState('agent.process');
+  const[agentInput, setAgentInput] = useState('');
+  const[agentMessages, setAgentMessages] = useState<any[]>([]);
+  const[agentThinking, setAgentThinking] = useState(false);
+  const[agentEndpoint, setAgentEndpoint] = useState('/a2a');
+  const[agentMethod, setAgentMethod] = useState('agent.process');
+  const[agentConfig, setAgentConfig] = useState({ use_search: true, use_code: false });
+
+  // Resampling configuration
+  const [resampleCount, setResampleCount] = useState<number>(1);
+  
+  // Drag Selection references
+  const isDraggingQueueRef = useRef(false);
+  const isDraggingDatasetRef = useRef(false);
+
+  useEffect(() => {
+    const handleMouseUp = () => {
+        isDraggingQueueRef.current = false;
+        isDraggingDatasetRef.current = false;
+    };
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => window.removeEventListener('mouseup', handleMouseUp);
+  },[]);
 
   const handleTagsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       setManualTags(e.target.value);
@@ -90,6 +113,7 @@ function App() {
     if (activeTab === 'queue') {
         load('/queue/list', setQueueList);
         setSelectedQueueItems(new Set());
+        setLastQueueIndex(null);
     }
     if (activeTab === 'profiles') load('/profiles/list', setProfileList);
     if (activeTab === 'community') load('/community/list_datasets', setCommunityDatasets);
@@ -98,11 +122,28 @@ function App() {
     if (activeTab === 'manual') load('/queue/list', setQueueList);
     
     setSelectedItems(new Set());
+    setLastDatasetIndex(null);
   }, [activeTab, refreshTrigger]);
 
   useEffect(() => {
     if (logContainerRef.current) logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight;
   }, [logs]);
+
+  useEffect(() => {
+      if (activeTab === 'agent' && agentMessages.length === 0) {
+          callAgent(agentMethod, { 
+              input: "hello", 
+              agent_config: { provider: modelProvider === 'gcloud' ? 'vertex' : modelProvider, api_key: apiKey, project_id: projectId } 
+          })
+          .then(res => res.json())
+          .then(data => {
+              if (data.result && data.result.text) {
+                  setAgentMessages([{role: 'agent', content: data.result.text}]);
+              }
+          })
+          .catch(e => console.error("Initial Agent Ping Failed", e));
+      }
+  }, [activeTab]);
 
   const existingTags = React.useMemo(() => {
     const tags = new Set<string>();
@@ -118,7 +159,7 @@ function App() {
         });
     }
     return Array.from(tags).sort();
-  }, [datasetList, configuredTags]);
+  },[datasetList, configuredTags]);
 
   const toggleTag = (tag: string) => {
     let current = manualTags.split(',').map(t => t.trim()).filter(Boolean);
@@ -175,12 +216,12 @@ function App() {
           setManualScores({
               visual: parseInt(item.visual_integrity_score || item.visual_score) || 5,
               audio: parseInt(item.audio_integrity_score || item.audio_score) || 5,
-              source: parseInt(item.source_credibility_score) || 5, 
+              source: parseInt(item.source_credibility_score || item.source_score) || 5, 
               logic: parseInt(item.logical_consistency_score || item.logic_score) || 5,
-              emotion: parseInt(item.emotional_manipulation_score) || 5,
-              va: parseInt(item.video_audio_score) || 5, 
+              emotion: parseInt(item.emotional_manipulation_score || item.emotion_score) || 5,
+              va: parseInt(item.video_audio_score || item.align_video_audio) || 5, 
               vc: parseInt(item.video_caption_score || item.align_video_caption) || 5,
-              ac: parseInt(item.audio_caption_score) || 5,
+              ac: parseInt(item.audio_caption_score || item.align_audio_caption) || 5,
               final: parseInt(item.final_veracity_score) || 50
           });
       } else {
@@ -193,7 +234,7 @@ function App() {
   };
 
   const editSelectedLabel = () => {
-      if(selectedItems.size !== 1) return alert("Please select exactly one item to edit.");
+      if (selectedItems.size !== 1) return alert("Please select exactly one item to edit.");
       const id = Array.from(selectedItems)[0];
       const item = datasetList.find(d => d.id === id);
       if(!item) return;
@@ -201,18 +242,36 @@ function App() {
       setActiveTab('manual');
   };
 
-  const toggleSelection = (id: string) => {
-      const newSet = new Set(selectedItems);
-      if (newSet.has(id)) newSet.delete(id);
-      else newSet.add(id);
+  const toggleSelection = (e: React.MouseEvent, id: string, index: number, list: any[]) => {
+      let newSet = new Set(selectedItems);
+      if (e.shiftKey && lastDatasetIndex !== null && lastDatasetIndex !== index) {
+          const start = Math.min(lastDatasetIndex, index);
+          const end = Math.max(lastDatasetIndex, index);
+          for (let i = start; i <= end; i++) {
+              newSet.add(list[i].id);
+          }
+      } else {
+          if (newSet.has(id)) newSet.delete(id);
+          else newSet.add(id);
+      }
       setSelectedItems(newSet);
+      setLastDatasetIndex(index);
   };
   
-  const toggleQueueSelection = (link: string) => {
-      const newSet = new Set(selectedQueueItems);
-      if (newSet.has(link)) newSet.delete(link);
-      else newSet.add(link);
+  const toggleQueueSelection = (e: React.MouseEvent, link: string, index: number, list: any[]) => {
+      let newSet = new Set(selectedQueueItems);
+      if (e.shiftKey && lastQueueIndex !== null && lastQueueIndex !== index) {
+          const start = Math.min(lastQueueIndex, index);
+          const end = Math.max(lastQueueIndex, index);
+          for (let i = start; i <= end; i++) {
+              newSet.add(list[i].link);
+          }
+      } else {
+          if (newSet.has(link)) newSet.delete(link);
+          else newSet.add(link);
+      }
       setSelectedQueueItems(newSet);
+      setLastQueueIndex(index);
   };
 
   const promoteSelected = async () => {
@@ -234,16 +293,18 @@ function App() {
 
   const verifySelected = async () => {
       if (selectedItems.size === 0) return alert("No items selected.");
-      if (!confirm(`Queue ${selectedItems.size} Ground Truth items for AI Verification?`)) return;
+      if (!confirm(`Queue ${selectedItems.size} Ground Truth items for AI Verification Pipeline?`)) return;
       try {
           const res = await fetch('/manual/verify_queue', {
               method: 'POST', headers: {'Content-Type': 'application/json'},
-              body: JSON.stringify({ ids: Array.from(selectedItems) })
+              body: JSON.stringify({ ids: Array.from(selectedItems), resample_count: resampleCount })
           });
           const d = await res.json();
           if(d.status === 'success') {
               alert(d.message);
               setSelectedItems(new Set());
+              setActiveTab('queue');
+              setRefreshTrigger(p => p+1);
           } else alert("Error: " + d.message);
       } catch(e) { alert("Network error."); }
   };
@@ -386,6 +447,23 @@ function App() {
       } catch(e) { alert("Error clearing queue."); }
   };
   
+  const requeueItems = async () => {
+      if(selectedQueueItems.size === 0) return alert("No items selected.");
+      if(!confirm(`Requeue ${selectedQueueItems.size} items? Their status will reset to Pending for processing.`)) return;
+      try {
+          const res = await fetch('/queue/requeue', {
+              method: 'POST', headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({ links: Array.from(selectedQueueItems) })
+          });
+          const d = await res.json();
+          if(d.status === 'success') {
+              alert(`Requeued ${d.count} items.`);
+              setSelectedQueueItems(new Set());
+              setRefreshTrigger(p => p+1);
+          }
+      } catch(e) { alert("Error requeuing items."); }
+  };
+
   const deleteQueueItems = async () => {
       if(selectedQueueItems.size === 0) return alert("No items selected.");
       if(!confirm(`Remove ${selectedQueueItems.size} items from queue?`)) return;
@@ -414,11 +492,25 @@ function App() {
       setIsProcessing(true);
       setLogs(prev => prev + '\n[SYSTEM] Starting Queue Processing...\n');
       const fd = new FormData();
-      fd.append('model_selection', modelProvider); fd.append('gemini_api_key', apiKey);
-      fd.append('gemini_model_name', modelName); fd.append('vertex_project_id', projectId);
-      fd.append('vertex_location', location); fd.append('vertex_model_name', modelName);
-      fd.append('include_comments', includeComments.toString()); fd.append('reasoning_method', reasoningMethod);
-      fd.append('prompt_template', promptTemplate); fd.append('custom_query', customQuery);
+      
+      const activeProvider = modelProvider === 'gcloud' ? 'vertex' : modelProvider;
+      fd.append('model_selection', activeProvider); 
+      fd.append('gemini_api_key', apiKey);
+      fd.append('gemini_model_name', modelName); 
+      fd.append('vertex_project_id', projectId);
+      fd.append('vertex_location', location); 
+      fd.append('vertex_model_name', modelName); 
+      fd.append('vertex_api_key', apiKey);
+      
+      // Provide generic NRP configs
+      fd.append('nrp_api_key', apiKey);
+      fd.append('nrp_model_name', modelName);
+      fd.append('nrp_base_url', baseUrl);
+
+      fd.append('include_comments', includeComments.toString()); 
+      fd.append('reasoning_method', reasoningMethod);
+      fd.append('prompt_template', promptTemplate); 
+      fd.append('custom_query', customQuery);
       fd.append('max_reprompts', maxRetries.toString());
 
       try {
@@ -450,17 +542,29 @@ function App() {
 
   const sendAgentMessage = async () => {
       if (!agentInput.trim() || agentThinking) return;
-      setAgentMessages(prev => [...prev, {role: 'user', content: agentInput}]);
+      setAgentMessages(prev =>[...prev, {role: 'user', content: agentInput}]);
       const currentInput = agentInput;
       setAgentInput('');
       setAgentThinking(true);
       
       try {
-          let res = await callAgent(agentMethod, { input: currentInput });
+          const fullAgentConfig = {
+              ...agentConfig,
+              provider: modelProvider === 'gcloud' ? 'vertex' : modelProvider,
+              api_key: apiKey,
+              base_url: baseUrl,
+              project_id: projectId,
+              location: location,
+              model_name: modelName,
+              reasoning_method: reasoningMethod,
+              prompt_template: promptTemplate
+          };
+
+          let res = await callAgent(agentMethod, { input: currentInput, agent_config: fullAgentConfig });
           let data = await res.json();
 
           if (data.error && data.error.code === -32601 && agentMethod === 'agent.process') {
-              res = await callAgent('agent.generate', { input: currentInput });
+              res = await callAgent('agent.generate', { input: currentInput, agent_config: fullAgentConfig });
               data = await res.json();
               if (!data.error) {
                   setAgentMethod('agent.generate'); 
@@ -475,15 +579,22 @@ function App() {
                else if (data.result.text) reply = data.result.text;
                else if (data.result.content) reply = data.result.content;
                else reply = JSON.stringify(data.result);
+               
+               if (data.result.update_config) {
+                   const cfg = data.result.update_config;
+                   if (cfg.provider) setModelProvider(cfg.provider);
+                   if (cfg.api_key) setApiKey(cfg.api_key);
+                   if (cfg.project_id) setProjectId(cfg.project_id);
+               }
           }
 
-          setAgentMessages(prev => [...prev, {role: 'agent', content: reply}]);
+          setAgentMessages(prev =>[...prev, {role: 'agent', content: reply}]);
           if (currentInput.toLowerCase().includes("queue") || currentInput.includes("http")) {
               setTimeout(() => setRefreshTrigger(p => p+1), 2000);
           }
 
       } catch (e: any) {
-          setAgentMessages(prev => [...prev, {role: 'agent', content: `Connection Error: ${e.message}.`}]);
+          setAgentMessages(prev =>[...prev, {role: 'agent', content: `Connection Error: ${e.message}.`}]);
       } finally {
           setAgentThinking(false);
       }
@@ -538,22 +649,23 @@ function App() {
                             <div className="grid grid-cols-2 gap-4 mt-6">
                                 <div className="p-4 bg-black/50 border border-slate-800 rounded-lg">
                                     <div className="flex items-center gap-2 text-indigo-400 font-bold text-xs uppercase mb-2">
-                                        <Calculator className="w-3 h-3"/> Post Veracity Score
+                                        <Calculator className="w-3 h-3"/> AI Generated Label Score
                                     </div>
-                                    <div className="text-[10px] font-mono text-slate-400">
-                                        Weighted Average of Vectors:<br/>
-                                        <code>Score = Σ(Visual, Audio, Logic, Source) / N</code><br/>
-                                        <span className="text-slate-500 italic">Determined by Agent Reasoning</span>
+                                    <div className="text-[10px] font-mono text-slate-400 leading-relaxed">
+                                        Formula to calculate the overall veracity score for each post:<br/><br/>
+                                        <code className="text-indigo-300 bg-indigo-950/30 p-1 rounded block mb-2">S_final = ((w1*V_vis + w2*V_aud + w3*V_src) / 3) * min(1, M_vc / 5) * 10</code>
+                                        <span className="text-slate-500 italic mt-2 block">Applies the Recontextualization Penalty based on Alignment metrics. Stored in dataset.csv.</span>
                                     </div>
                                 </div>
                                 <div className="p-4 bg-black/50 border border-slate-800 rounded-lg">
                                     <div className="flex items-center gap-2 text-emerald-400 font-bold text-xs uppercase mb-2">
-                                        <Target className="w-3 h-3"/> Config Accuracy
+                                        <Target className="w-3 h-3"/> AI Config Accuracy Formula
                                     </div>
-                                    <div className="text-[10px] font-mono text-slate-400">
-                                        Delta from Ground Truth:<br/>
-                                        <code>Acc % = 100 - |GT_Score - AI_Score|</code><br/>
-                                        <span className="text-slate-500 italic">Across all verified samples</span>
+                                    <div className="text-[10px] font-mono text-slate-400 leading-relaxed">
+                                        Formula to calculate the overall score for how accurate the config combination is (based on difference against Ground Truth):<br/><br/>
+                                        <code className="text-emerald-300 bg-emerald-950/30 p-1 rounded block mb-1">Composite MAE = Mean Absolute Error across all 8 sub-vectors</code>
+                                        <code className="text-emerald-300 bg-emerald-950/30 p-1 rounded block">Binary Accuracy = Σ(Predict_bin == GT_bin) / N * 100</code>
+                                        <span className="text-slate-500 italic mt-2 block">Evaluates agent parameters & prompt efficacy against comprehensive factors.</span>
                                     </div>
                                 </div>
                             </div>
@@ -563,7 +675,8 @@ function App() {
                             {benchmarks ? (
                                 <>
                                     <div className="text-5xl font-mono font-bold text-white mb-2">{benchmarks.accuracy_percent}%</div>
-                                    <div className="text-xs text-slate-500">MAE: {benchmarks.mae} points</div>
+                                    <div className="text-xs text-slate-500 mb-1">Comp MAE: {benchmarks.mae} points</div>
+                                    <div className="text-[10px] text-emerald-400 font-bold mb-2">Tag Acc: {benchmarks.tag_accuracy_percent}%</div>
                                     <div className="text-xs text-slate-500 mt-2">{benchmarks.count} verified samples</div>
                                 </>
                             ) : (
@@ -575,7 +688,7 @@ function App() {
                     {/* Configuration Leaderboard */}
                     <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-6">
                         <h3 className="text-sm font-bold text-white uppercase mb-4 flex items-center gap-2">
-                            <Trophy className="w-4 h-4 text-amber-400"/> Configuration Leaderboard
+                            <Trophy className="w-4 h-4 text-amber-400"/> Automated Hill Climbing (Leaderboard)
                         </h3>
                         <div className="overflow-x-auto">
                             <table className="w-full text-left text-xs text-slate-400">
@@ -585,8 +698,10 @@ function App() {
                                         <th className="p-3">Model</th>
                                         <th className="p-3">Prompt</th>
                                         <th className="p-3">Reasoning</th>
-                                        <th className="p-3 text-right">Accuracy</th>
-                                        <th className="p-3 text-right">MAE</th>
+                                        <th className="p-3 text-center">FCoT Depth</th>
+                                        <th className="p-3 text-right text-emerald-400">Accuracy</th>
+                                        <th className="p-3 text-right">Comp. MAE</th>
+                                        <th className="p-3 text-right">Tag Acc</th>
                                         <th className="p-3 text-right">Samples</th>
                                         <th className="p-3"></th>
                                     </tr>
@@ -598,13 +713,15 @@ function App() {
                                             <td className="p-3 font-mono text-white">{row.model}</td>
                                             <td className="p-3">{row.prompt}</td>
                                             <td className="p-3 uppercase text-[10px]">{row.reasoning}</td>
+                                            <td className="p-3 text-center text-slate-400 font-mono">{row.fcot_depth ?? 0}</td>
                                             <td className="p-3 text-right font-bold text-emerald-400">{row.accuracy}%</td>
-                                            <td className="p-3 text-right">{row.mae}</td>
+                                            <td className="p-3 text-right font-mono text-amber-400">{row.comp_mae}</td>
+                                            <td className="p-3 text-right">{row.tag_acc}%</td>
                                             <td className="p-3 text-right text-slate-500">{row.samples}</td>
                                             <td className="p-3 text-center" title={row.params}>
                                                 <div className="group relative">
                                                     <HelpCircle className="w-4 h-4 text-slate-600 cursor-help"/>
-                                                    <div className="absolute right-0 bottom-6 w-64 p-3 bg-black border border-slate-700 rounded shadow-xl hidden group-hover:block z-50 text-[10px] whitespace-pre-wrap">
+                                                    <div className="absolute right-0 bottom-6 w-64 p-3 bg-black border border-slate-700 rounded shadow-xl hidden group-hover:block z-50 text-[10px] whitespace-pre-wrap text-left">
                                                         <div className="font-bold mb-1 text-slate-400">Config Params</div>
                                                         {row.params}
                                                     </div>
@@ -613,7 +730,7 @@ function App() {
                                         </tr>
                                     ))}
                                     {(!leaderboard || leaderboard.length === 0) && (
-                                        <tr><td colSpan={8} className="p-4 text-center text-slate-600">No benchmark data available.</td></tr>
+                                        <tr><td colSpan={10} className="p-4 text-center text-slate-600">No benchmark data available.</td></tr>
                                     )}
                                 </tbody>
                             </table>
@@ -625,44 +742,138 @@ function App() {
             {/* AGENT NEXUS TAB */}
             {activeTab === 'agent' && (
                 <div className="flex h-full gap-6">
-                    <div className="w-1/3 bg-slate-900/50 border border-slate-800 rounded-xl p-6 flex flex-col">
-                        <h2 className="text-lg font-bold text-white flex items-center gap-2 mb-4">
-                            <BrainCircuit className="w-5 h-5 text-indigo-400"/> Agent Configuration
-                        </h2>
-                        <div className="text-xs text-slate-400 mb-6">
-                            This interface interacts with the <strong>LiarMP4 Agent</strong> running on the Google Cloud Agent Development Kit (ADK) via the A2A Protocol.
-                        </div>
-                         {/* CONFIGURABLE ENDPOINT */}
-                        <div className="bg-slate-950 p-4 rounded border border-slate-800">
-                             <div className="text-[10px] uppercase text-slate-500 font-bold mb-2 flex items-center gap-2"><Settings className="w-3 h-3"/> Connection</div>
-                             <div className="space-y-2">
-                                 <label className="text-[10px] text-slate-400">Agent Endpoint URL</label>
-                                 <input 
-                                     value={agentEndpoint}
-                                     onChange={e => setAgentEndpoint(e.target.value)}
-                                     className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-xs text-white font-mono placeholder-slate-600"
-                                     placeholder="e.g. /a2a or http://localhost:8006/a2a"
-                                 />
-                                 <div className="text-[9px] text-slate-500">
-                                     If proxy fails, try direct backend port: <code>http://localhost:8006/a2a</code>
+                    <div className="w-1/3 overflow-y-auto pr-2 flex flex-col gap-4">
+                        <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-6 flex flex-col">
+                            <h2 className="text-lg font-bold text-white flex items-center gap-2 mb-4">
+                                <BrainCircuit className="w-5 h-5 text-indigo-400"/> Agent Configuration
+                            </h2>
+                            <div className="text-xs text-slate-400 mb-6">
+                                This interface interacts with the <strong>LiarMP4 Agent</strong> running on the Google Cloud Agent Development Kit (ADK) via the A2A Protocol. You can instruct the agent to change configs directly in chat.
+                            </div>
+                            <div className="bg-slate-950 p-4 rounded border border-slate-800">
+                                 <div className="text-[10px] uppercase text-slate-500 font-bold mb-2 flex items-center gap-2"><Settings className="w-3 h-3"/> Connection</div>
+                                 <div className="space-y-2">
+                                     <label className="text-[10px] text-slate-400">Agent Endpoint URL</label>
+                                     <input 
+                                         value={agentEndpoint}
+                                         onChange={e => setAgentEndpoint(e.target.value)}
+                                         className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-xs text-white font-mono placeholder-slate-600"
+                                         placeholder="e.g. /a2a"
+                                     />
                                  </div>
-                             </div>
+                            </div>
+                        </div>
+
+                        <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-800">
+                            <div className="text-[10px] uppercase text-slate-500 font-bold mb-2 flex items-center gap-2"><Settings className="w-3 h-3"/> Inference Config</div>
+                            <div className="space-y-2">
+                                <label className="text-[10px] text-slate-500">Provider</label>
+                                <select value={modelProvider} onChange={e => setModelProvider(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white">
+                                    <option value="vertex">Vertex AI (Enterprise)</option>
+                                    <option value="gemini">Gemini API (Public)</option>
+                                    <option value="gcloud">Google Cloud (Project + API Key)</option>
+                                    <option value="nrp">NRP (Nautilus Envoy Gateway)</option>
+                                </select>
+                                
+                                {modelProvider === 'vertex' && (
+                                    <>
+                                        <input value={projectId} onChange={e => setProjectId(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white placeholder-slate-600" placeholder="gcp-project-id"/>
+                                        <input value={location} onChange={e => setLocation(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white placeholder-slate-600" placeholder="us-central1"/>
+                                    </>
+                                )}
+                                {modelProvider === 'gemini' && (
+                                    <input type="password" value={apiKey} onChange={e => setApiKey(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white placeholder-slate-600" placeholder="API Key"/>
+                                )}
+                                {modelProvider === 'gcloud' && (
+                                    <>
+                                        <input value={projectId} onChange={e => setProjectId(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white placeholder-slate-600" placeholder="Project Name / ID"/>
+                                        <input type="password" value={apiKey} onChange={e => setApiKey(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white placeholder-slate-600" placeholder="API Key"/>
+                                        <input value={location} onChange={e => setLocation(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white placeholder-slate-600" placeholder="us-central1"/>
+                                    </>
+                                )}
+                                {modelProvider === 'nrp' && (
+                                    <>
+                                        <div className="space-y-1">
+                                            <input value={baseUrl} onChange={e => setBaseUrl(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white placeholder-slate-600" placeholder="https://ellm.nrp-nautilus.io/v1"/>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <input type="password" value={apiKey} onChange={e => setApiKey(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white placeholder-slate-600" placeholder="NRP API Token"/>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <select value={modelName} onChange={e => setModelName(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white">
+                                                <option value="qwen3">qwen3 (Multimodal)</option>
+                                                <option value="gpt-oss">gpt-oss</option>
+                                                <option value="kimi">kimi</option>
+                                                <option value="glm-4.7">glm-4.7</option>
+                                                <option value="minimax-m2">minimax-m2</option>
+                                                <option value="glm-v">glm-v (Multimodal)</option>
+                                                <option value="gemma3">gemma3 (Multimodal)</option>
+                                            </select>
+                                        </div>
+                                    </>
+                                )}
+                                
+                                {modelProvider !== 'nrp' && (
+                                    <div className="space-y-1">
+                                        <input value={modelName} onChange={e => setModelName(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white placeholder-slate-600" placeholder="Model Name"/>
+                                    </div>
+                                )}
+
+                                <select value={reasoningMethod} onChange={e => setReasoningMethod(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white">
+                                    <option value="cot">Standard Chain of Thought</option>
+                                    <option value="fcot">Fractal Chain of Thought</option>
+                                </select>
+                                <select value={promptTemplate} onChange={e => setPromptTemplate(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white">
+                                    {availablePrompts.length > 0 ? availablePrompts.map(p => (
+                                        <option key={p.id} value={p.id}>{p.name}</option>
+                                    )) : <option value="standard">Standard</option>}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-800">
+                            <div className="text-[10px] uppercase text-slate-500 font-bold mb-2 flex items-center gap-2"><Zap className="w-3 h-3"/> Agent Capabilities</div>
+                            <ul className="text-xs text-slate-400 space-y-1 pl-4 list-disc">
+                                <li>Process raw video & audio modalities via A2A</li>
+                                <li>Fetch & analyze comment sentiment and community context</li>
+                                <li>Run full Factuality pipeline (FCoT) & Generate Veracity Vectors</li>
+                                <li>Automatically save raw AI Labeled JSON files & sync to Data Manager</li>
+                                <li>Verify and compare AI outputs against Ground Truth</li>
+                                <li>Reprompt dynamically for missing scores or incomplete data</li>
+                            </ul>
+                        </div>
+                        
+                        <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-800">
+                            <div className="text-[10px] uppercase text-slate-500 font-bold mb-2 flex items-center gap-2"><Cpu className="w-3 h-3"/> Active Tools</div>
+                            <div className="space-y-2">
+                                <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
+                                    <input type="checkbox" className="accent-indigo-500" checked={agentConfig.use_search} onChange={e => setAgentConfig({...agentConfig, use_search: e.target.checked})} />
+                                    Enable Google Search Retrieval
+                                </label>
+                                <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
+                                    <input type="checkbox" className="accent-indigo-500" checked={agentConfig.use_code} onChange={e => setAgentConfig({...agentConfig, use_code: e.target.checked})} />
+                                    Enable Code Execution Environment
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-800 mb-6">
+                            <div className="text-[10px] uppercase text-slate-500 font-bold mb-2 flex items-center gap-2"><MessageSquare className="w-3 h-3"/> Quick Commands</div>
+                            <div className="flex flex-col gap-2">
+                                <button onClick={() => setAgentInput("Set provider to gemini")} className="text-left text-[10px] text-indigo-400 hover:text-indigo-300 bg-indigo-900/20 p-2 rounded border border-indigo-500/30">"Set provider to Gemini"</button>
+                                <button onClick={() => setAgentInput("Run full pipeline on ")} className="text-left text-[10px] text-indigo-400 hover:text-indigo-300 bg-indigo-900/20 p-2 rounded border border-indigo-500/30">"Run full pipeline on [URL]"</button>
+                            </div>
                         </div>
                     </div>
+
                     <div className="flex-1 bg-slate-900/50 border border-slate-800 rounded-xl flex flex-col overflow-hidden">
                         <div className="p-4 border-b border-slate-800 bg-slate-950/50">
                             <div className="text-xs font-bold text-white">Agent Interaction (A2A)</div>
                         </div>
                         <div className="flex-1 p-4 overflow-y-auto space-y-4">
-                            {agentMessages.length === 0 && (
-                                <div className="text-center text-slate-600 mt-20">
-                                    <Bot className="w-12 h-12 mx-auto mb-2 opacity-20"/>
-                                    <div>Ready to assist. Paste a link to analyze.</div>
-                                </div>
-                            )}
                             {agentMessages.map((m, i) => (
                                 <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                                    <div className={`max-w-[80%] p-3 rounded-lg text-xs ${m.role === 'user' ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-300'}`}>
+                                    <div className={`max-w-[80%] p-3 rounded-lg text-xs ${m.role === 'user' ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-300'} whitespace-pre-wrap`}>
                                         {m.content}
                                     </div>
                                 </div>
@@ -670,7 +881,7 @@ function App() {
                             {agentThinking && (
                                 <div className="flex justify-start">
                                     <div className="max-w-[80%] p-3 rounded-lg text-xs bg-slate-800 text-slate-300 animate-pulse">
-                                        Processing request...
+                                        Processing request through pipeline...
                                     </div>
                                 </div>
                             )}
@@ -742,39 +953,87 @@ function App() {
                             <select value={modelProvider} onChange={e => setModelProvider(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white">
                                 <option value="vertex">Vertex AI (Enterprise)</option>
                                 <option value="gemini">Gemini API (Public)</option>
+                                <option value="gcloud">Google Cloud (Project + API Key)</option>
+                                <option value="nrp">NRP (Nautilus Envoy Gateway)</option>
                             </select>
                         </div>
-                        {modelProvider === 'vertex' ? (
+                        {modelProvider === 'vertex' && (
                             <>
                                 <div className="space-y-1">
                                     <label className="text-[10px] text-slate-500">Project ID</label>
-                                    <input value={projectId} onChange={e => setProjectId(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs" placeholder="gcp-project-id"/>
+                                    <input value={projectId} onChange={e => setProjectId(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white" placeholder="gcp-project-id"/>
                                 </div>
                                 <div className="space-y-1">
                                     <label className="text-[10px] text-slate-500">Location</label>
-                                    <input value={location} onChange={e => setLocation(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs" placeholder="us-central1"/>
+                                    <input value={location} onChange={e => setLocation(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white" placeholder="us-central1"/>
                                 </div>
                             </>
-                        ) : (
+                        )}
+                        {modelProvider === 'gemini' && (
                             <div className="space-y-1">
                                 <label className="text-[10px] text-slate-500">API Key</label>
-                                <input type="password" value={apiKey} onChange={e => setApiKey(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs" placeholder="AIzaSy..."/>
+                                <input type="password" value={apiKey} onChange={e => setApiKey(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white" placeholder="AIzaSy..."/>
                             </div>
                         )}
-                        <div className="space-y-1">
-                            <label className="text-[10px] text-slate-500">Model Name</label>
-                            <input value={modelName} onChange={e => setModelName(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs"/>
-                        </div>
+                        {modelProvider === 'gcloud' && (
+                            <>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] text-slate-500">Project Name / ID</label>
+                                    <input value={projectId} onChange={e => setProjectId(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white" placeholder="gcp-project-id"/>
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] text-slate-500">API Key</label>
+                                    <input type="password" value={apiKey} onChange={e => setApiKey(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white" placeholder="AIzaSy..."/>
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] text-slate-500">Location</label>
+                                    <input value={location} onChange={e => setLocation(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white" placeholder="us-central1"/>
+                                </div>
+                            </>
+                        )}
+                        {modelProvider === 'nrp' && (
+                            <>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] text-slate-500">API Base URL</label>
+                                    <input value={baseUrl} onChange={e => setBaseUrl(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white placeholder-slate-600" placeholder="https://ellm.nrp-nautilus.io/v1"/>
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] text-slate-500">API Key</label>
+                                    <input type="password" value={apiKey} onChange={e => setApiKey(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white placeholder-slate-600" placeholder="NRP API Token"/>
+                                </div>
+                            </>
+                        )}
+
+                        {modelProvider === 'nrp' ? (
+                            <div className="space-y-1">
+                                <label className="text-[10px] text-slate-500">Model Name</label>
+                                <select value={modelName} onChange={e => setModelName(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white">
+                                    <option value="qwen3">qwen3 (Multimodal)</option>
+                                    <option value="gpt-oss">gpt-oss</option>
+                                    <option value="kimi">kimi</option>
+                                    <option value="glm-4.7">glm-4.7</option>
+                                    <option value="minimax-m2">minimax-m2</option>
+                                    <option value="glm-v">glm-v (Multimodal)</option>
+                                    <option value="gemma3">gemma3 (Multimodal)</option>
+                                </select>
+                            </div>
+                        ) : (
+                            <div className="space-y-1">
+                                <label className="text-[10px] text-slate-500">Model Name</label>
+                                <input value={modelName} onChange={e => setModelName(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white"/>
+                            </div>
+                        )}
+
                         <div className="space-y-1">
                             <label className="text-[10px] text-slate-500">Reasoning Method</label>
-                            <select value={reasoningMethod} onChange={e => setReasoningMethod(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs">
+                            <select value={reasoningMethod} onChange={e => setReasoningMethod(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white">
                                 <option value="cot">Standard Chain of Thought</option>
                                 <option value="fcot">Fractal Chain of Thought</option>
                             </select>
                         </div>
                         <div className="space-y-1">
                             <label className="text-[10px] text-slate-500">Prompt Persona</label>
-                            <select value={promptTemplate} onChange={e => setPromptTemplate(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs">
+                            <select value={promptTemplate} onChange={e => setPromptTemplate(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white">
                                 {availablePrompts.length > 0 ? availablePrompts.map(p => (
                                     <option key={p.id} value={p.id}>{p.name}</option>
                                 )) : <option value="standard">Standard</option>}
@@ -796,27 +1055,45 @@ function App() {
                             <button onClick={clearProcessed} className="flex-1 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded font-bold text-[10px] flex items-center justify-center gap-1">
                                  <Trash2 className="w-3 h-3"/> Clear Done
                             </button>
+                            <button onClick={requeueItems} className="flex-1 py-2 bg-sky-900/50 hover:bg-sky-900 text-sky-300 border border-sky-900 rounded font-bold text-[10px] flex items-center justify-center gap-1">
+                                 <RotateCcw className="w-3 h-3"/> Requeue Sel.
+                            </button>
                             <button onClick={deleteQueueItems} className="flex-1 py-2 bg-red-900/50 hover:bg-red-900 text-red-300 border border-red-900 rounded font-bold text-[10px] flex items-center justify-center gap-1">
-                                 <Trash2 className="w-3 h-3"/> Delete Sel
+                                 <Trash2 className="w-3 h-3"/> Delete Sel.
                             </button>
                         </div>
                     </div>
                     <div className="flex-1 flex flex-col gap-4 overflow-hidden">
                         <div className="flex-1 bg-slate-900/30 border border-slate-800 rounded-xl overflow-auto">
-                            <table className="w-full text-left text-xs text-slate-400">
+                            <table className="w-full text-left text-xs text-slate-400 select-none">
                                 <thead className="bg-slate-950 sticky top-0">
                                     <tr>
                                         <th className="p-3 w-8"><Square className="w-4 h-4 text-slate-600"/></th>
+                                        <th className="p-3">Type</th>
                                         <th className="p-3">Link</th>
                                         <th className="p-3">Status</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {queueList.map((q, i) => (
-                                        <tr key={i} className={`border-t border-slate-800/50 hover:bg-white/5 ${selectedQueueItems.has(q.link) ? 'bg-indigo-900/20' : ''}`}>
-                                            <td className="p-3 cursor-pointer" onClick={() => toggleQueueSelection(q.link)}>
+                                    {queueList.map((q, i, arr) => (
+                                        <tr 
+                                            key={i} 
+                                            className={`border-t border-slate-800/50 hover:bg-white/5 ${selectedQueueItems.has(q.link) ? 'bg-indigo-900/20' : ''}`}
+                                            onMouseDown={(e) => {
+                                                isDraggingQueueRef.current = true;
+                                                toggleQueueSelection(e, q.link, i, arr);
+                                            }}
+                                            onMouseEnter={() => {
+                                                if (isDraggingQueueRef.current && !selectedQueueItems.has(q.link)) {
+                                                    setSelectedQueueItems(prev => new Set(prev).add(q.link));
+                                                    setLastQueueIndex(i);
+                                                }
+                                            }}
+                                        >
+                                            <td className="p-3 cursor-pointer">
                                                 {selectedQueueItems.has(q.link) ? <CheckSquare className="w-4 h-4 text-indigo-400"/> : <Square className="w-4 h-4 text-slate-600"/>}
                                             </td>
+                                            <td className="p-3 font-bold text-[10px]">{q.task_type === 'Verify' ? <span className="text-amber-400">VERIFY</span> : <span className="text-slate-500">INGEST</span>}</td>
                                             <td className="p-3 text-sky-500 font-mono break-all">{q.link}</td>
                                             <td className="p-3">
                                                 {q.status === 'Processed' ? 
@@ -844,7 +1121,7 @@ function App() {
                         <div className="flex-1 overflow-auto">
                             {profileList.map((p, i) => (
                                 <div key={i} onClick={() => loadProfilePosts(p.username)} 
-                                    className={`p-3 border-b border-slate-800/50 cursor-pointer hover:bg-white/5 ${selectedProfile===p.username ? 'bg-indigo-900/20 border-l-2 border-indigo-500' : ''}`}>
+                                    className={`p-3 border-b border-slate-800/50 cursor-pointer hover:bg-white/5 ${selectedProfile===p.username ? 'bg-indigo-900/20 border-l-2 border-indigo-500': ''}`}>
                                     <div className="text-sm font-bold text-white">@{p.username}</div>
                                     <div className="text-[10px] text-slate-500">{p.posts_count} posts stored</div>
                                 </div>
@@ -908,30 +1185,56 @@ function App() {
                         </div>
                     </div>
                     <div className="flex-1 overflow-auto">
-                        <table className="w-full text-left text-xs text-slate-400">
+                        <table className="w-full text-left text-xs text-slate-400 select-none">
                             <thead className="bg-slate-950 sticky top-0">
                                 <tr>
                                     <th className="p-3 w-8"><Square className="w-4 h-4 text-slate-600"/></th>
                                     <th className="p-3">Source</th>
                                     <th className="p-3">ID</th>
+                                    <th className="p-3">Config</th>
                                     <th className="p-3">Caption</th>
                                     <th className="p-3">Score</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-800">
-                                {datasetList.map((row, i) => (
-                                    <tr key={i} className={`hover:bg-white/5 ${selectedItems.has(row.id) ? 'bg-indigo-900/20' : ''} ${row.source==='Manual'?'bg-emerald-900/5':''}`}>
-                                        <td className="p-3 cursor-pointer" onClick={() => toggleSelection(row.id)}>
+                                {datasetList.map((row, i, arr) => (
+                                    <tr 
+                                        key={i} 
+                                        className={`hover:bg-white/5 ${selectedItems.has(row.id) ? 'bg-indigo-900/20' : ''} ${row.source==='Manual'?'bg-emerald-900/5':''}`}
+                                        onMouseDown={(e) => {
+                                            isDraggingDatasetRef.current = true;
+                                            toggleSelection(e, row.id, i, arr);
+                                        }}
+                                        onMouseEnter={() => {
+                                            if (isDraggingDatasetRef.current && !selectedItems.has(row.id)) {
+                                                setSelectedItems(prev => new Set(prev).add(row.id));
+                                                setLastDatasetIndex(i);
+                                            }
+                                        }}
+                                    >
+                                        <td className="p-3 cursor-pointer">
                                             {selectedItems.has(row.id) ? <CheckSquare className="w-4 h-4 text-indigo-400"/> : <Square className="w-4 h-4 text-slate-600"/>}
                                         </td>
                                         <td className="p-3">
                                             {row.source === 'Manual' ? (
                                                 <span className="text-emerald-400 text-[10px] font-bold border border-emerald-900 bg-emerald-900/20 px-1 rounded">MANUAL</span>
                                             ) : (
-                                                <span className="text-indigo-400 text-[10px] font-bold border border-indigo-900 bg-indigo-900/20 px-1 rounded">AI</span>
+                                                <div className="flex flex-col gap-1">
+                                                    <span className="text-indigo-400 text-[10px] font-bold border border-indigo-900 bg-indigo-900/20 px-1 rounded w-fit">AI</span>
+                                                </div>
                                             )}
                                         </td>
                                         <td className="p-3 font-mono text-slate-500">{row.id}</td>
+                                        <td className="p-3 text-[10px] text-slate-400">
+                                            {row.source !== 'Manual' ? (
+                                                <>
+                                                    <div className="font-bold text-slate-300">{row.config_model || 'N/A'}</div>
+                                                    <div>{row.config_prompt} | {row.config_reasoning}</div>
+                                                </>
+                                            ) : (
+                                                 <span className="text-slate-600">N/A</span>
+                                            )}
+                                        </td>
                                         <td className="p-3 truncate max-w-[300px]" title={row.caption}>{row.caption}</td>
                                         <td className="p-3 font-bold text-white">{row.final_veracity_score}</td>
                                     </tr>
@@ -949,8 +1252,19 @@ function App() {
                         <span className="font-bold text-emerald-400 text-sm flex items-center gap-2"><ShieldCheck className="w-4 h-4"/> Verified Ground Truth CSV</span>
                         <div className="flex gap-2">
                              <span className="text-xs text-slate-500 py-1 mr-4">{datasetList.filter(d => d.source === 'Manual').length} Verified Items</span>
+                             
+                             <div className="flex items-center gap-2 mr-2">
+                                  <label className="text-[10px] uppercase text-slate-500 font-bold">Resamples:</label>
+                                  <input 
+                                      type="number" min="1" max="50" 
+                                      value={resampleCount} 
+                                      onChange={e => setResampleCount(parseInt(e.target.value) || 1)} 
+                                      className="w-16 bg-slate-900 border border-slate-700 rounded p-1 text-xs text-white" 
+                                  />
+                             </div>
+
                              <button onClick={verifySelected} className="bg-indigo-600 text-white text-xs px-3 py-1 rounded font-bold hover:bg-indigo-500 flex items-center gap-2">
-                                <RotateCcw className="w-3 h-3"/> Verify Scores (Re-Queue)
+                                <RotateCcw className="w-3 h-3"/> Verify Scores (Re-Queue AI Run)
                              </button>
                              <button onClick={deleteSelected} className="bg-red-600 text-white text-xs px-3 py-1 rounded font-bold hover:bg-red-500 flex items-center gap-2">
                                 <Trash2 className="w-3 h-3"/> Delete Selected
@@ -958,7 +1272,7 @@ function App() {
                         </div>
                     </div>
                      <div className="flex-1 overflow-auto">
-                        <table className="w-full text-left text-xs text-slate-400">
+                        <table className="w-full text-left text-xs text-slate-400 select-none">
                             <thead className="bg-slate-950 sticky top-0">
                                 <tr>
                                     <th className="p-3 w-8"><Square className="w-4 h-4 text-slate-600"/></th>
@@ -969,9 +1283,22 @@ function App() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-800">
-                                {datasetList.filter(d => d.source === 'Manual').map((row, i) => (
-                                    <tr key={i} className={`hover:bg-white/5 ${selectedItems.has(row.id) ? 'bg-red-900/10' : ''}`}>
-                                        <td className="p-3 cursor-pointer" onClick={() => toggleSelection(row.id)}>
+                                {datasetList.filter(d => d.source === 'Manual').map((row, i, arr) => (
+                                    <tr 
+                                        key={i} 
+                                        className={`hover:bg-white/5 ${selectedItems.has(row.id) ? 'bg-red-900/10' : ''}`}
+                                        onMouseDown={(e) => {
+                                            isDraggingDatasetRef.current = true;
+                                            toggleSelection(e, row.id, i, arr);
+                                        }}
+                                        onMouseEnter={() => {
+                                            if (isDraggingDatasetRef.current && !selectedItems.has(row.id)) {
+                                                setSelectedItems(prev => new Set(prev).add(row.id));
+                                                setLastDatasetIndex(i);
+                                            }
+                                        }}
+                                    >
+                                        <td className="p-3 cursor-pointer">
                                             {selectedItems.has(row.id) ? <CheckSquare className="w-4 h-4 text-red-400"/> : <Square className="w-4 h-4 text-slate-600"/>}
                                         </td>
                                         <td className="p-3 font-mono text-emerald-400">{row.id}</td>
@@ -1145,7 +1472,7 @@ function App() {
                                 {aiReference.raw_toon && (
                                     <div className="mt-4 pt-4 border-t border-slate-800">
                                         <details>
-                                            <summary className="text-[10px] cursor-pointer text-indigo-400 hover:text-indigo-300 font-bold">Show Raw TOON Output</summary>
+                                            <summary className="text-[10px] cursor-pointer text-indigo-400 hover:text-indigo-300 font-bold">Show Raw AI-Labeled Data (JSON/TOON)</summary>
                                             <pre className="text-[9px] text-slate-500 whitespace-pre-wrap mt-2 bg-black p-2 rounded border border-slate-800 overflow-x-auto">
                                                 {aiReference.raw_toon}
                                             </pre>

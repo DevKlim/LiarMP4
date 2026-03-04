@@ -100,7 +100,7 @@ app.mount("/videos", StaticFiles(directory="data/videos"), name="videos")
 templates = Jinja2Templates(directory=STATIC_DIR)
 
 # Ensure all data directories exist
-for d in ["data", "data/videos", "data/labels", "data/prompts", "data/responses", "metadata", "data/profiles", "data/comments", "data/mnl_labeled", "models/sandbox_autogluon"]:
+for d in["data", "data/videos", "data/labels", "data/prompts", "data/responses", "metadata", "data/profiles", "data/comments", "data/mnl_labeled", "models/sandbox_autogluon"]:
     os.makedirs(d, exist_ok=True)
 
 try:
@@ -111,7 +111,9 @@ except OverflowError:
 STOP_QUEUE_SIGNAL = False
 
 # --- CONSTANTS ---
-GROUND_TRUTH_FIELDS = [
+QUEUE_COLUMNS =["link", "ingest_timestamp", "status", "task_type"]
+
+GROUND_TRUTH_FIELDS =[
     "id", "link", "timestamp", "caption", 
     "visual_integrity_score", "audio_integrity_score", "source_credibility_score", 
     "logical_consistency_score", "emotional_manipulation_score",
@@ -121,23 +123,24 @@ GROUND_TRUTH_FIELDS = [
     "tags", "classification", "source"
 ]
 
-DATASET_COLUMNS = [
+DATASET_COLUMNS =[
     "id", "link", "timestamp", "caption", 
-    "final_veracity_score", "visual_score", "audio_score", "logic_score", 
-    "align_video_caption", "classification", "reasoning", "tags", "raw_toon",
+    "final_veracity_score", "visual_score", "audio_score", "source_score", "logic_score", "emotion_score", 
+    "align_video_audio", "align_video_caption", "align_audio_caption",
+    "classification", "reasoning", "tags", "raw_toon",
     "config_type", "config_model", "config_prompt", "config_reasoning", "config_params"
 ]
 
 def ensure_csv_schema(file_path: Path, fieldnames: list):
     if not file_path.exists(): return
     try:
-        rows = []
+        rows =[]
         with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
             start_pos = f.tell()
             line = f.readline()
             if not line: return
             existing_header = [h.strip() for h in line.split(',')]
-            missing = [col for col in fieldnames if col not in existing_header]
+            missing =[col for col in fieldnames if col not in existing_header]
             if not missing: return
             f.seek(start_pos)
             dict_reader = csv.DictReader(f)
@@ -152,7 +155,7 @@ def ensure_csv_schema(file_path: Path, fieldnames: list):
 def get_processed_indices():
     processed_ids = set()
     processed_links = set()
-    for filename in ["data/dataset.csv", "data/manual_dataset.csv"]:
+    for filename in["data/dataset.csv", "data/manual_dataset.csv"]:
         path = Path(filename)
         for row in common_utils.robust_read_csv(path):
             if row.get('id'): processed_ids.add(row.get('id'))
@@ -167,39 +170,45 @@ def check_if_processed(link: str, processed_ids=None, processed_links=None) -> b
     else: p_ids, p_links = processed_ids, processed_links
     return (target_id and target_id in p_ids) or (link_clean and link_clean in p_links)
 
-def update_queue_status(link: str, status: str):
+def update_queue_status(link: str, status: str, task_type: str = None):
     q_path = Path("data/batch_queue.csv")
     if not q_path.exists(): return
-    rows = []
+    rows =[]
     updated = False
     norm_target = common_utils.normalize_link(link)
     with open(q_path, 'r', encoding='utf-8') as f:
         reader = csv.DictReader(f)
-        fieldnames = reader.fieldnames or ["link", "ingest_timestamp", "status"]
-        if "status" not in fieldnames: fieldnames.append("status")
+        fieldnames = list(reader.fieldnames) if reader.fieldnames else list(QUEUE_COLUMNS)
+        for f_name in QUEUE_COLUMNS:
+            if f_name not in fieldnames: fieldnames.append(f_name)
+            
         for row in reader:
+            if "task_type" not in row or not row["task_type"]: row["task_type"] = "Ingest"
             if common_utils.normalize_link(row.get("link", "")) == norm_target:
-                row["status"] = status
-                updated = True
+                if task_type is None or row["task_type"] == task_type:
+                    row["status"] = status
+                    updated = True
             rows.append(row)
+            
     if updated:
         with open(q_path, 'w', newline='', encoding='utf-8') as f:
-            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction='ignore')
             writer.writeheader()
             writer.writerows(rows)
 
-def log_queue_error(link: str, error_msg: str):
+def log_queue_error(link: str, error_msg: str, task_type: str = None):
     p = Path("data/queue_errors.csv")
     with open(p, 'a', newline='', encoding='utf-8') as f:
         writer = csv.writer(f)
         if not p.exists() or p.stat().st_size == 0: writer.writerow(["link", "timestamp", "error"])
         writer.writerow([link, datetime.datetime.now().isoformat(), error_msg])
-    update_queue_status(link, "Error")
+    update_queue_status(link, "Error", task_type)
 
 @app.on_event("startup")
 async def startup_event():
     ensure_csv_schema(Path("data/dataset.csv"), DATASET_COLUMNS)
     ensure_csv_schema(Path("data/manual_dataset.csv"), GROUND_TRUTH_FIELDS)
+    ensure_csv_schema(Path("data/batch_queue.csv"), QUEUE_COLUMNS)
     if not LITE_MODE:
         try: inference_logic.load_models()
         except Exception: pass
@@ -256,7 +265,7 @@ async def extension_ingest_link(request: Request):
     try:
         data = await request.json()
         link = data.get("link")
-        comments = data.get("comments", [])
+        comments = data.get("comments",[])
         if not link:
             raise HTTPException(status_code=400, detail="Link required")
         
@@ -268,9 +277,9 @@ async def extension_ingest_link(request: Request):
         normalized = common_utils.normalize_link(link)
         if normalized not in existing:
             with open(q_path, 'a', newline='', encoding='utf-8') as f:
-                writer = csv.writer(f)
-                if not q_path.exists() or q_path.stat().st_size == 0: writer.writerow(["link", "ingest_timestamp", "status"])
-                writer.writerow([link.strip(), datetime.datetime.now().isoformat(), "Pending"])
+                writer = csv.DictWriter(f, fieldnames=QUEUE_COLUMNS, extrasaction='ignore')
+                if not q_path.exists() or q_path.stat().st_size == 0: writer.writeheader()
+                writer.writerow({"link": link.strip(), "ingest_timestamp": datetime.datetime.now().isoformat(), "status": "Pending", "task_type": "Ingest"})
         
         if comments:
             tid = common_utils.extract_tweet_id(link) or hashlib.md5(link.encode()).hexdigest()[:10]
@@ -292,7 +301,7 @@ async def extension_ingest_link(request: Request):
 async def promote_to_ground_truth(request: Request):
     try:
         data = await request.json()
-        target_ids = data.get("ids", [])
+        target_ids = data.get("ids",[])
         if not target_ids and data.get("id"): target_ids = [data.get("id")]
         
         if not target_ids: return JSONResponse({"status": "error", "message": "No IDs provided"}, status_code=400)
@@ -310,7 +319,7 @@ async def promote_to_ground_truth(request: Request):
             for row in common_utils.robust_read_csv(manual_path):
                 if row.get('id'): existing_ids.add(str(row['id']))
 
-        new_rows = []
+        new_rows =[]
         promoted_count = 0
         for tid in target_ids:
             tid_str = str(tid)
@@ -351,14 +360,14 @@ async def delete_ground_truth(request: Request):
     try:
         data = await request.json()
         target_ids = data.get("ids", [])
-        if not target_ids and data.get("id"): target_ids = [data.get("id")]
+        if not target_ids and data.get("id"): target_ids =[data.get("id")]
         if not target_ids: raise HTTPException(status_code=400)
         
         target_ids = [str(t) for t in target_ids]
         manual_path = Path("data/manual_dataset.csv")
         if not manual_path.exists(): return {"status": "error", "message": "File not found"}
 
-        rows = []
+        rows =[]
         deleted_count = 0
         with open(manual_path, 'r', encoding='utf-8') as f:
             reader = csv.DictReader(f)
@@ -377,12 +386,12 @@ async def delete_ground_truth(request: Request):
 async def verify_queue_items(request: Request):
     try:
         data = await request.json()
-        target_ids = data.get("ids", [])
+        target_ids = data.get("ids",[])
+        resample_count = max(1, min(data.get("resample_count", 1), 100))
         if not target_ids: return JSONResponse({"status": "error", "message": "No IDs provided"}, status_code=400)
         
-        # Read Manual Dataset to get links
         manual_path = Path("data/manual_dataset.csv")
-        links_to_queue = []
+        links_to_queue =[]
         if manual_path.exists():
             for row in common_utils.robust_read_csv(manual_path):
                 if str(row.get('id')) in target_ids:
@@ -391,31 +400,29 @@ async def verify_queue_items(request: Request):
         if not links_to_queue:
             return {"status": "error", "message": "No matching links found in Ground Truth."}
 
-        # Add to Batch Queue
         q_path = Path("data/batch_queue.csv")
-        existing_in_queue = set()
-        if q_path.exists():
-             for row in common_utils.robust_read_csv(q_path):
-                 if row.get('status') == 'Pending':
-                     existing_in_queue.add(common_utils.normalize_link(row.get('link')))
-
         added_count = 0
         with open(q_path, 'a', newline='', encoding='utf-8') as f:
-            writer = csv.writer(f)
-            if not q_path.exists() or q_path.stat().st_size == 0: writer.writerow(["link", "ingest_timestamp", "status"])
+            writer = csv.DictWriter(f, fieldnames=QUEUE_COLUMNS, extrasaction='ignore')
+            if not q_path.exists() or q_path.stat().st_size == 0: writer.writeheader()
             for link in links_to_queue:
-                if common_utils.normalize_link(link) not in existing_in_queue:
-                    writer.writerow([link, datetime.datetime.now().isoformat(), "Pending"])
+                for _ in range(resample_count):
+                    writer.writerow({
+                        "link": link.strip(), 
+                        "ingest_timestamp": datetime.datetime.now().isoformat(), 
+                        "status": "Pending", 
+                        "task_type": "Verify"
+                    })
                     added_count += 1
         
-        return {"status": "success", "queued_count": added_count, "message": f"Added {added_count} items to queue for verification."}
+        return {"status": "success", "queued_count": added_count, "message": f"Added {added_count} items to queue for verification pipeline."}
     except Exception as e:
         return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
 
 @app.get("/profiles/list")
 async def list_profiles():
     profiles_dir = Path("data/profiles")
-    profiles = []
+    profiles =[]
     if not profiles_dir.exists(): return profiles
     try:
         for d in profiles_dir.iterdir():
@@ -431,7 +438,7 @@ async def list_profiles():
 @app.get("/profiles/{username}/posts")
 async def get_profile_posts(username: str):
     csv_path = Path(f"data/profiles/{username}/history.csv")
-    posts = []
+    posts =[]
     if not csv_path.exists(): return posts
     p_ids, p_links = get_processed_indices()
     try:
@@ -451,7 +458,7 @@ async def ingest_user_history(request: Request):
     try:
         data = await request.json()
         username = data.get("username")
-        posts = data.get("posts", [])
+        posts = data.get("posts",[])
         if not username or not posts: raise HTTPException(status_code=400)
         profile_dir = Path(f"data/profiles/{username}")
         profile_dir.mkdir(parents=True, exist_ok=True)
@@ -462,7 +469,7 @@ async def ingest_user_history(request: Request):
             for row in common_utils.robust_read_csv(csv_path): existing.add(row.get('link'))
         
         with open(csv_path, 'a', newline='', encoding='utf-8') as f:
-            fieldnames = ["link", "timestamp", "text", "is_reply", "metric_replies", "metric_reposts", "metric_likes", "metric_views", "ingested_at"]
+            fieldnames =["link", "timestamp", "text", "is_reply", "metric_replies", "metric_reposts", "metric_likes", "metric_views", "ingested_at"]
             writer = csv.DictWriter(f, fieldnames=fieldnames)
             if not file_exists: writer.writeheader()
             ts = datetime.datetime.now().isoformat()
@@ -486,7 +493,7 @@ async def extension_save_comments(request: Request):
     try:
         data = await request.json()
         link = data.get("link")
-        comments = data.get("comments", [])
+        comments = data.get("comments",[])
         if not link: raise HTTPException(status_code=400)
         tweet_id = common_utils.extract_tweet_id(link) or hashlib.md5(link.encode()).hexdigest()[:10]
         csv_path = Path(f"data/comments/{tweet_id}.csv")
@@ -531,7 +538,7 @@ async def save_manual_label(request: Request):
         }
 
         tag_str = str(row["tags"])
-        tag_list = [t.strip() for t in tag_str.split(',') if t.strip()]
+        tag_list =[t.strip() for t in tag_str.split(',') if t.strip()]
 
         deep_json = {
             "veracity_vectors": {
@@ -586,7 +593,7 @@ async def save_manual_label(request: Request):
         exists = manual_path.exists()
         ensure_csv_schema(manual_path, GROUND_TRUTH_FIELDS)
 
-        rows = []
+        rows =[]
         found = False
         if exists:
             for r in common_utils.robust_read_csv(manual_path):
@@ -615,7 +622,7 @@ async def save_manual_label(request: Request):
 @app.get("/community/list_datasets")
 async def list_community_datasets():
     path = Path("data/comments")
-    files = []
+    files =[]
     if path.exists():
         for f in path.glob("*.csv"):
             files.append({"id": f.stem, "count": sum(1 for _ in open(f, encoding='utf-8'))-1})
@@ -627,8 +634,8 @@ async def analyze_community(dataset_id: str = Body(..., embed=True)):
     if not path.exists(): raise HTTPException(status_code=404)
     comments = list(common_utils.robust_read_csv(path))
     if not comments: return {"score": 0, "verdict": "No Data"}
-    s_keys = ["fake", "lie", "staged", "bs", "propaganda", "ai", "deepfake"]
-    t_keys = ["true", "real", "confirmed", "fact", "source", "proof"]
+    s_keys =["fake", "lie", "staged", "bs", "propaganda", "ai", "deepfake"]
+    t_keys =["true", "real", "confirmed", "fact", "source", "proof"]
     s_count = sum(1 for c in comments if any(k in c['text'].lower() for k in s_keys))
     t_count = sum(1 for c in comments if any(k in c['text'].lower() for k in t_keys))
     score = max(0, min(100, 50 + (t_count * 2) - (s_count * 5)))
@@ -637,7 +644,7 @@ async def analyze_community(dataset_id: str = Body(..., embed=True)):
 
 @app.get("/dataset/list")
 async def get_dataset_list():
-    dataset = []
+    dataset =[]
     m_path = Path("data/manual_dataset.csv")
     manual_ids = set()
     if m_path.exists():
@@ -666,7 +673,7 @@ async def get_account_integrity():
                 if tid: id_map[tid] = d.name
 
     scores_map = {}
-    for fname in ["data/dataset.csv", "data/manual_dataset.csv"]:
+    for fname in["data/dataset.csv", "data/manual_dataset.csv"]:
         for row in common_utils.robust_read_csv(Path(fname)):
             tid = row.get('id')
             sc = row.get('final_veracity_score', '0')
@@ -692,9 +699,9 @@ async def add_queue_item(link: str = Body(..., embed=True)):
     if normalized in existing: return {"status": "ignored", "message": "Link already in queue"}
         
     with open(q_path, 'a', newline='', encoding='utf-8') as f:
-        writer = csv.writer(f)
-        if not q_path.exists() or q_path.stat().st_size == 0: writer.writerow(["link", "ingest_timestamp", "status"])
-        writer.writerow([link.strip(), datetime.datetime.now().isoformat(), "Pending"])
+        writer = csv.DictWriter(f, fieldnames=QUEUE_COLUMNS, extrasaction='ignore')
+        if not q_path.exists() or q_path.stat().st_size == 0: writer.writeheader()
+        writer.writerow({"link": link.strip(), "ingest_timestamp": datetime.datetime.now().isoformat(), "status": "Pending", "task_type": "Ingest"})
     return {"status": "success", "link": link}
 
 @app.post("/queue/upload_csv")
@@ -708,13 +715,13 @@ async def upload_csv(file: UploadFile = File(...)):
     
     added = 0
     with open(q_path, 'a', newline='', encoding='utf-8') as f:
-        writer = csv.writer(f)
-        if not q_path.exists() or q_path.stat().st_size == 0: writer.writerow(["link", "ingest_timestamp", "status"])
+        writer = csv.DictWriter(f, fieldnames=QUEUE_COLUMNS, extrasaction='ignore')
+        if not q_path.exists() or q_path.stat().st_size == 0: writer.writeheader()
         for line in lines:
             if 'http' in line:
                 raw = line.split(',')[0].strip()
                 if common_utils.normalize_link(raw) not in existing:
-                    writer.writerow([raw, datetime.datetime.now().isoformat(), "Pending"])
+                    writer.writerow({"link": raw, "ingest_timestamp": datetime.datetime.now().isoformat(), "status": "Pending", "task_type": "Ingest"})
                     added += 1
     return {"status": "success", "added_count": added}
 
@@ -729,15 +736,21 @@ async def clear_processed_queue():
     q_path = Path("data/batch_queue.csv")
     if not q_path.exists(): return {"status": "success", "removed_count": 0}
     p_ids, p_links = get_processed_indices()
-    kept_rows = []
+    kept_rows =[]
     removed_count = 0
     for row in common_utils.robust_read_csv(q_path):
         link = row.get("link")
         status = row.get("status", "Pending")
-        if status == "Processed" or check_if_processed(link, p_ids, p_links): removed_count += 1
+        task_type = row.get("task_type", "Ingest")
+        
+        is_done = False
+        if status == "Processed": is_done = True
+        elif task_type != "Verify" and check_if_processed(link, p_ids, p_links): is_done = True
+        
+        if is_done: removed_count += 1
         else: kept_rows.append(row)
     with open(q_path, 'w', newline='', encoding='utf-8') as f:
-        writer = csv.DictWriter(f, fieldnames=["link", "ingest_timestamp", "status"])
+        writer = csv.DictWriter(f, fieldnames=QUEUE_COLUMNS, extrasaction='ignore')
         writer.writeheader()
         writer.writerows(kept_rows)
     return {"status": "success", "removed_count": removed_count}
@@ -746,33 +759,54 @@ async def clear_processed_queue():
 async def delete_queue_items(request: Request):
     try:
         data = await request.json()
-        target_links = set(common_utils.normalize_link(l) for l in data.get("links", []))
+        target_links = set(common_utils.normalize_link(l) for l in data.get("links",[]))
         q_path = Path("data/batch_queue.csv")
         if not q_path.exists(): return {"status": "success", "count": 0}
-        kept_rows = []
+        kept_rows =[]
         deleted_count = 0
         for row in common_utils.robust_read_csv(q_path):
             if common_utils.normalize_link(row.get('link')) in target_links: deleted_count += 1
             else: kept_rows.append(row)
         with open(q_path, 'w', newline='', encoding='utf-8') as f:
-            writer = csv.DictWriter(f, fieldnames=["link", "ingest_timestamp", "status"])
+            writer = csv.DictWriter(f, fieldnames=QUEUE_COLUMNS, extrasaction='ignore')
             writer.writeheader()
             writer.writerows(kept_rows)
         return {"status": "success", "count": deleted_count}
+    except Exception as e: return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
+
+@app.post("/queue/requeue")
+async def requeue_items(request: Request):
+    try:
+        data = await request.json()
+        target_links = set(common_utils.normalize_link(l) for l in data.get("links",[]))
+        q_path = Path("data/batch_queue.csv")
+        if not q_path.exists(): return {"status": "success", "count": 0}
+        rows =[]
+        requeued_count = 0
+        for row in common_utils.robust_read_csv(q_path):
+            if common_utils.normalize_link(row.get('link')) in target_links: 
+                row['status'] = 'Pending'
+                requeued_count += 1
+            rows.append(row)
+        with open(q_path, 'w', newline='', encoding='utf-8') as f:
+            writer = csv.DictWriter(f, fieldnames=QUEUE_COLUMNS, extrasaction='ignore')
+            writer.writeheader()
+            writer.writerows(rows)
+        return {"status": "success", "count": requeued_count}
     except Exception as e: return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
 
 @app.post("/dataset/delete")
 async def delete_dataset_items(request: Request):
     try:
         data = await request.json()
-        target_ids = data.get("ids", [])
+        target_ids = data.get("ids",[])
         if not target_ids: raise HTTPException(status_code=400)
         target_ids = set(str(t) for t in target_ids)
 
         path = Path("data/dataset.csv")
         if not path.exists(): return {"status": "success", "count": 0}
 
-        rows = []
+        rows =[]
         deleted_count = 0
         for row in common_utils.robust_read_csv(path):
             if str(row.get('id')) in target_ids:
@@ -804,14 +838,16 @@ async def read_root(request: Request):
 @app.get("/queue/list")
 async def get_queue_list():
     q_path = Path("data/batch_queue.csv")
-    items = []
+    items =[]
     p_ids, p_links = get_processed_indices()
     for row in common_utils.robust_read_csv(q_path):
         if row:
             l = row.get("link")
             status = row.get("status", "Pending")
-            if status == "Pending" and check_if_processed(l, p_ids, p_links): status = "Processed"
-            items.append({"link": l, "timestamp": row.get("ingest_timestamp",""), "status": status})
+            task_type = row.get("task_type") or "Ingest"
+            
+            if status == "Pending" and task_type != "Verify" and check_if_processed(l, p_ids, p_links): status = "Processed"
+            items.append({"link": l, "timestamp": row.get("ingest_timestamp",""), "status": status, "task_type": task_type})
     return items
 
 @app.post("/queue/run")
@@ -819,21 +855,31 @@ async def run_queue_processing(
     model_selection: str = Form(...),
     gemini_api_key: str = Form(""), gemini_model_name: str = Form(""),
     vertex_project_id: str = Form(""), vertex_location: str = Form(""), vertex_model_name: str = Form(""), vertex_api_key: str = Form(""),
+    nrp_api_key: str = Form(""), nrp_model_name: str = Form(""), nrp_base_url: str = Form("https://ellm.nrp-nautilus.io/v1"),
     include_comments: bool = Form(False), reasoning_method: str = Form("cot"), prompt_template: str = Form("standard"),
     custom_query: str = Form(""), max_reprompts: int = Form(1)
 ):
     global STOP_QUEUE_SIGNAL
     STOP_QUEUE_SIGNAL = False
+    
     gemini_config = {"api_key": gemini_api_key, "model_name": gemini_model_name, "max_retries": max_reprompts}
-    vertex_config = {"project_id": vertex_project_id, "location": vertex_location, "model_name": vertex_model_name, "api_key": vertex_api_key, "max_retries": max_reprompts}
+    vertex_config = {"project_id": vertex_project_id, "location": vertex_location, "model_name": vertex_model_name, "api_key": vertex_api_key, "max_retries": max_reprompts, "use_search": True}
+    nrp_config = {"api_key": nrp_api_key, "model_name": nrp_model_name, "base_url": nrp_base_url, "max_retries": max_reprompts}
+
     sel_p = PROMPT_VARIANTS.get(prompt_template, PROMPT_VARIANTS['standard'])
     system_persona_txt = sel_p['instruction']
     if custom_query.strip(): system_persona_txt += f"\n\nSPECIAL INSTRUCTION FOR THIS BATCH: {custom_query}"
     
-    active_config = vertex_config if model_selection == 'vertex' else gemini_config
-    active_model_name = vertex_model_name if model_selection == 'vertex' else gemini_model_name
+    if model_selection == 'vertex':
+        active_config = vertex_config
+        active_model_name = vertex_model_name
+    elif model_selection == 'nrp':
+        active_config = nrp_config
+        active_model_name = nrp_model_name
+    else:
+        active_config = gemini_config
+        active_model_name = gemini_model_name
 
-    # Create config params string for tracking
     config_params_dict = {
         "reprompts": max_reprompts,
         "include_comments": include_comments,
@@ -843,32 +889,37 @@ async def run_queue_processing(
 
     async def queue_stream():
         q_path = Path("data/batch_queue.csv")
-        items = [r for r in common_utils.robust_read_csv(q_path) if r.get("link") and r.get("status", "Pending") == "Pending"]
+        items =[r for r in common_utils.robust_read_csv(q_path) if r.get("link") and r.get("status", "Pending") == "Pending"]
         p_ids, p_links = get_processed_indices()
-        yield f"data: [SYSTEM] Persona: {sel_p['description']}\n\n"
+        yield f"data:[SYSTEM] Persona: {sel_p['description']}\n\n"
         
         for item in items:
             link = item.get("link")
+            task_type = item.get("task_type") or "Ingest"
+            
             if STOP_QUEUE_SIGNAL: 
-                yield f"data: [SYSTEM] Stopping by user request.\n\n"
+                yield f"data:[SYSTEM] Stopping by user request.\n\n"
                 break
             
-            # NOTE: For verification runs, we might want to re-process even if it exists.
-            # But standard check prevents duplicates. 
-            # Benchmarking logic will handle duplicates by ID matching later.
-            if check_if_processed(link, p_ids, p_links): 
-                 update_queue_status(link, "Processed")
+            if task_type != "Verify" and check_if_processed(link, p_ids, p_links): 
+                 update_queue_status(link, "Processed", task_type)
                  continue
+                 
+            gt_data = None
+            if task_type == "Verify":
+                 manual_path = Path("data/manual_dataset.csv")
+                 if manual_path.exists():
+                      for row in common_utils.robust_read_csv(manual_path):
+                           if common_utils.normalize_link(row.get('link', '')) == common_utils.normalize_link(link):
+                                gt_data = row
+                                break
 
-            yield f"data: [START] {link}\n\n"
+            yield f"data: [START] {link} (Type: {task_type})\n\n"
             tid = common_utils.extract_tweet_id(link) or hashlib.md5(link.encode()).hexdigest()[:10]
             assets = await common_utils.prepare_video_assets(link, tid)
             
-            yield f"data: [START] {link}\n\n"
-            tid = common_utils.extract_tweet_id(link) or hashlib.md5(link.encode()).hexdigest()[:10]
-            assets = await common_utils.prepare_video_assets(link, tid)
             if not assets or (not assets.get('video') and not assets.get('caption')):
-                log_queue_error(link, "Download/Fetch Error")
+                log_queue_error(link, "Download/Fetch Error", task_type)
                 yield f"data:   - Download Error.\n\n"
                 continue
 
@@ -885,7 +936,7 @@ async def run_queue_processing(
                 try:
                     with open(comments_path, 'r') as f:
                         c_data = json.load(f)
-                        comments = c_data.get('comments', [])
+                        comments = c_data.get('comments',[])
                         if comments:
                             yield f"data:   - Found {len(comments)} comments. Generating Community Context...\n\n"
                             community_summary = await inference_logic.generate_community_summary(comments, model_selection, active_config)
@@ -903,25 +954,73 @@ async def run_queue_processing(
                 async for chunk in inference_logic.run_vertex_labeling_pipeline(video_file, assets['caption'], trans, vertex_config, include_comments, reasoning_method, current_system_persona, request_id=tid):
                     if isinstance(chunk, str): yield f"data:   - {chunk}\n\n"
                     else: res_data = chunk
+            elif model_selection == 'nrp':
+                async for chunk in inference_logic.run_nrp_labeling_pipeline(video_file, assets['caption'], trans, nrp_config, include_comments, reasoning_method, current_system_persona, request_id=tid):
+                    if isinstance(chunk, str): yield f"data:   - {chunk}\n\n"
+                    else: res_data = chunk
 
             if res_data and "parsed_data" in res_data:
                 parsed = res_data["parsed_data"]
                 d_path = Path("data/dataset.csv")
                 ensure_csv_schema(d_path, DATASET_COLUMNS)
                 exists = d_path.exists()
+                
+                ai_score_val = parsed['final_assessment'].get('veracity_score_total', 0)
+                try: ai_score = float(ai_score_val)
+                except: ai_score = 0
+                
+                if task_type == "Verify" and gt_data is not None:
+                     gt_final = float(gt_data.get('final_veracity_score', 0))
+                     delta = abs(ai_score - gt_final)
+                     vec_ai = parsed.get('veracity_vectors', {})
+                     mod_ai = parsed.get('modalities', {})
+                     
+                     def s_float(v):
+                         try: return float(v)
+                         except: return 0.0
+
+                     yield f"data:   -[VERIFICATION PIPELINE] Configuration Analysis:\n"
+                     yield f"data:      Model: {active_model_name} | Provider: {model_selection}\n"
+                     yield f"data:      Reasoning: {reasoning_method} | Prompt: {prompt_template} | Reprompts: {max_reprompts}\n"
+                     yield f"data:   -[VERIFICATION SCORES COMPARISON (AI vs Ground Truth)]\n"
+                     yield f"data:      Visual Integrity   : AI {s_float(vec_ai.get('visual_integrity_score'))} | GT {s_float(gt_data.get('visual_integrity_score'))}\n"
+                     yield f"data:      Audio Integrity    : AI {s_float(vec_ai.get('audio_integrity_score'))} | GT {s_float(gt_data.get('audio_integrity_score'))}\n"
+                     yield f"data:      Source Credibility : AI {s_float(vec_ai.get('source_credibility_score'))} | GT {s_float(gt_data.get('source_credibility_score'))}\n"
+                     yield f"data:      Logical Consistency: AI {s_float(vec_ai.get('logical_consistency_score'))} | GT {s_float(gt_data.get('logical_consistency_score'))}\n"
+                     yield f"data:      Emotional Manipul. : AI {s_float(vec_ai.get('emotional_manipulation_score'))} | GT {s_float(gt_data.get('emotional_manipulation_score'))}\n"
+                     yield f"data:      Video-Audio Align  : AI {s_float(mod_ai.get('video_audio_score'))} | GT {s_float(gt_data.get('video_audio_score'))}\n"
+                     yield f"data:      Video-Caption Align: AI {s_float(mod_ai.get('video_caption_score'))} | GT {s_float(gt_data.get('video_caption_score'))}\n"
+                     yield f"data:      Audio-Caption Align: AI {s_float(mod_ai.get('audio_caption_score'))} | GT {s_float(gt_data.get('audio_caption_score'))}\n"
+                     yield f"data:      FINAL VERACITY     : AI {ai_score} | GT {gt_final} | Delta: {delta}\n\n"
+                     
+                     comp_path = Path("data/comparison.csv")
+                     comp_exists = comp_path.exists()
+                     with open(comp_path, 'a', newline='', encoding='utf-8') as cf:
+                         cw = csv.DictWriter(cf, fieldnames=["id", "link", "timestamp", "gt_score", "ai_score", "delta", "model", "prompt", "reasoning_method"])
+                         if not comp_exists: cw.writeheader()
+                         cw.writerow({
+                             "id": tid, "link": link, "timestamp": datetime.datetime.now().isoformat(),
+                             "gt_score": gt_final, "ai_score": ai_score, "delta": delta,
+                             "model": active_model_name, "prompt": prompt_template, "reasoning_method": reasoning_method
+                         })
+                
                 try:
                     with open(d_path, 'a', newline='', encoding='utf-8') as f:
                         row = {
                             "id": tid, "link": link, "timestamp": datetime.datetime.now().isoformat(),
                             "caption": assets['caption'],
-                            "final_veracity_score": parsed['final_assessment'].get('veracity_score_total', 0),
+                            "final_veracity_score": ai_score,
                             "visual_score": parsed['veracity_vectors'].get('visual_integrity_score', 0),
                             "audio_score": parsed['veracity_vectors'].get('audio_integrity_score', 0),
+                            "source_score": parsed['veracity_vectors'].get('source_credibility_score', 0),
                             "logic_score": parsed['veracity_vectors'].get('logical_consistency_score', 0),
+                            "emotion_score": parsed['veracity_vectors'].get('emotional_manipulation_score', 0),
+                            "align_video_audio": parsed['modalities'].get('video_audio_score', 0),
                             "align_video_caption": parsed['modalities'].get('video_caption_score', 0),
+                            "align_audio_caption": parsed['modalities'].get('audio_caption_score', 0),
                             "classification": parsed['disinformation_analysis'].get('classification', 'None'),
                             "reasoning": parsed['final_assessment'].get('reasoning', ''),
-                            "tags": ",".join(parsed.get('tags', [])),
+                            "tags": ",".join(parsed.get('tags',[])),
                             "raw_toon": res_data.get("raw_toon", ""),
                             "config_type": "GenAI",
                             "config_model": active_model_name,
@@ -938,6 +1037,7 @@ async def run_queue_processing(
                     ts = datetime.datetime.now().isoformat()
                     ts_clean = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
                     flat_parsed = parsed.copy()
+                    flat_parsed["raw_toon"] = res_data.get("raw_toon", "")
                     flat_parsed["meta_info"] = { 
                         "id": tid, "timestamp": ts, "link": link, 
                         "prompt_used": res_data.get("prompt_used", ""), 
@@ -953,13 +1053,14 @@ async def run_queue_processing(
 
                 p_ids.add(tid)
                 p_links.add(common_utils.normalize_link(link))
-                update_queue_status(link, "Processed")
+                update_queue_status(link, "Processed", task_type)
                 yield f"data: [SUCCESS] Saved.\n\n"
             else: 
                 err_msg = res_data.get('error') if isinstance(res_data, dict) else "Inference failed"
-                log_queue_error(link, err_msg)
+                log_queue_error(link, err_msg, task_type)
                 yield f"data: [FAIL] {err_msg}.\n\n"
             await asyncio.sleep(0.5)
         yield "event: close\ndata: Done\n\n"
 
     return StreamingResponse(queue_stream(), media_type="text/event-stream")
+

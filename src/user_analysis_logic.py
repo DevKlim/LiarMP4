@@ -50,7 +50,7 @@ async def load_user_history(username: str, limit: int = 50) -> str:
     if not csv_path.exists():
         return ""
 
-    timeline_entries = []
+    timeline_entries =[]
     try:
         with open(csv_path, 'r', encoding='utf-8', errors='replace') as f:
             reader = csv.DictReader(f)
@@ -105,12 +105,17 @@ async def generate_user_profile_report(username: str):
         # Otherwise, we instantiate a quick one if env vars exist
         project_id = os.getenv("VERTEX_PROJECT_ID")
         location = os.getenv("VERTEX_LOCATION", "us-central1")
+        api_key = os.getenv("VERTEX_API_KEY")
         
         if inference_logic.genai and project_id:
             from google.genai import Client
             from google.genai.types import GenerateContentConfig
             
-            client = Client(vertexai=True, project=project_id, location=location)
+            if api_key:
+                client = Client(vertexai=True, project=project_id, location=location, api_key=api_key)
+            else:
+                client = Client(vertexai=True, project=project_id, location=location)
+                
             response = client.models.generate_content(
                 model="gemini-1.5-pro-preview-0409",
                 contents=prompt,
@@ -124,7 +129,7 @@ async def generate_user_profile_report(username: str):
             logger.warning("Vertex AI credentials not found. Generating Mock Analysis.")
             report_json = {
                 "username": f"@{username}",
-                "thematic_clusters": ["Simulated Topic 1", "Simulated Topic 2"],
+                "thematic_clusters":["Simulated Topic 1", "Simulated Topic 2"],
                 "bias_assessment": "System running in LITE mode. Configure Vertex AI for real analysis.",
                 "credibility_score": 0.5,
                 "summary_profile": "Mock profile generated because AI backend is not active."
@@ -139,4 +144,4 @@ async def generate_user_profile_report(username: str):
     with open(output_path, 'w', encoding='utf-8') as f:
         json.dump(report_json, f, indent=2)
 
-    return report_json
+    return report_json

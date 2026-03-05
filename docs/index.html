@@ -29,7 +29,7 @@
                     },
                     fontFamily: {
                         sans:['"DM Sans"', 'Roboto', 'system-ui', 'sans-serif'],
-                        mono: ['"Fira Code"', 'monospace'],
+                        mono:['"Fira Code"', 'monospace'],
                     },
                     boxShadow: {
                         'google': '0 1px 2px 0 rgba(60,64,67,0.3), 0 1px 3px 1px rgba(60,64,67,0.15)',
@@ -46,6 +46,11 @@
             background: radial-gradient(circle at 50% 0%, #E8F0FE 0%, #F8F9FA 60%);
             z-index: -1;
         }
+        .mockup-bg {
+            background-image: repeating-linear-gradient(45deg, #f0f0f0 25%, transparent 25%, transparent 75%, #f0f0f0 75%, #f0f0f0), repeating-linear-gradient(45deg, #f0f0f0 25%, #ffffff 25%, #ffffff 75%, #f0f0f0 75%, #f0f0f0);
+            background-position: 0 0, 10px 10px;
+            background-size: 20px 20px;
+        }
     </style>
 </head>
 <body class="antialiased overflow-x-hidden selection:bg-google-blueLight selection:text-google-blue">
@@ -56,14 +61,14 @@
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex items-center justify-between h-16">
                 <div class="flex items-center gap-2">
-                    <svg class="w-6 h-6 text-google-blue" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-3zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-2.33v8.02z"/></svg>
+                    <svg class="w-6 h-6 text-google-blue" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true" aria-label="LiarMP4 Logo"><path d="M12 2L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-3zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-2.33v8.02z"/></svg>
                     <span class="font-bold text-xl tracking-tight text-google-textMain">Liar<span class="text-google-textSecondary">MP4</span></span>
                 </div>
                 <div class="hidden md:flex items-baseline space-x-6">
                     <a href="#problem" class="text-google-textSecondary hover:text-google-blue transition-colors px-3 py-2 text-sm font-medium">Problem Scope</a>
-                    <a href="#timeline" class="text-google-textSecondary hover:text-google-blue transition-colors px-3 py-2 text-sm font-medium">Timeline</a>
-                    <a href="#methods" class="text-google-textSecondary hover:text-google-blue transition-colors px-3 py-2 text-sm font-medium">Methods</a>
                     <a href="#results" class="text-google-textSecondary hover:text-google-blue transition-colors px-3 py-2 text-sm font-medium">Results</a>
+                    <a href="#data" class="text-google-textSecondary hover:text-google-blue transition-colors px-3 py-2 text-sm font-medium">Data Collection</a>
+                    <a href="#methods" class="text-google-textSecondary hover:text-google-blue transition-colors px-3 py-2 text-sm font-medium">Architecture</a>
                 </div>
                 <div class="flex gap-4">
                     <a href="https://github.com/DevKlim/LiarMP4" target="_blank" aria-label="GitHub Repository" class="text-google-textSecondary hover:text-google-textMain transition flex items-center gap-2">
@@ -101,7 +106,7 @@
         </div>
     </header>
 
-    <section id="problem" class="py-20 bg-white border-y border-google-border">
+    <section id="problem" class="py-20 bg-white border-t border-google-border">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="grid md:grid-cols-2 gap-16 items-start">
                 <div>
@@ -124,7 +129,7 @@
                         <div>
                             <strong class="text-google-textMain block mb-1">What We Built:</strong>
                             <ul class="list-disc pl-5 space-y-1">
-                                <li><strong>Fractal Chain of Thought Orchestrator:</strong> A recursive inference strategy to verify modalities.</li>
+                                <li><strong>Fractal Chain of Thought Orchestrator:</strong> A recursive inference strategy to verify multiple modalities.</li>
                                 <li><strong>Human In The Loop Labeling Studio:</strong> A browser extension and UI to generate verified Ground Truth datasets.</li>
                                 <li><strong>TOON Parser:</strong> Strict Token Oriented Object Notation parsing for reliable structured data output.</li>
                             </ul>
@@ -147,127 +152,7 @@
         </div>
     </section>
 
-    <section id="timeline" class="py-20 bg-google-bg border-b border-google-border">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="text-center mb-16">
-                <h2 class="text-3xl font-bold text-google-textMain mb-4">Development Timeline and Iteration</h2>
-                <p class="text-google-textSecondary max-w-2xl mx-auto">
-                    Our approach evolved significantly as we identified the limitations of standard vision models against sophisticated real-world misinformation.
-                </p>
-            </div>
-
-            <div class="relative border-l-2 border-google-blueLight ml-6 md:ml-0 md:border-l-0 md:flex md:gap-8 max-w-5xl mx-auto">
-                
-                <div class="mb-10 ml-8 md:ml-0 md:flex-1 relative">
-                    <div class="absolute -left-11 top-1 w-6 h-6 rounded-full bg-google-blue border-4 border-white md:hidden"></div>
-                    <div class="hidden md:block absolute -top-8 left-1/2 transform -translate-x-1/2 w-6 h-6 rounded-full bg-google-blue border-4 border-white"></div>
-                    <div class="bg-white p-6 rounded-xl border border-google-border shadow-sm h-full">
-                        <h3 class="font-bold text-google-blue mb-2 text-lg">Phase 1: Open Source Vision</h3>
-                        <p class="text-sm text-google-textSecondary leading-relaxed">
-                            Our initial exploration utilized solely open-source Vision-Language models such as Qwen3-VL. The primary goal was detecting spatial anomalies and deepfakes. We quickly discovered that high visual accuracy was insufficient for solving modern misinformation because genuine footage is routinely weaponized with false text.
-                        </p>
-                    </div>
-                </div>
-
-                <div class="mb-10 ml-8 md:ml-0 md:flex-1 relative">
-                    <div class="absolute -left-11 top-1 w-6 h-6 rounded-full bg-google-yellow border-4 border-white md:hidden"></div>
-                    <div class="hidden md:block absolute -top-8 left-1/2 transform -translate-x-1/2 w-6 h-6 rounded-full bg-google-yellow border-4 border-white"></div>
-                    <div class="bg-white p-6 rounded-xl border border-google-border shadow-sm h-full">
-                        <h3 class="font-bold text-google-yellow mb-2 text-lg">Phase 2: Factuality Alignment</h3>
-                        <p class="text-sm text-google-textSecondary leading-relaxed">
-                            We integrated the Ali Arsanjani Factuality Factors and Modality Alignment criteria. This shift allowed us to evaluate how audio, video, and text relate to one another. This successfully penalized malicious content where authentic videos were recontextualized with deceptive claims.
-                        </p>
-                    </div>
-                </div>
-
-                <div class="mb-10 ml-8 md:ml-0 md:flex-1 relative">
-                    <div class="absolute -left-11 top-1 w-6 h-6 rounded-full bg-google-green border-4 border-white md:hidden"></div>
-                    <div class="hidden md:block absolute -top-8 left-1/2 transform -translate-x-1/2 w-6 h-6 rounded-full bg-google-green border-4 border-white"></div>
-                    <div class="bg-white p-6 rounded-xl border border-google-border shadow-sm h-full">
-                        <h3 class="font-bold text-google-green mb-2 text-lg">Phase 3: Multi-Agent System</h3>
-                        <p class="text-sm text-google-textSecondary leading-relaxed">
-                            To handle the complexity of processing isolated factuality vectors, we built a highly scalable Multi-Agentic System natively around the Google Agent Development Kit. This enables recursive verification steps and dynamic community context integration.
-                        </p>
-                    </div>
-                </div>
-
-            </div>
-        </div>
-    </section>
-
-    <section id="methods" class="py-20 bg-white border-b border-google-border">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="mb-12 text-center">
-                <h2 class="text-3xl font-bold text-google-textMain mb-4">Multi-Agent Architecture and Fractal Logic</h2>
-                <p class="text-google-textSecondary max-w-3xl mx-auto">
-                    LiarMP4 solves semantic evaluation by decoupling visual authenticity from textual intent. We utilize a unique Fractal Chain of Thought process managed by distinct specialized agents.
-                </p>
-            </div>
-
-            <div class="bg-google-bg p-8 rounded-2xl border border-google-border shadow-sm mb-12">
-                <div class="flex flex-col md:flex-row gap-6 items-center justify-center">
-                    
-                    <div class="bg-white p-5 rounded-lg border border-google-border shadow text-center w-full md:w-1/4">
-                        <i class="fa-solid fa-network-wired text-google-blue text-2xl mb-3"></i>
-                        <h4 class="font-bold text-google-textMain text-sm">Orchestrator Agent</h4>
-                        <p class="text-xs text-google-textSecondary mt-2">Ingests context and forms a Macro-Scale intent hypothesis.</p>
-                    </div>
-
-                    <div class="text-google-border hidden md:block">
-                        <i class="fa-solid fa-arrow-right text-xl"></i>
-                    </div>
-
-                    <div class="flex flex-col gap-4 w-full md:w-1/3">
-                        <div class="bg-white p-4 rounded-lg border border-google-blueLight shadow text-center">
-                            <i class="fa-solid fa-eye text-google-green mb-2"></i>
-                            <h4 class="font-bold text-google-textMain text-sm">Vision & Audio Agents</h4>
-                            <p class="text-xs text-google-textSecondary mt-1">Meso-Scale extraction of pixel and waveform anomalies.</p>
-                        </div>
-                        <div class="bg-white p-4 rounded-lg border border-google-blueLight shadow text-center">
-                            <i class="fa-solid fa-users text-google-yellow mb-2"></i>
-                            <h4 class="font-bold text-google-textMain text-sm">Context Agent</h4>
-                            <p class="text-xs text-google-textSecondary mt-1">Scrapes community comments to ground the assessment.</p>
-                        </div>
-                    </div>
-
-                    <div class="text-google-border hidden md:block">
-                        <i class="fa-solid fa-arrow-right text-xl"></i>
-                    </div>
-
-                    <div class="bg-white p-5 rounded-lg border border-google-border shadow text-center w-full md:w-1/4 relative overflow-hidden">
-                        <div class="absolute top-0 left-0 w-full h-1 bg-google-red"></div>
-                        <i class="fa-solid fa-scale-balanced text-google-red text-2xl mb-3 mt-2"></i>
-                        <h4 class="font-bold text-google-textMain text-sm">Verification Agent</h4>
-                        <p class="text-xs text-google-textSecondary mt-2">Forces cross-examination. Self-corrects to output TOON Veracity Vectors.</p>
-                    </div>
-
-                </div>
-            </div>
-
-            <div class="grid md:grid-cols-3 gap-8">
-                <div class="bg-white p-6 rounded-xl shadow-sm border border-google-border">
-                    <h3 class="text-lg font-bold text-google-textMain mb-3 text-google-blue">1. Macro-Scale</h3>
-                    <p class="text-sm text-google-textSecondary">
-                        The model ingests the entire context to form a broad hypothesis of intent. It attempts to answer whether the content feels like political satire, hard news, or malicious bait before investigating the pixels.
-                    </p>
-                </div>
-                <div class="bg-white p-6 rounded-xl shadow-sm border border-google-border">
-                    <h3 class="text-lg font-bold text-google-textMain mb-3 text-google-yellow">2. Meso-Scale</h3>
-                    <p class="text-sm text-google-textSecondary">
-                        The pipeline branches to verify specific anomalies. It forces the agent to stop looking at the big picture and strictly analyze lip-sync synchronization, compression artifacts, and distinct logical fallacies.
-                    </p>
-                </div>
-                <div class="bg-white p-6 rounded-xl shadow-sm border border-google-border">
-                    <h3 class="text-lg font-bold text-google-textMain mb-3 text-google-green">3. Synthesis</h3>
-                    <p class="text-sm text-google-textSecondary">
-                        The system forces the agent to cross-examine itself. If the Meso-Scale evidence contradicts the Macro-Scale hypothesis, the agent must abandon its initial assumption and format the truth into strict Token Oriented Object Notation.
-                    </p>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <section id="results" class="py-20 bg-google-bg">
+    <section id="results" class="py-20 bg-google-bg border-y border-google-border">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="text-center mb-12">
                 <h2 class="text-3xl font-bold text-google-textMain mb-4">Key Results and Evaluation</h2>
@@ -339,11 +224,276 @@
         </div>
     </section>
 
-    <section id="limitations" class="py-20 bg-white border-y border-google-border">
+    <section id="data" class="py-20 bg-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16">
+                <h2 class="text-3xl font-bold text-google-textMain mb-4">Data Collection and Scoring</h2>
+                <p class="text-google-textSecondary max-w-2xl mx-auto">
+                    A rigorous human in the loop workflow ensures our Ground Truth dataset captures the exact semantic dissonance found in real social media feeds.
+                </p>
+            </div>
+
+            <div class="grid lg:grid-cols-2 gap-12 items-center mb-20">
+                <div class="order-2 lg:order-1 mockup-bg p-8 rounded-2xl border border-google-border shadow-inner relative flex justify-center items-center h-full min-h-[400px]">
+                    <div class="bg-white w-full max-w-sm rounded-xl shadow-xl overflow-hidden border border-gray-200 z-10">
+                        <div class="p-4 border-b border-gray-100 flex items-start gap-3">
+                            <div class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-500 font-bold shrink-0">U</div>
+                            <div>
+                                <div class="flex items-center gap-1">
+                                    <span class="font-bold text-sm text-gray-900">News Aggregator</span>
+                                    <span class="text-xs text-gray-500">@newsfeed_real</span>
+                                    <span class="text-xs text-gray-400 ml-1">2h</span>
+                                </div>
+                                <p class="text-sm text-gray-800 mt-1">Massive fire breaks out at the downtown chemical plant! Evacuations ordered immediately. Avoid the area.</p>
+                            </div>
+                        </div>
+                        <div class="w-full h-48 bg-gray-900 relative flex items-center justify-center group cursor-pointer">
+                            <div class="absolute inset-0 bg-black opacity-20"></div>
+                            <div class="w-12 h-12 rounded-full bg-white/30 backdrop-blur flex items-center justify-center text-white border border-white/50 group-hover:scale-110 transition-transform">
+                                <i class="fa-solid fa-play text-xl ml-1"></i>
+                            </div>
+                            <span class="absolute bottom-2 left-2 bg-black/60 text-white text-xs px-2 py-0.5 rounded">0:45</span>
+                        </div>
+                        <div class="p-3 border-t border-gray-100 flex justify-between text-gray-500 text-sm px-6 bg-gray-50">
+                            <span class="flex items-center gap-2 hover:text-blue-500 cursor-pointer"><i class="fa-regular fa-comment"></i> 142</span>
+                            <span class="flex items-center gap-2 hover:text-green-500 cursor-pointer"><i class="fa-solid fa-retweet"></i> 8.4K</span>
+                            <span class="flex items-center gap-2 hover:text-red-500 cursor-pointer"><i class="fa-regular fa-heart"></i> 22K</span>
+                        </div>
+                    </div>
+                    
+                    <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-20 w-full flex justify-center mt-32">
+                        <button class="bg-google-blue text-white font-bold py-3 px-6 rounded-full shadow-lg border-2 border-white flex items-center gap-2 animate-bounce hover:bg-google-blueHover transition-colors">
+                            <i class="fa-solid fa-download"></i> Ingest to LiarMP4 Queue
+                        </button>
+                    </div>
+                </div>
+
+                <div class="order-1 lg:order-2">
+                    <h3 class="text-2xl font-bold text-google-textMain mb-4">Ingestion and Manual Labeling</h3>
+                    <p class="text-google-textSecondary mb-6 leading-relaxed">
+                        Our dataset originates directly from live platforms like Twitter and Reddit. We built a custom browser extension that extracts the video file, caption text, metadata, and top community comments straight from the interface.
+                    </p>
+                    <p class="text-google-textSecondary mb-6 leading-relaxed">
+                        This raw data feeds into our batch ingestion queue. Human annotators use our custom labeling studio to review the queue and assign scores across distinct veracity vectors. This manual review establishes our Ground Truth dataset.
+                    </p>
+                    <div class="bg-google-blueLight/30 p-5 rounded-lg border border-google-blueLight">
+                        <h4 class="font-bold text-google-blue text-sm mb-2 flex items-center gap-2">
+                            <i class="fa-solid fa-users"></i> Community Context Extraction
+                        </h4>
+                        <p class="text-sm text-google-textSecondary">
+                            The extension scrapes user replies to dynamically capture Community Notes. This provides the AI with valuable skepticism and crowd-sourced fact checking before it begins processing the video pixels.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-20">
+                <h3 class="text-2xl font-bold text-google-textMain mb-8 text-center">How the Veracity Score is Calculated</h3>
+                
+                <div class="flex flex-col md:flex-row gap-6 items-stretch justify-center max-w-6xl mx-auto">
+                    
+                    <div class="flex-1 bg-white border border-google-border rounded-xl shadow-sm overflow-hidden flex flex-col">
+                        <div class="bg-google-blue text-white p-4 font-bold text-center">
+                            Step 1: Integrity Vectors
+                        </div>
+                        <div class="p-6 flex-1 flex flex-col justify-center space-y-4">
+                            <div class="flex justify-between items-center border-b border-gray-100 pb-2">
+                                <span class="font-medium text-google-textMain text-sm">Visual Authenticity</span>
+                                <span class="text-xs bg-gray-100 px-2 py-1 rounded text-gray-600">1 to 10</span>
+                            </div>
+                            <div class="flex justify-between items-center border-b border-gray-100 pb-2">
+                                <span class="font-medium text-google-textMain text-sm">Audio Forensics</span>
+                                <span class="text-xs bg-gray-100 px-2 py-1 rounded text-gray-600">1 to 10</span>
+                            </div>
+                            <div class="flex justify-between items-center border-b border-gray-100 pb-2">
+                                <span class="font-medium text-google-textMain text-sm">Source Credibility</span>
+                                <span class="text-xs bg-gray-100 px-2 py-1 rounded text-gray-600">1 to 10</span>
+                            </div>
+                            <div class="flex justify-between items-center border-b border-gray-100 pb-2">
+                                <span class="font-medium text-google-textMain text-sm">Logical Consistency</span>
+                                <span class="text-xs bg-gray-100 px-2 py-1 rounded text-gray-600">1 to 10</span>
+                            </div>
+                            <div class="flex justify-between items-center pb-2">
+                                <span class="font-medium text-google-textMain text-sm">Emotional Neutrality</span>
+                                <span class="text-xs bg-gray-100 px-2 py-1 rounded text-gray-600">1 to 10</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="hidden md:flex flex-col justify-center items-center text-google-border px-2">
+                        <i class="fa-solid fa-plus text-2xl"></i>
+                    </div>
+
+                    <div class="flex-1 bg-white border border-google-border rounded-xl shadow-sm overflow-hidden flex flex-col">
+                        <div class="bg-google-red text-white p-4 font-bold text-center">
+                            Step 2: Alignment Penalty
+                        </div>
+                        <div class="p-6 flex-1 flex flex-col justify-center space-y-4">
+                            <p class="text-xs text-google-textSecondary mb-2 text-center">
+                                Detects if authentic media is paired with deceptive claims.
+                            </p>
+                            <div class="flex justify-between items-center border-b border-gray-100 pb-2">
+                                <span class="font-medium text-google-textMain text-sm">Video matches Audio</span>
+                                <span class="text-xs bg-gray-100 px-2 py-1 rounded text-gray-600">Multiplier</span>
+                            </div>
+                            <div class="flex justify-between items-center border-b border-gray-100 pb-2">
+                                <span class="font-medium text-google-textMain text-sm">Video matches Caption</span>
+                                <span class="text-xs bg-gray-100 px-2 py-1 rounded text-gray-600">Multiplier</span>
+                            </div>
+                            <div class="flex justify-between items-center pb-2">
+                                <span class="font-medium text-google-textMain text-sm">Audio matches Caption</span>
+                                <span class="text-xs bg-gray-100 px-2 py-1 rounded text-gray-600">Multiplier</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="hidden md:flex flex-col justify-center items-center text-google-border px-2">
+                        <i class="fa-solid fa-arrow-right text-2xl"></i>
+                    </div>
+
+                    <div class="flex-1 bg-white border border-google-green rounded-xl shadow-md overflow-hidden flex flex-col relative">
+                        <div class="absolute inset-0 bg-green-50 opacity-50"></div>
+                        <div class="bg-google-green text-white p-4 font-bold text-center relative z-10">
+                            Final Veracity Score
+                        </div>
+                        <div class="p-6 flex-1 flex flex-col justify-center items-center relative z-10">
+                            <div class="text-5xl font-bold text-google-green mb-2">0-100</div>
+                            <p class="text-sm text-center text-google-textSecondary mt-4">
+                                If a video is completely real but the caption lies about the location, the alignment penalty severely reduces the final score.
+                            </p>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="methods" class="py-20 bg-google-bg border-y border-google-border">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="mb-12 text-center">
+                <h2 class="text-3xl font-bold text-google-textMain mb-4">Multi-Agent Architecture and Fractal Logic</h2>
+                <p class="text-google-textSecondary max-w-3xl mx-auto">
+                    LiarMP4 solves semantic evaluation by decoupling visual authenticity from textual intent. We utilize a unique Fractal Chain of Thought process managed by distinct specialized agents.
+                </p>
+            </div>
+
+            <div class="bg-white p-8 rounded-2xl border border-google-border shadow-sm mb-12">
+                <div class="flex flex-col md:flex-row gap-6 items-center justify-center">
+                    
+                    <div class="bg-google-bg p-5 rounded-lg border border-google-border shadow text-center w-full md:w-1/4">
+                        <i class="fa-solid fa-network-wired text-google-blue text-2xl mb-3"></i>
+                        <h4 class="font-bold text-google-textMain text-sm">Orchestrator Agent</h4>
+                        <p class="text-xs text-google-textSecondary mt-2">Ingests context and forms a Macro-Scale intent hypothesis.</p>
+                    </div>
+
+                    <div class="text-google-border hidden md:block">
+                        <i class="fa-solid fa-arrow-right text-xl"></i>
+                    </div>
+
+                    <div class="flex flex-col gap-4 w-full md:w-1/3">
+                        <div class="bg-google-bg p-4 rounded-lg border border-google-blueLight shadow text-center">
+                            <i class="fa-solid fa-eye text-google-green mb-2"></i>
+                            <h4 class="font-bold text-google-textMain text-sm">Vision & Audio Agents</h4>
+                            <p class="text-xs text-google-textSecondary mt-1">Meso-Scale extraction of pixel and waveform anomalies.</p>
+                        </div>
+                        <div class="bg-google-bg p-4 rounded-lg border border-google-blueLight shadow text-center">
+                            <i class="fa-solid fa-users text-google-yellow mb-2"></i>
+                            <h4 class="font-bold text-google-textMain text-sm">Context Agent</h4>
+                            <p class="text-xs text-google-textSecondary mt-1">Scrapes community comments to ground the assessment.</p>
+                        </div>
+                    </div>
+
+                    <div class="text-google-border hidden md:block">
+                        <i class="fa-solid fa-arrow-right text-xl"></i>
+                    </div>
+
+                    <div class="bg-google-bg p-5 rounded-lg border border-google-border shadow text-center w-full md:w-1/4 relative overflow-hidden">
+                        <div class="absolute top-0 left-0 w-full h-1 bg-google-red"></div>
+                        <i class="fa-solid fa-scale-balanced text-google-red text-2xl mb-3 mt-2"></i>
+                        <h4 class="font-bold text-google-textMain text-sm">Verification Agent</h4>
+                        <p class="text-xs text-google-textSecondary mt-2">Forces cross-examination. Self-corrects to output TOON Veracity Vectors.</p>
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="grid md:grid-cols-3 gap-8">
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-google-border">
+                    <h3 class="text-lg font-bold text-google-textMain mb-3 text-google-blue">1. Macro-Scale</h3>
+                    <p class="text-sm text-google-textSecondary">
+                        The model ingests the entire context to form a broad hypothesis of intent. It attempts to answer whether the content feels like political satire, hard news, or malicious bait before investigating the pixels.
+                    </p>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-google-border">
+                    <h3 class="text-lg font-bold text-google-textMain mb-3 text-google-yellow">2. Meso-Scale</h3>
+                    <p class="text-sm text-google-textSecondary">
+                        The pipeline branches to verify specific anomalies. It forces the agent to stop looking at the big picture and strictly analyze lip-sync synchronization, compression artifacts, and distinct logical fallacies.
+                    </p>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-google-border">
+                    <h3 class="text-lg font-bold text-google-textMain mb-3 text-google-green">3. Synthesis</h3>
+                    <p class="text-sm text-google-textSecondary">
+                        The system forces the agent to cross-examine itself. If the Meso-Scale evidence contradicts the Macro-Scale hypothesis, the agent must abandon its initial assumption and format the truth into strict Token Oriented Object Notation.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="timeline" class="py-20 bg-white border-b border-google-border">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16">
+                <h2 class="text-3xl font-bold text-google-textMain mb-4">Development Timeline and Iteration</h2>
+                <p class="text-google-textSecondary max-w-2xl mx-auto">
+                    Our approach evolved significantly as we identified the limitations of standard vision models against sophisticated real-world misinformation.
+                </p>
+            </div>
+
+            <div class="relative border-l-2 border-google-blueLight ml-6 md:ml-0 md:border-l-0 md:flex md:gap-8 max-w-5xl mx-auto">
+                
+                <div class="mb-10 ml-8 md:ml-0 md:flex-1 relative">
+                    <div class="absolute -left-11 top-1 w-6 h-6 rounded-full bg-google-blue border-4 border-white md:hidden"></div>
+                    <div class="hidden md:block absolute -top-8 left-1/2 transform -translate-x-1/2 w-6 h-6 rounded-full bg-google-blue border-4 border-white"></div>
+                    <div class="bg-google-bg p-6 rounded-xl border border-google-border shadow-sm h-full">
+                        <h3 class="font-bold text-google-blue mb-2 text-lg">Phase 1: Open Source Vision</h3>
+                        <p class="text-sm text-google-textSecondary leading-relaxed">
+                            Our initial exploration utilized solely open-source Vision Language models such as Qwen3-VL. The primary goal was detecting spatial anomalies and deepfakes. We quickly discovered that high visual accuracy was insufficient for solving modern misinformation because genuine footage is routinely weaponized with false text.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="mb-10 ml-8 md:ml-0 md:flex-1 relative">
+                    <div class="absolute -left-11 top-1 w-6 h-6 rounded-full bg-google-yellow border-4 border-white md:hidden"></div>
+                    <div class="hidden md:block absolute -top-8 left-1/2 transform -translate-x-1/2 w-6 h-6 rounded-full bg-google-yellow border-4 border-white"></div>
+                    <div class="bg-google-bg p-6 rounded-xl border border-google-border shadow-sm h-full">
+                        <h3 class="font-bold text-google-yellow mb-2 text-lg">Phase 2: Factuality Alignment</h3>
+                        <p class="text-sm text-google-textSecondary leading-relaxed">
+                            We integrated the Ali Arsanjani Factuality Factors and Modality Alignment criteria. This shift allowed us to evaluate how audio, video, and text relate to one another. This successfully penalized malicious content where authentic videos were recontextualized with deceptive claims.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="mb-10 ml-8 md:ml-0 md:flex-1 relative">
+                    <div class="absolute -left-11 top-1 w-6 h-6 rounded-full bg-google-green border-4 border-white md:hidden"></div>
+                    <div class="hidden md:block absolute -top-8 left-1/2 transform -translate-x-1/2 w-6 h-6 rounded-full bg-google-green border-4 border-white"></div>
+                    <div class="bg-google-bg p-6 rounded-xl border border-google-border shadow-sm h-full">
+                        <h3 class="font-bold text-google-green mb-2 text-lg">Phase 3: Multi-Agent System</h3>
+                        <p class="text-sm text-google-textSecondary leading-relaxed">
+                            To handle the complexity of processing isolated factuality vectors, we built a highly scalable architecture natively around the Google Agent Development Kit. This enables recursive verification steps and dynamic community context integration.
+                        </p>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <section id="limitations" class="py-20 bg-google-bg border-b border-google-border">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <h2 class="text-3xl font-bold text-google-textMain mb-8 text-center">Limitations and Failure Modes</h2>
             <div class="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-                <div class="bg-google-bg p-6 rounded-xl shadow-sm border border-google-border flex flex-col items-center text-center">
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-google-border flex flex-col items-center text-center">
                     <div class="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mb-4 text-google-red">
                         <i class="fa-solid fa-hourglass-half text-xl" aria-hidden="true"></i>
                     </div>
@@ -352,16 +502,16 @@
                         Executing a deep pipeline takes an average of 45 seconds per video. While highly accurate, this architecture cannot be deployed for real-time edge filtering without massive compute scaling.
                     </p>
                 </div>
-                <div class="bg-google-bg p-6 rounded-xl shadow-sm border border-google-border flex flex-col items-center text-center">
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-google-border flex flex-col items-center text-center">
                     <div class="w-12 h-12 rounded-full bg-yellow-50 flex items-center justify-center mb-4 text-google-yellow">
                         <i class="fa-solid fa-brain text-xl" aria-hidden="true"></i>
                     </div>
                     <h4 class="font-bold text-google-textMain mb-2">Text-Only Hallucinations</h4>
                     <p class="text-sm text-google-textSecondary">
-                        When video downloads fail due to DRM or API limits, the system falls back to text-only analysis of transcripts and captions. In this mode, the model is highly prone to over-categorizing political topics as malicious due to inherent safety biases.
+                        When video downloads fail due to DRM limits, the system falls back to text-only analysis of transcripts and captions. In this mode, the model is highly prone to over-categorizing political topics as malicious due to inherent safety biases.
                     </p>
                 </div>
-                <div class="bg-google-bg p-6 rounded-xl shadow-sm border border-google-border flex flex-col items-center text-center">
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-google-border flex flex-col items-center text-center">
                     <div class="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center mb-4 text-google-blue">
                         <i class="fa-solid fa-money-bill-wave text-xl" aria-hidden="true"></i>
                     </div>
@@ -374,7 +524,7 @@
         </div>
     </section>
 
-    <section id="artifacts" class="py-20 bg-google-bg border-b border-google-border">
+    <section id="artifacts" class="py-20 bg-white border-b border-google-border">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
             <h2 class="text-3xl font-bold text-google-textMain mb-6">Reproducibility and Deployment</h2>
             <p class="text-google-textSecondary mb-10 max-w-2xl mx-auto">
@@ -405,11 +555,11 @@
         </div>
     </section>
 
-    <footer class="bg-white py-12">
+    <footer class="bg-google-bg py-12">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center gap-6">
             <div>
                 <div class="flex items-center gap-2 mb-2">
-                    <svg class="w-5 h-5 text-google-textSecondary" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-3zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-2.33v8.02z"/></svg>
+                    <svg class="w-5 h-5 text-google-textSecondary" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true" aria-label="LiarMP4 Icon"><path d="M12 2L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-3zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-2.33v8.02z"/></svg>
                     <span class="font-bold text-lg text-google-textMain">Liar<span class="text-google-textSecondary">MP4</span></span>
                 </div>
                 <p class="text-xs text-google-textSecondary">An open source AI content moderation research initiative.</p>

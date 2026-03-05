@@ -29,7 +29,7 @@
                     },
                     fontFamily: {
                         sans:['"DM Sans"', 'Roboto', 'system-ui', 'sans-serif'],
-                        mono:['"Fira Code"', 'monospace'],
+                        mono: ['"Fira Code"', 'monospace'],
                     },
                     boxShadow: {
                         'google': '0 1px 2px 0 rgba(60,64,67,0.3), 0 1px 3px 1px rgba(60,64,67,0.15)',
@@ -51,6 +51,7 @@
             background-position: 0 0, 10px 10px;
             background-size: 20px 20px;
         }
+        .svg-text { font-family: "DM Sans", sans-serif; }
     </style>
 </head>
 <body class="antialiased overflow-x-hidden selection:bg-google-blueLight selection:text-google-blue">
@@ -67,8 +68,9 @@
                 <div class="hidden md:flex items-baseline space-x-6">
                     <a href="#problem" class="text-google-textSecondary hover:text-google-blue transition-colors px-3 py-2 text-sm font-medium">Problem Scope</a>
                     <a href="#results" class="text-google-textSecondary hover:text-google-blue transition-colors px-3 py-2 text-sm font-medium">Results</a>
-                    <a href="#data" class="text-google-textSecondary hover:text-google-blue transition-colors px-3 py-2 text-sm font-medium">Data Collection</a>
-                    <a href="#methods" class="text-google-textSecondary hover:text-google-blue transition-colors px-3 py-2 text-sm font-medium">Architecture</a>
+                    <a href="#data" class="text-google-textSecondary hover:text-google-blue transition-colors px-3 py-2 text-sm font-medium">Collection</a>
+                    <a href="#clustering" class="text-google-textSecondary hover:text-google-blue transition-colors px-3 py-2 text-sm font-medium">Clustering</a>
+                    <a href="#comments" class="text-google-textSecondary hover:text-google-blue transition-colors px-3 py-2 text-sm font-medium">Comments</a>
                 </div>
                 <div class="flex gap-4">
                     <a href="https://github.com/DevKlim/LiarMP4" target="_blank" aria-label="GitHub Repository" class="text-google-textSecondary hover:text-google-textMain transition flex items-center gap-2">
@@ -271,17 +273,17 @@
                 <div class="order-1 lg:order-2">
                     <h3 class="text-2xl font-bold text-google-textMain mb-4">Ingestion and Manual Labeling</h3>
                     <p class="text-google-textSecondary mb-6 leading-relaxed">
-                        Our dataset originates directly from live platforms like Twitter and Reddit. We built a custom browser extension that extracts the video file, caption text, metadata, and top community comments straight from the interface.
+                        Our dataset originates directly from live platforms like Twitter and Reddit. We built a custom browser extension that extracts the video file, caption text, and metadata straight from the interface.
                     </p>
                     <p class="text-google-textSecondary mb-6 leading-relaxed">
                         This raw data feeds into our batch ingestion queue. Human annotators use our custom labeling studio to review the queue and assign scores across distinct veracity vectors. This manual review establishes our Ground Truth dataset.
                     </p>
                     <div class="bg-google-blueLight/30 p-5 rounded-lg border border-google-blueLight">
                         <h4 class="font-bold text-google-blue text-sm mb-2 flex items-center gap-2">
-                            <i class="fa-solid fa-users"></i> Community Context Extraction
+                            <i class="fa-solid fa-microscope"></i> Human Validation
                         </h4>
                         <p class="text-sm text-google-textSecondary">
-                            The extension scrapes user replies to dynamically capture Community Notes. This provides the AI with valuable skepticism and crowd-sourced fact checking before it begins processing the video pixels.
+                            Annotators strictly follow the Veracity Rubric to establish mathematical baselines before exposing the data to the Generative AI agents.
                         </p>
                     </div>
                 </div>
@@ -357,7 +359,7 @@
                             Final Veracity Score
                         </div>
                         <div class="p-6 flex-1 flex flex-col justify-center items-center relative z-10">
-                            <div class="text-5xl font-bold text-google-green mb-2">0-100</div>
+                            <div class="text-5xl font-bold text-google-green mb-2">0 to 100</div>
                             <p class="text-sm text-center text-google-textSecondary mt-4">
                                 If a video is completely real but the caption lies about the location, the alignment penalty severely reduces the final score.
                             </p>
@@ -365,6 +367,115 @@
                     </div>
 
                 </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="clustering" class="py-20 bg-google-bg border-y border-google-border">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="grid md:grid-cols-2 gap-16 items-center">
+                <div>
+                    <h2 class="text-3xl font-bold text-google-textMain mb-6">Tagging and Topic Clustering</h2>
+                    <p class="text-google-textSecondary mb-4 leading-relaxed">
+                        The Multi-Agent system assigns strict tags to every ingested video using Token Oriented Object Notation. By assigning tags such as Political, Satire, or Sensationalist, we map posts into a multi-dimensional latent space.
+                    </p>
+                    <p class="text-google-textSecondary mb-6 leading-relaxed">
+                        We then evaluate the spatial distance between different topics. When the agent uses multimodal reasoning, the distance between ostensibly different topics converges dynamically. A satirical political video might structurally mimic an entertainment sketch, pulling it closer to entertainment in the contextual vector space. This prevents the rigid misclassified pigeonholing rampant in traditional metadata-focused systems.
+                    </p>
+                </div>
+                
+                <div class="bg-white p-6 rounded-2xl border border-google-border shadow-sm flex justify-center items-center">
+                    <svg viewBox="0 0 400 300" class="w-full h-auto max-w-md">
+                        <defs>
+                            <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                                <polygon points="0 0, 10 3.5, 0 7" fill="#5F6368" />
+                            </marker>
+                        </defs>
+                        
+                        <line x1="100" y1="100" x2="200" y2="200" stroke="#DADCE0" stroke-width="2" stroke-dasharray="5,5" />
+                        <line x1="300" y1="100" x2="200" y2="200" stroke="#DADCE0" stroke-width="2" stroke-dasharray="5,5" />
+                        <line x1="200" y1="80" x2="200" y2="170" stroke="#5F6368" stroke-width="2" marker-end="url(#arrowhead)" />
+                        
+                        <circle cx="100" cy="100" r="35" fill="#E8F0FE" stroke="#1A73E8" stroke-width="3" />
+                        <text x="100" y="105" text-anchor="middle" fill="#1A73E8" font-size="12" font-weight="bold" class="svg-text">Political</text>
+                        
+                        <circle cx="300" cy="100" r="35" fill="#E6F4EA" stroke="#34A853" stroke-width="3" />
+                        <text x="300" y="105" text-anchor="middle" fill="#34A853" font-size="12" font-weight="bold" class="svg-text">Comedy</text>
+
+                        <circle cx="200" cy="50" r="30" fill="#FEF7E0" stroke="#FBBC05" stroke-width="3" />
+                        <text x="200" y="55" text-anchor="middle" fill="#FBBC05" font-size="12" font-weight="bold" class="svg-text">Satire</text>
+
+                        <circle cx="200" cy="200" r="45" fill="#FCE8E6" stroke="#EA4335" stroke-width="3" />
+                        <text x="200" y="195" text-anchor="middle" fill="#EA4335" font-size="12" font-weight="bold" class="svg-text">Multimodal</text>
+                        <text x="200" y="210" text-anchor="middle" fill="#EA4335" font-size="10" font-weight="normal" class="svg-text">Convergence</text>
+                    </svg>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="comments" class="py-20 bg-white border-b border-google-border">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-12 relative">
+                <span class="inline-block bg-google-yellow text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider mb-4">Work in Progress</span>
+                <h2 class="text-3xl font-bold text-google-textMain mb-4">Community Context and Comments</h2>
+                <p class="text-google-textSecondary max-w-2xl mx-auto leading-relaxed">
+                    Social media platforms are highly reactive ecosystems. The LiarMP4 architecture is expanding to ingest the immediate community reaction to establish baseline sentiment prior to running forensic analysis.
+                </p>
+            </div>
+
+            <div class="grid md:grid-cols-2 gap-12 items-center">
+                
+                <div class="bg-google-bg p-8 rounded-2xl border border-google-border shadow-sm flex justify-center items-center">
+                    <svg viewBox="0 0 500 300" class="w-full h-auto">
+                        <defs>
+                            <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="0%">
+                                <stop offset="0%" style="stop-color:#1A73E8;stop-opacity:1" />
+                                <stop offset="100%" style="stop-color:#34A853;stop-opacity:1" />
+                            </linearGradient>
+                        </defs>
+                        
+                        <rect x="20" y="40" width="160" height="40" rx="8" fill="#FFFFFF" stroke="#DADCE0" stroke-width="2" />
+                        <text x="35" y="65" font-size="12" fill="#5F6368" class="svg-text">This is totally fake.</text>
+
+                        <rect x="40" y="100" width="160" height="40" rx="8" fill="#FFFFFF" stroke="#DADCE0" stroke-width="2" />
+                        <text x="55" y="125" font-size="12" fill="#5F6368" class="svg-text">Source is unreliable.</text>
+
+                        <rect x="20" y="160" width="160" height="40" rx="8" fill="#FFFFFF" stroke="#DADCE0" stroke-width="2" />
+                        <text x="35" y="185" font-size="12" fill="#5F6368" class="svg-text">I saw the original video.</text>
+                        
+                        <line x1="210" y1="120" x2="280" y2="120" stroke="#1A73E8" stroke-width="3" marker-end="url(#arrowhead)" />
+                        
+                        <rect x="300" y="70" width="180" height="100" rx="12" fill="url(#grad1)" shadow="0 4px 6px rgba(0,0,0,0.1)" />
+                        <text x="390" y="105" text-anchor="middle" font-size="14" font-weight="bold" fill="#FFFFFF" class="svg-text">Context Agent</text>
+                        <text x="390" y="130" text-anchor="middle" font-size="11" fill="#E8F0FE" class="svg-text">Synthesizing Consensus</text>
+                        
+                        <line x1="390" y1="170" x2="390" y2="210" stroke="#34A853" stroke-width="3" marker-end="url(#arrowhead)" />
+                        
+                        <rect x="310" y="220" width="160" height="50" rx="8" fill="#E6F4EA" stroke="#34A853" stroke-width="2" />
+                        <text x="390" y="240" text-anchor="middle" font-size="12" font-weight="bold" fill="#34A853" class="svg-text">Community Skepticism</text>
+                        <text x="390" y="255" text-anchor="middle" font-size="10" fill="#5F6368" class="svg-text">High probability of deceit</text>
+                    </svg>
+                </div>
+
+                <div>
+                    <h3 class="text-2xl font-bold text-google-textMain mb-4">Crowdsourced Grounding</h3>
+                    <p class="text-google-textSecondary mb-6 leading-relaxed">
+                        The browser extension scrapes user replies to dynamically capture community sentiment. A specialized Context Agent summarizes these disparate replies into a concise consensus report.
+                    </p>
+                    <p class="text-google-textSecondary mb-6 leading-relaxed">
+                        This provides the Verification Agent with valuable skepticism and crowd-sourced fact checking before it begins processing the raw video pixels. This actively grounds the hallucination parameters of the Generative AI.
+                    </p>
+                    <div class="bg-google-yellow/10 p-5 rounded-lg border border-google-yellow/30">
+                        <h4 class="font-bold text-google-yellow text-sm mb-2 flex items-center gap-2">
+                            <i class="fa-solid fa-person-digging"></i> Active Development
+                        </h4>
+                        <p class="text-sm text-google-textSecondary">
+                            This feature is currently undergoing refinement to better handle spam filters, bot networks, and malicious brigading within comment threads.
+                        </p>
+                    </div>
+                </div>
+
             </div>
         </div>
     </section>

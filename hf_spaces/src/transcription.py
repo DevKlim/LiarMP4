@@ -1,16 +1,21 @@
-import whisper
+import os
 import logging
 from pathlib import Path
-import os
 
-LITE_MODE = os.getenv("LITE_MODE", "false").lower() == "true"
-
+LITE_MODE = os.getenv("LITE_MODE", "true").lower() == "true"
 logger = logging.getLogger(__name__)
+
+try:
+    import whisper
+    WHISPER_AVAILABLE = True
+except ImportError:
+    WHISPER_AVAILABLE = False
+
 transcription_model = None
 
 def load_model():
-    if LITE_MODE:
-        logger.info("LITE_MODE is enabled. Skipping Whisper model loading.")
+    if LITE_MODE or not WHISPER_AVAILABLE:
+        logger.info("LITE_MODE is enabled or Whisper is uninstalled. Skipping Whisper model loading.")
         return
 
     global transcription_model
@@ -25,7 +30,7 @@ def load_model():
 
 def generate_transcript(audio_path_str: str) -> str:
     if transcription_model is None:
-        logger.warning("Transcription model is not available. Cannot generate transcript.")
+        logger.warning("Transcription model is not available (API-Lite Mode). Bypassing local transcription.")
         return None
 
     try:

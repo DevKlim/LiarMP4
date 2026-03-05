@@ -5,12 +5,82 @@ let debounceTimer = null;
 let sidePanel = null;
 let panelContent = null;
 let toggleBtn = null;
+let globalDropdown = null;
 
 // State
 let currentLink = "";
 let currentCaption = "";
 let currentPlatform = "";
-let currentStats = {};
+
+// ============================================================================
+// MODULE: Global Dropdown & Context Menu
+// ============================================================================
+function initGlobalDropdown() {
+    if (document.getElementById('vchat-global-dropdown')) return;
+    globalDropdown = document.createElement('div');
+    globalDropdown.id = 'vchat-global-dropdown';
+    globalDropdown.className = 'vchat-dropdown-menu';
+    document.body.appendChild(globalDropdown);
+    
+    // Close on outside click
+    window.addEventListener('click', () => { 
+        if (globalDropdown) globalDropdown.style.display = 'none'; 
+    });
+    
+    // Close on scroll (since it's position: fixed, scrolling away breaks alignment)
+    window.addEventListener('scroll', () => { 
+        if (globalDropdown) globalDropdown.style.display = 'none'; 
+    }, true);
+}
+
+function showGlobalDropdown(e, link, tweetElement, btnSource) {
+    e.stopPropagation();
+    
+    // Calculate fixed position based on the button clicked
+    const rect = e.target.getBoundingClientRect();
+    
+    globalDropdown.innerHTML = ''; // Clear previous options
+
+    // Option 1: Add to Queue
+    const optIngest = document.createElement('div');
+    optIngest.className = 'vchat-dropdown-item';
+    optIngest.innerHTML = '📥 Add to Queue';
+    optIngest.onclick = (ev) => { 
+        ev.stopPropagation(); 
+        globalDropdown.style.display = 'none'; 
+        handleIngest(link, btnSource); 
+    };
+
+    // Option 2: Queue + Comments
+    const optIngestComm = document.createElement('div');
+    optIngestComm.className = 'vchat-dropdown-item';
+    optIngestComm.innerHTML = '💬 Queue + Comments';
+    optIngestComm.onclick = (ev) => { 
+        ev.stopPropagation(); 
+        globalDropdown.style.display = 'none'; 
+        handleIngestWithComments(link, tweetElement, btnSource); 
+    };
+
+    // Option 3: Scrape Comments
+    const optScrapeComm = document.createElement('div');
+    optScrapeComm.className = 'vchat-dropdown-item';
+    optScrapeComm.innerHTML = '📝 Scrape Only Comments';
+    optScrapeComm.onclick = (ev) => { 
+        ev.stopPropagation(); 
+        globalDropdown.style.display = 'none'; 
+        handleScrapeComments(link, tweetElement, btnSource); 
+    };
+
+    globalDropdown.appendChild(optIngest);
+    globalDropdown.appendChild(optIngestComm);
+    globalDropdown.appendChild(optScrapeComm);
+
+    // Position perfectly below the button
+    globalDropdown.style.top = `${rect.bottom + 4}px`;
+    globalDropdown.style.left = `${rect.left}px`;
+    globalDropdown.style.display = 'block';
+}
+
 
 // ============================================================================
 // MODULE: User Profile Scraper
@@ -42,44 +112,41 @@ class UserProfileScraper {
 
         const container = document.createElement('div');
         container.id = 'vchat-profile-control';
-        // Fixed position bottom-right ensures it stays visible during scrolling
         container.style.cssText = `
             position: fixed;
             bottom: 20px;
             right: 80px; 
             width: 300px;
             padding: 12px; 
-            background: #0f172a; 
-            border: 1px solid #6366f1; 
-            border-radius: 8px; 
-            color: #e2e8f0; 
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: #292a2d; 
+            border: 1px solid #3c4043; 
+            border-radius: 4px; 
+            color: #e8eaed; 
+            font-family: "Google Sans", Roboto, sans-serif;
             font-size: 13px;
             z-index: 2147483647;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
         `;
         
         container.innerHTML = `
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; border-bottom:1px solid #334155; padding-bottom:8px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; border-bottom:1px solid #3c4043; padding-bottom:8px;">
                 <div style="display:flex; align-items:center; gap:6px;">
                     <span style="font-size:16px;">🕵️</span>
                     <strong>@${handle}</strong>
                 </div>
-                <span id="vchat-scrape-status" style="font-family:monospace; color:#818cf8; font-size:11px;">Ready</span>
+                <span id="vchat-scrape-status" style="font-family:monospace; color:#8ab4f8; font-size:11px;">Ready</span>
             </div>
             <div style="display:flex; gap:8px;">
-                <button id="btn-start-scrape" style="background:#4f46e5; color:white; border:none; padding:8px; border-radius:4px; cursor:pointer; font-weight:600; font-size:12px; flex:1;">Start Scrape</button>
-                <button id="btn-stop-scrape" style="background:#be123c; color:white; border:none; padding:8px; border-radius:4px; cursor:pointer; font-weight:600; font-size:12px; flex:1; display:none;">Stop</button>
+                <button id="btn-start-scrape" style="background:#4285F4; color:white; border:none; padding:8px; border-radius:4px; cursor:pointer; font-weight:500; font-size:12px; flex:1;">Start Scrape</button>
+                <button id="btn-stop-scrape" style="background:#EA4335; color:white; border:none; padding:8px; border-radius:4px; cursor:pointer; font-weight:500; font-size:12px; flex:1; display:none;">Stop</button>
             </div>
-            <div id="vchat-scrape-log" style="margin-top:8px; height:60px; overflow-y:auto; font-family:monospace; font-size:10px; color:#94a3b8; background:#1e293b; padding:4px; border-radius:4px;"></div>
+            <div id="vchat-scrape-log" style="margin-top:8px; height:60px; overflow-y:auto; font-family:'Roboto Mono', monospace; font-size:10px; color:#9aa0a6; background:#202124; padding:6px; border-radius:4px; border:1px solid #3c4043;"></div>
         `;
 
         document.body.appendChild(container);
 
         document.getElementById('btn-start-scrape').onclick = () => this.startScraping();
         document.getElementById('btn-stop-scrape').onclick = () => this.stopScraping();
-        
-        this.log(`Panel injected for @${handle}`);
     }
 
     log(msg) {
@@ -90,9 +157,7 @@ class UserProfileScraper {
             logEl.prepend(line);
         }
         console.log(`[vChat Scraper] ${msg}`);
-        
-        // Also update the main side panel if it's open
-        if (panelContent) {
+        if (panelContent && !document.getElementById('vchat-analysis-result')) {
             const statusEl = document.getElementById('vchat-panel-status');
             if(statusEl) statusEl.innerText = msg;
         }
@@ -105,21 +170,7 @@ class UserProfileScraper {
         document.getElementById('btn-stop-scrape').style.display = 'block';
         document.getElementById('vchat-scrape-status').innerText = "Scraping...";
         
-        // Add Stop button to main panel as well for accessibility
-        if (panelContent) {
-             const stopBtn = document.createElement('button');
-             stopBtn.innerText = "STOP SCRAPE";
-             stopBtn.className = "vchat-action-btn";
-             stopBtn.style.background = "#be123c";
-             stopBtn.onclick = () => this.stopScraping();
-             stopBtn.id = "panel-stop-btn";
-             
-             // Prepend to panel content
-             panelContent.insertBefore(stopBtn, panelContent.firstChild);
-        }
-
         this.log("Starting scrape sequence...");
-        
         let noNewPostsCount = 0;
 
         this.scrollInterval = setInterval(async () => {
@@ -138,19 +189,12 @@ class UserProfileScraper {
                 this.log("Scanning...");
             }
 
-            // Scroll down
             window.scrollBy(0, 1500);
 
-            // Auto-stop conditions
-            if (noNewPostsCount > 10) {
-                this.log("No new content found. Stopping.");
+            if (noNewPostsCount > 10 || countAfter >= 150) {
+                this.log("Stopping criteria met.");
                 this.stopScraping();
             }
-            if (countAfter >= 150) { 
-                this.log("Batch limit reached. Stopping.");
-                this.stopScraping();
-            }
-
         }, 3000); 
     }
 
@@ -202,13 +246,9 @@ class UserProfileScraper {
         clearInterval(this.scrollInterval);
         document.getElementById('btn-start-scrape').style.display = 'block';
         document.getElementById('btn-stop-scrape').style.display = 'none';
-        document.getElementById('vchat-scrape-status').innerText = `Done (${this.scrapedPosts.size} posts)`;
+        document.getElementById('vchat-scrape-status').innerText = `Done (${this.scrapedPosts.size})`;
         
-        // Remove stop button from main panel
-        const pBtn = document.getElementById("panel-stop-btn");
-        if(pBtn) pBtn.remove();
-        
-        this.log("Scraping finished. Uploading data...");
+        this.log("Uploading data...");
         this.sendPayload();
     }
 
@@ -219,10 +259,7 @@ class UserProfileScraper {
             posts: Array.from(this.scrapedPosts.values())
         };
         
-        chrome.runtime.sendMessage({
-            type: 'INGEST_USER_HISTORY',
-            payload: payload
-        }, (res) => {
+        chrome.runtime.sendMessage({ type: 'INGEST_USER_HISTORY', payload: payload }, (res) => {
             if (res && res.success) {
                 this.log(`Uploaded ${res.new_posts} new posts.`);
                 alert(`Successfully archived ${res.new_posts} posts for @${this.targetHandle}.`);
@@ -246,16 +283,16 @@ function initSidePanel() {
     
     sidePanel.innerHTML = `
         <div class="vchat-panel-header">
-            <span class="vchat-title">vChat Assistant</span>
+            <span class="vchat-title">vChat <span>Agent</span></span>
             <button class="vchat-close-btn" id="vchat-close" title="Close">×</button>
         </div>
         <div class="vchat-tabs">
-            <button class="vchat-tab active" data-tab="comments">💬 Context</button>
-            <button class="vchat-tab" data-tab="labeling">📝 Labeling</button>
+            <button class="vchat-tab active" data-tab="analysis">Analysis</button>
+            <button class="vchat-tab" data-tab="labeling">Manual</button>
         </div>
         <div class="vchat-panel-content" id="vchat-content">
-            <div class="vchat-status-msg" id="vchat-panel-status">
-                Select a post to begin.
+            <div class="vchat-status-msg" id="vchat-panel-status" style="color: #9aa0a6; text-align: center; margin-top: 40px;">
+                Select a post and run ⚡ Analyze to view veracity factors here.
             </div>
         </div>
     `;
@@ -277,9 +314,7 @@ function initSidePanel() {
             sidePanel.querySelectorAll('.vchat-tab').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             const tabName = btn.getAttribute('data-tab');
-            if (currentLink) {
-                renderPanelForLink(currentLink, currentCaption, currentPlatform, tabName);
-            }
+            if (currentLink) renderPanelForLink(currentLink, currentCaption, currentPlatform, tabName);
         });
     });
 }
@@ -303,14 +338,8 @@ function injectTwitterButtons() {
             const tweetLink = timeElement ? timeElement.href : window.location.href;
             const textElement = tweet.querySelector('[data-testid="tweetText"]');
             const caption = textElement ? textElement.innerText : "";
-             const stats = {
-                likes: 0,
-                shares: 0,
-                comments: 0,
-                platform: 'twitter'
-            };
 
-            createButtonUI(actionBar, tweetLink, caption, 'twitter', stats, tweet);
+            createButtonUI(actionBar, tweetLink, caption, 'twitter', {}, tweet);
         }
     });
 }
@@ -320,224 +349,230 @@ function createButtonUI(container, link, caption, platform, stats, tweetElement)
 
     const wrapper = document.createElement('div');
     wrapper.className = 'vchat-btn-group';
-    wrapper.style.display = 'flex';
-    wrapper.style.gap = '6px';
-    wrapper.style.marginLeft = '10px';
-    wrapper.style.zIndex = '999';
-    wrapper.style.position = 'relative';
-
     wrapper.onclick = (e) => e.stopPropagation();
     
-    // Ingest
-    const btnIngest = document.createElement('button');
-    btnIngest.className = 'vchat-btn';
-    btnIngest.innerHTML = '⚡';
-    btnIngest.title = "Add to Queue";
-    btnIngest.onclick = (e) => { e.stopPropagation(); handleIngest(link, btnIngest); };
-    
-    // Ingest with Comments (New)
-    const btnIngestComments = document.createElement('button');
-    btnIngestComments.className = 'vchat-btn';
-    btnIngestComments.innerHTML = '⚡+💬';
-    btnIngestComments.title = "Queue + 10 Comments";
-    btnIngestComments.style.backgroundColor = '#8b5cf6'; // Violet
-    btnIngestComments.onclick = (e) => { e.stopPropagation(); handleIngestWithComments(link, tweetElement, btnIngestComments); };
-
-    // Analyze
-    const btnOpen = document.createElement('button');
-    btnOpen.className = 'vchat-btn comments';
-    btnOpen.innerHTML = '🔍';
-    btnOpen.title = "Analyze Veracity";
-    btnOpen.onclick = (e) => { 
+    // Primary: Live Analyze
+    const btnAnalyze = document.createElement('button');
+    btnAnalyze.className = 'vchat-btn primary';
+    btnAnalyze.innerHTML = '⚡ Analyze';
+    btnAnalyze.title = "Live Factuality Analysis";
+    btnAnalyze.onclick = (e) => { 
         e.stopPropagation(); 
-        openPanel(link, caption, platform, stats); 
+        handleLiveAnalyze(link, caption, btnAnalyze); 
     };
 
-    // Scrape Comments
-    const btnComments = document.createElement('button');
-    btnComments.className = 'vchat-btn';
-    btnComments.style.backgroundColor = '#10b981';
-    btnComments.innerHTML = '💬';
-    btnComments.title = "Scrape Comments (Save Only)";
-    btnComments.onclick = (e) => {
-        e.stopPropagation();
-        handleScrapeComments(link, tweetElement, btnComments);
-    };
+    // Secondary: More Menu triggers Global Dropdown
+    const btnMore = document.createElement('button');
+    btnMore.className = 'vchat-btn secondary';
+    btnMore.innerHTML = '⋮';
+    btnMore.title = "More Actions";
+    btnMore.onclick = (e) => showGlobalDropdown(e, link, tweetElement, btnMore);
 
-    wrapper.appendChild(btnIngest);
-    wrapper.appendChild(btnIngestComments); // Add the new button
-    wrapper.appendChild(btnOpen);
-    wrapper.appendChild(btnComments);
+    wrapper.appendChild(btnAnalyze);
+    wrapper.appendChild(btnMore);
     container.appendChild(wrapper);
 }
 
-// Scrapes ~10 comments and returns them (helper)
+// ----------------------------------------------------------------------------
+// HANDLERS
+// ----------------------------------------------------------------------------
+
+async function handleLiveAnalyze(link, caption, btn) {
+    currentLink = link;
+    currentCaption = caption;
+    
+    // Update UI State
+    btn.innerHTML = '⏳ Analyzing...';
+    btn.style.opacity = '0.7';
+    if (sidePanel.classList.contains('hidden')) togglePanel();
+    
+    // Switch to Analysis Tab
+    sidePanel.querySelectorAll('.vchat-tab').forEach(b => b.classList.remove('active'));
+    sidePanel.querySelector('.vchat-tab[data-tab="analysis"]').classList.add('active');
+    
+    showAnalysisLoading(link);
+
+    chrome.runtime.sendMessage({type: 'LIVE_ANALYZE', link: link}, (res) => {
+        btn.style.opacity = '1';
+        if (res && res.success && res.data && res.data.result && !res.data.error) {
+            btn.innerHTML = '✔ Verified';
+            btn.style.backgroundColor = '#34A853'; // Google Green
+            btn.style.borderColor = '#34A853';
+            renderAnalysisResult(res.data.result, link);
+        } else {
+            btn.innerHTML = '❌ Failed';
+            btn.style.backgroundColor = '#EA4335'; // Google Red
+            btn.style.borderColor = '#EA4335';
+            
+            const errObj = res?.data?.error || res?.error || "Unknown Server Error";
+            const errStr = typeof errObj === 'object' ? (errObj.message || JSON.stringify(errObj)) : errObj;
+            renderAnalysisError(errStr, link);
+        }
+        
+        setTimeout(() => { 
+            btn.innerHTML = '⚡ Analyze'; 
+            btn.style.backgroundColor = ''; 
+            btn.style.borderColor = ''; 
+        }, 4000);
+    });
+}
+
+function showAnalysisLoading(link) {
+    panelContent.innerHTML = `
+        <div class="vchat-section-title">A2A Pipeline Active</div>
+        <div class="vchat-link-preview">${link}</div>
+        <div class="vchat-loading-pulse">
+            <div>Agent orchestrating models...</div>
+            <div style="font-weight:normal; color:#9aa0a6; margin-top:8px;">Extracting visual/audio factors...</div>
+        </div>
+    `;
+}
+
+function renderAnalysisResult(result, link) {
+    const data = result.data; // This is the 'parsed_data' or final_result from agent_logic
+    if (!data || !data.final_assessment) {
+        renderAnalysisError("Agent returned empty or unparsed data.", link);
+        return;
+    }
+
+    const score = parseInt(data.final_assessment.veracity_score_total || 0);
+    let scoreColorClass = 'med';
+    if (score >= 75) scoreColorClass = 'high';
+    if (score <= 40) scoreColorClass = 'low';
+
+    const v = data.veracity_vectors || {};
+    const m = data.modalities || {};
+
+    panelContent.innerHTML = `
+        <div class="vchat-section-title">Agentic Assessment</div>
+        <div class="vchat-link-preview">${link}</div>
+        
+        <div class="vchat-score-card">
+            <div class="label">Final Veracity Score</div>
+            <div class="score ${scoreColorClass}">${score}<span style="font-size:18px; color:#9aa0a6;">/100</span></div>
+            <div style="font-size:11px; color:#9aa0a6; margin-top:4px; text-transform:uppercase;">
+                ${data.disinformation_analysis?.classification || 'Unknown'}
+            </div>
+        </div>
+
+        <div class="vchat-reasoning-box">
+            <b>Reasoning:</b> ${data.final_assessment.reasoning}
+        </div>
+
+        <div style="margin-bottom: 16px; background: #292a2d; padding: 12px; border-radius: 6px; border: 1px solid #3c4043;">
+            <div class="vchat-section-title" style="margin-bottom:8px; border-bottom:none;">Veracity Vectors</div>
+            <div class="vchat-vector-row"><span class="v-name">Visual Integrity</span><span class="v-score">${v.visual_integrity_score || 'N/A'}/10</span></div>
+            <div class="vchat-vector-row"><span class="v-name">Audio Integrity</span><span class="v-score">${v.audio_integrity_score || 'N/A'}/10</span></div>
+            <div class="vchat-vector-row"><span class="v-name">Logical Consistency</span><span class="v-score">${v.logical_consistency_score || 'N/A'}/10</span></div>
+            <div class="vchat-vector-row"><span class="v-name">Source Credibility</span><span class="v-score">${v.source_credibility_score || 'N/A'}/10</span></div>
+            
+            <div class="vchat-section-title" style="margin: 12px 0 8px; border-bottom:none;">Alignments</div>
+            <div class="vchat-vector-row"><span class="v-name">Video-Caption</span><span class="v-score">${m.video_caption_score || 'N/A'}/10</span></div>
+            <div class="vchat-vector-row"><span class="v-name">Audio-Caption</span><span class="v-score">${m.audio_caption_score || 'N/A'}/10</span></div>
+        </div>
+        
+        <div style="font-size:10px; color:#9aa0a6; text-align:center;">Data synced to local Manager.</div>
+    `;
+}
+
+function renderAnalysisError(errorMsg, link) {
+    panelContent.innerHTML = `
+        <div class="vchat-section-title" style="color:#EA4335;">Pipeline Error</div>
+        <div class="vchat-link-preview">${link}</div>
+        <div style="background:rgba(234, 67, 53, 0.1); color:#f28b82; padding:12px; border-radius:4px; font-size:12px; border:1px solid rgba(234, 67, 53, 0.3); word-break: break-word;">
+            ${errorMsg}
+        </div>
+    `;
+}
+
+function renderPanelForLink(link, caption, platform, tab) {
+    if (tab === 'analysis') {
+        if (!document.getElementById('vchat-analysis-result') && !panelContent.innerHTML.includes('vchat-score-card')) {
+             panelContent.innerHTML = `<div class="vchat-status-msg" style="color: #9aa0a6; text-align: center; margin-top: 40px;">Select a post and run ⚡ Analyze to view results here.</div>`;
+        }
+    } else if (tab === 'labeling') {
+        panelContent.innerHTML = `
+            <div class="vchat-section-title">Manual Override</div>
+            <p style="color:#9aa0a6; font-size:11px; margin-bottom:12px;">Reviewing: ${link}</p>
+            <button id="btn-open-full" class="vchat-action-btn">Open Editor Form</button>
+        `;
+        document.getElementById('btn-open-full').onclick = () => {
+             window.open(chrome.runtime.getURL(`src/manual_label.html?link=${encodeURIComponent(link)}&caption=${encodeURIComponent(caption)}`), '_blank', 'width=600,height=800');
+        };
+    }
+}
+
+// Scrapes ~10 comments and returns them
 async function scrapeLocalComments(tweetElement, amount=10) {
     if (!window.location.href.includes('/status/')) return [];
-    
-    // Auto-scroll slightly to trigger load
     window.scrollBy(0, 500);
     await new Promise(r => setTimeout(r, 1000));
-    
     const comments = [];
-    const replyNodes = document.querySelectorAll('article[data-testid="tweet"]');
-    
-    replyNodes.forEach(node => {
+    document.querySelectorAll('article[data-testid="tweet"]').forEach(node => {
         if(node === tweetElement) return;
         const textNode = node.querySelector('[data-testid="tweetText"]');
         const userNode = node.querySelector('[data-testid="User-Name"]');
-        if(textNode) {
-            comments.push({
-                author: userNode ? userNode.innerText.split('\n')[0] : "Unknown",
-                text: textNode.innerText
-            });
-        }
+        if(textNode) comments.push({ author: userNode ? userNode.innerText.split('\n')[0] : "Unknown", text: textNode.innerText });
     });
     return comments.slice(0, amount);
 }
 
-async function handleIngestWithComments(link, tweetElement, btn) {
-    btn.innerHTML = '⏳';
-    
+async function handleIngestWithComments(link, tweetElement, btnSource) {
+    const originalText = btnSource.innerHTML;
+    btnSource.innerHTML = '⏳ Queueing...';
     try {
-        if (!window.location.href.includes('/status/')) {
-            // If not on detail page, just ingest link
-            handleIngest(link, btn);
-            return;
-        }
-
+        if (!window.location.href.includes('/status/')) { handleIngest(link, btnSource); return; }
         const comments = await scrapeLocalComments(tweetElement, 10);
-        
-        chrome.runtime.sendMessage({
-            type: 'INGEST_LINK_COMMENTS', 
-            link: link,
-            comments: comments
-        }, (res) => {
-             if (res && res.success) {
-                btn.innerHTML = '✔';
-                btn.style.backgroundColor = '#10b981';
-            } else {
-                btn.innerHTML = '❌';
-                btn.style.backgroundColor = '#ef4444';
-            }
-            setTimeout(() => { btn.innerHTML = '⚡+💬'; btn.style.backgroundColor = '#8b5cf6'; }, 2000);
+        chrome.runtime.sendMessage({ type: 'INGEST_LINK_COMMENTS', link: link, comments: comments }, (res) => {
+             if (res && res.success) btnSource.innerHTML = '✔ Added';
+             else btnSource.innerHTML = '❌ Error';
+             setTimeout(() => { btnSource.innerHTML = originalText; }, 2000);
         });
-
-    } catch (e) {
-        console.error(e);
-        btn.innerHTML = '❌';
-    }
+    } catch (e) { btnSource.innerHTML = '❌ Error'; }
 }
 
-async function handleScrapeComments(link, tweetElement, btn) {
-    // Prompt for amount
+async function handleScrapeComments(link, tweetElement, btnSource) {
+    const originalText = btnSource.innerHTML;
     const amountStr = prompt("How many comments to sample?", "30");
     if (!amountStr) return;
     const amount = parseInt(amountStr) || 30;
-
-    btn.innerHTML = '⏳';
-    
+    btnSource.innerHTML = '⏳ Scraping...';
     try {
         if (!window.location.href.includes('/status/')) {
             alert("Please open the post detail page first to scrape comments.");
-            btn.innerHTML = '💬';
-            return;
+            btnSource.innerHTML = originalText; return;
         }
-
-        // Auto-scroll to load comments
-        window.scrollBy(0, 500);
-        await new Promise(r => setTimeout(r, 1000));
-        window.scrollBy(0, 1000);
-        await new Promise(r => setTimeout(r, 1500));
-
+        window.scrollBy(0, 500); await new Promise(r => setTimeout(r, 1000));
+        window.scrollBy(0, 1000); await new Promise(r => setTimeout(r, 1500));
         const comments = [];
-        const replyNodes = document.querySelectorAll('article[data-testid="tweet"]');
-        
-        replyNodes.forEach(node => {
+        document.querySelectorAll('article[data-testid="tweet"]').forEach(node => {
             if(node === tweetElement) return;
-            
             const textNode = node.querySelector('[data-testid="tweetText"]');
             const userNode = node.querySelector('[data-testid="User-Name"]');
-            
-            if(textNode) {
-                comments.push({
-                    author: userNode ? userNode.innerText.split('\n')[0] : "Unknown",
-                    text: textNode.innerText
-                });
-            }
+            if(textNode) comments.push({ author: userNode ? userNode.innerText.split('\n')[0] : "Unknown", text: textNode.innerText });
         });
-
-        // Limit to requested amount
-        const sample = comments.slice(0, amount);
         
-        chrome.runtime.sendMessage({
-            type: 'SAVE_COMMENTS',
-            payload: {
-                link: link,
-                comments: sample
-            }
-        }, (res) => {
-            if(res && res.success) {
-                btn.innerHTML = '✔';
-                alert(`Saved ${res.count} comments to data/comments/`);
-            } else {
-                btn.innerHTML = '❌';
-            }
-            setTimeout(() => { btn.innerHTML = '💬'; }, 3000);
+        chrome.runtime.sendMessage({ type: 'SAVE_COMMENTS', payload: { link: link, comments: comments.slice(0, amount) } }, (res) => {
+            if(res && res.success) { btnSource.innerHTML = '✔ Saved'; alert(`Saved ${res.count} comments.`); } 
+            else btnSource.innerHTML = '❌ Error';
+            setTimeout(() => { btnSource.innerHTML = originalText; }, 3000);
         });
-
-    } catch(e) {
-        console.error(e);
-        btn.innerHTML = '❌';
-    }
+    } catch(e) { btnSource.innerHTML = '❌ Error'; }
 }
 
-function handleIngest(link, btn) {
-    btn.innerHTML = '...';
+function handleIngest(link, btnSource) {
+    const originalText = btnSource.innerHTML;
+    btnSource.innerHTML = '⏳ Adding...';
     chrome.runtime.sendMessage({type: 'INGEST_LINK', link: link}, (res) => {
-        if (res && res.success) {
-            btn.innerHTML = '✔';
-            btn.style.backgroundColor = '#10b981';
-        } else {
-            btn.innerHTML = '❌';
-            btn.style.backgroundColor = '#ef4444';
-        }
-        setTimeout(() => { btn.innerHTML = '⚡'; btn.style.backgroundColor = '#6366f1'; }, 2000);
+        if (res && res.success) btnSource.innerHTML = '✔ Queued';
+        else btnSource.innerHTML = '❌ Error';
+        setTimeout(() => { btnSource.innerHTML = originalText; }, 2000);
     });
 }
 
-function openPanel(link, caption, platform, stats) {
-    currentLink = link;
-    currentCaption = caption;
-    currentPlatform = platform;
-    currentStats = stats;
-    if (sidePanel.classList.contains('hidden')) togglePanel();
-    const activeTab = sidePanel.querySelector('.vchat-tab.active').getAttribute('data-tab');
-    renderPanelForLink(link, caption, platform, activeTab);
-}
-
-function renderPanelForLink(link, caption, platform, tab) {
-    if (tab === 'comments') {
-        panelContent.innerHTML = `<div class="vchat-section-title">Analysis</div><div class="vchat-link-preview">${link}</div><div>Use the manual tab to label.</div>`;
-    } else {
-        renderLabelingTab(link, caption);
-    }
-}
-
-function renderLabelingTab(link, caption) {
-    panelContent.innerHTML = `
-        <div class="vchat-section-title">Manual Labeling</div>
-        <p style="color:#94a3b8; font-size:11px;">Labeling: ${link}</p>
-        <button id="btn-open-full" class="vchat-action-btn">Open Full Form</button>
-    `;
-    document.getElementById('btn-open-full').onclick = () => {
-         window.open(chrome.runtime.getURL(`src/manual_label.html?link=${encodeURIComponent(link)}&caption=${encodeURIComponent(caption)}`), '_blank', 'width=600,height=800');
-    };
-}
-
-
 const scraper = new UserProfileScraper();
 initSidePanel();
+initGlobalDropdown();
 
 const observer = new MutationObserver(() => {
     if (debounceTimer) clearTimeout(debounceTimer);

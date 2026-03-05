@@ -1,14 +1,20 @@
-import torch
 import re
-import ast
 import sys
 import os
 import time
 import logging
 import asyncio
 import json
-from transformers import Qwen3VLForConditionalGeneration, AutoProcessor
-from peft import PeftModel
+
+# Safe imports for Lite Mode (API only)
+try:
+    from transformers import Qwen3VLForConditionalGeneration, AutoProcessor
+    from peft import PeftModel
+except ImportError:
+    Qwen3VLForConditionalGeneration = None
+    AutoProcessor = None
+    PeftModel = None
+
 from labeling_logic import (
     LABELING_PROMPT_TEMPLATE, SCORE_INSTRUCTIONS_SIMPLE, SCORE_INSTRUCTIONS_REASONING,
     SCHEMA_SIMPLE, SCHEMA_REASONING,
@@ -48,7 +54,7 @@ except ImportError:
     genai = None
     vertexai = None
 
-LITE_MODE = os.getenv("LITE_MODE", "false").lower() == "true"
+LITE_MODE = os.getenv("LITE_MODE", "true").lower() == "true"
 processor = None
 base_model = None
 peft_model = None
@@ -222,10 +228,6 @@ async def run_vertex_labeling_pipeline(video_path: str, caption: str, transcript
     try:
         client = genai.Client(vertexai=True, project=project_id, location=vertex_config.get("location", "us-central1"))
         
-        # For Vertex, we send bytes directly (up to a limit) or use Cloud Storage. 
-        # v1 SDK Part.from_bytes is easiest for small/medium videos (< 20MB approx, but allows more in some versions).
-        # For larger videos in HF Spaces, this might time out if not using GCS.
-        # Assuming direct upload for now.
         logger.info(f"[Vertex] Reading local video file: {video_path}")
         with open(video_path, 'rb') as f: video_bytes = f.read()
         video_part = Part.from_bytes(data=video_bytes, mime_type="video/mp4")

@@ -1,424 +1,1551 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
-  AlertCircle, Play, Upload, Layers, Terminal, Cpu, Activity, 
-  FileText, Zap, MessageSquare, Sliders, LayoutDashboard, FileJson, 
-  ChevronDown, ChevronRight, Bot, Database, Trash2, Eye, StopCircle, List,
-  CheckCircle, XCircle, BrainCircuit, Download, BookOpen
+  AlertCircle, Play, Upload, List, Database, BarChart2, ExternalLink, 
+  Users, MessageSquare, TrendingUp, ShieldCheck, UserCheck, Search, PlusCircle, 
+  StopCircle, RefreshCw, CheckCircle2, PenTool, ClipboardCheck, Info, Clock, FileText,
+  Tag, Home, Cpu, FlaskConical, Target, Trash2, ArrowUpRight, CheckSquare, Square,
+  Layers, Activity, Zap, BrainCircuit, Network, Archive, Plus, Edit3, RotateCcw,
+  Bot, Trophy, HelpCircle, Settings, Calculator
 } from 'lucide-react';
 
 function App() {
-  const [activeTab, setActiveTab] = useState('guide');
+  const[activeTab, setActiveTab] = useState('home');
   const [logs, setLogs] = useState<string>('System Ready.\n');
   const [isProcessing, setIsProcessing] = useState(false);
-  const [dataList, setDataList] = useState<any[]>([]);
+  const logContainerRef = useRef<HTMLDivElement>(null);
+  
+  // Processing Config State
+  const[modelProvider, setModelProvider] = useState('nrp');
+  const [apiKey, setApiKey] = useState('');
+  const [baseUrl, setBaseUrl] = useState('https://ellm.nrp-nautilus.io/v1'); // NRP Default
+  const [modelName, setModelName] = useState('qwen3'); // NRP Default
+  const [projectId, setProjectId] = useState('');
+  const [location, setLocation] = useState('us-central1');
+  const [includeComments, setIncludeComments] = useState(false);
+  const[reasoningMethod, setReasoningMethod] = useState('cot');
+  const [promptTemplate, setPromptTemplate] = useState('standard');
+  const [customQuery, setCustomQuery] = useState('');
+  const[maxRetries, setMaxRetries] = useState(1);
+  const [availablePrompts, setAvailablePrompts] = useState<any[]>([]);
+
+  // Predictive Config
+  const [predictiveModelType, setPredictiveModelType] = useState('logistic');
+  const [predictiveResult, setPredictiveResult] = useState<any>(null);
+
+  // Data States
   const [queueList, setQueueList] = useState<any[]>([]);
-  const [expandedRow, setExpandedRow] = useState<string | null>(null);
+  const[selectedQueueItems, setSelectedQueueItems] = useState<Set<string>>(new Set());
+  const[lastQueueIndex, setLastQueueIndex] = useState<number | null>(null);
+  
+  const[singleLinkInput, setSingleLinkInput] = useState(''); 
+  const [profileList, setProfileList] = useState<any[]>([]);
+  const [selectedProfile, setSelectedProfile] = useState<any>(null);
+  const[profilePosts, setProfilePosts] = useState<any[]>([]);
+  const [communityDatasets, setCommunityDatasets] = useState<any[]>([]);
+  const [communityAnalysis, setCommunityAnalysis] = useState<any>(null);
+  const [integrityBoard, setIntegrityBoard] = useState<any[]>([]);
+  
+  const [datasetList, setDatasetList] = useState<any[]>([]);
+  const[selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  const [lastDatasetIndex, setLastDatasetIndex] = useState<number | null>(null);
+
+  const [benchmarks, setBenchmarks] = useState<any>(null);
+  const[leaderboard, setLeaderboard] = useState<any[]>([]); 
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
-  const [videoUrl, setVideoUrl] = useState('');
-  const [model, setModel] = useState('vertex'); 
-  const [reasoningMethod, setReasoningMethod] = useState('cot');
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const logEndRef = useRef<HTMLDivElement>(null);
+  // Tags
+  const [configuredTags, setConfiguredTags] = useState<any>({});
+
+  // Manual Labeling State
+  const [manualLink, setManualLink] = useState('');
+  const[manualCaption, setManualCaption] = useState('');
+  const [manualTags, setManualTags] = useState('');
+  const[manualReasoning, setManualReasoning] = useState('');
+  const [manualScores, setManualScores] = useState({
+      visual: 5, audio: 5, source: 5, logic: 5, emotion: 5,
+      va: 5, vc: 5, ac: 5, final: 50
+  });
+  const[showRubric, setShowRubric] = useState(false);
+  const [aiReference, setAiReference] = useState<any>(null);
+  const [labelBrowserMode, setLabelBrowserMode] = useState<'queue' | 'dataset'>('queue');
+  const [labelFilter, setLabelFilter] = useState('');
+
+  // Agent Chat State
+  const[agentInput, setAgentInput] = useState('');
+  const [agentMessages, setAgentMessages] = useState<any[]>([]);
+  const [agentThinking, setAgentThinking] = useState(false);
+  const[agentEndpoint, setAgentEndpoint] = useState('/a2a');
+  const [agentMethod, setAgentMethod] = useState('agent.process');
+  const [agentConfig, setAgentConfig] = useState({ use_search: true, use_code: false });
+
+  // Resampling configuration
+  const [resampleCount, setResampleCount] = useState<number>(1);
   
+  // Drag Selection references
+  const isDraggingQueueRef = useRef(false);
+  const isDraggingDatasetRef = useRef(false);
+
   useEffect(() => {
-    logEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    const handleMouseUp = () => {
+        isDraggingQueueRef.current = false;
+        isDraggingDatasetRef.current = false;
+    };
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => window.removeEventListener('mouseup', handleMouseUp);
+  },[]);
+
+  const handleTagsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      setManualTags(e.target.value);
+  };
+
+  useEffect(() => {
+    const load = async (url: string, setter: any) => {
+        try { const res = await fetch(url); const d = await res.json(); setter(Array.isArray(d) ? d : (d.status==='no_data'?null:d)); } catch(e) {}
+    };
+
+    load('/config/prompts', setAvailablePrompts);
+    load('/config/tags', setConfiguredTags);
+
+    if (activeTab === 'home') {
+        load('/benchmarks/stats', setBenchmarks);
+        load('/benchmarks/leaderboard', setLeaderboard);
+    }
+    if (activeTab === 'queue') {
+        load('/queue/list', setQueueList);
+        setSelectedQueueItems(new Set());
+        setLastQueueIndex(null);
+    }
+    if (activeTab === 'profiles') load('/profiles/list', setProfileList);
+    if (activeTab === 'community') load('/community/list_datasets', setCommunityDatasets);
+    if (activeTab === 'analytics') load('/analytics/account_integrity', setIntegrityBoard);
+    if (activeTab === 'dataset' || activeTab === 'manual' || activeTab === 'groundtruth') load('/dataset/list', setDatasetList);
+    if (activeTab === 'manual') load('/queue/list', setQueueList);
+    
+    setSelectedItems(new Set());
+    setLastDatasetIndex(null);
+  }, [activeTab, refreshTrigger]);
+
+  useEffect(() => {
+    if (logContainerRef.current) logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight;
   }, [logs]);
 
   useEffect(() => {
-    if (activeTab === 'moderation') {
-      fetch('/manage/list').then(res => res.json()).then(setDataList).catch(err => console.error("Data Load Error:", err));
-    }
-    if (activeTab === 'queue') {
-      fetch('/queue/list').then(res => res.json()).then(setQueueList).catch(err => console.error("Queue Load Error:", err));
-    }
-  }, [activeTab, refreshTrigger]);
-
-  const appendLog = (text: string) => setLogs(prev => prev + text);
-
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files?.length) return;
-    const file = e.target.files[0];
-    const fd = new FormData();
-    fd.append("file", file);
-    
-    appendLog(`[SYSTEM] Uploading ${file.name} to queue...\n`);
-    try {
-      const res = await fetch('/queue/upload_csv', { method: 'POST', body: fd });
-      
-      if (!res.ok) {
-        const errText = await res.text();
-        throw new Error(`Server responded with ${res.status}: ${errText.substring(0, 100)}`);
+      if (activeTab === 'agent' && agentMessages.length === 0) {
+          callAgent(agentMethod, { 
+              input: "hello", 
+              agent_config: { provider: modelProvider === 'gcloud' ? 'vertex' : modelProvider, api_key: apiKey, project_id: projectId } 
+          })
+          .then(res => res.json())
+          .then(data => {
+              if (data.result && data.result.text) {
+                  setAgentMessages([{role: 'agent', content: data.result.text}]);
+              }
+          })
+          .catch(e => console.error("Initial Agent Ping Failed", e));
       }
+  }, [activeTab]);
 
-      const data = await res.json();
-      if(data.error) throw new Error(data.error);
-      appendLog(`[SYSTEM] Upload complete. Added ${data.added} links.\n`);
-      setRefreshTrigger(prev => prev + 1);
-    } catch (err: any) {
-      appendLog(`[ERROR] Upload failed: ${err.message}\n`);
-    } finally {
-        if (fileInputRef.current) fileInputRef.current.value = '';
-    }
-  };
-
-  const handleDownloadDataset = () => {
-      window.location.href = "/download-dataset";
-  };
-
-  const handleStartQueue = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsProcessing(true);
-    setLogs("[SYSTEM] Starting Queue Processing...\n");
-
-    const form = document.getElementById('control-form') as HTMLFormElement;
-    const formData = new FormData(form);
-
-    try {
-      const response = await fetch('/queue/run', { method: 'POST', body: formData });
-      if (!response.body) throw new Error("No response body");
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split('\n\n');
-        for (const line of lines) {
-            if (line.startsWith('data:')) {
-                const msg = line.replace('data:', '').trim();
-                if (msg) appendLog(msg + '\n');
+  const existingTags = React.useMemo(() => {
+    const tags = new Set<string>();
+    Object.keys(configuredTags).forEach(t => tags.add(t));
+    if (datasetList && Array.isArray(datasetList)) {
+        datasetList.forEach(item => {
+            if (item.tags && typeof item.tags === 'string') {
+                item.tags.split(/[,\n|;]+/).forEach((t: string) => {
+                    const clean = t.trim().replace(/^['"]|['"]$/g, '');
+                    if (clean.length > 1) tags.add(clean);
+                });
             }
-            if (line.includes('event: close')) setIsProcessing(false);
-        }
-      }
-    } catch (err: any) {
-      appendLog(`\n[ERROR]: ${err.message}\n`);
-    } finally {
-      setIsProcessing(false);
-      setRefreshTrigger(prev => prev + 1);
+        });
     }
+    return Array.from(tags).sort();
+  },[datasetList, configuredTags]);
+
+  const toggleTag = (tag: string) => {
+    let current = manualTags.split(',').map(t => t.trim()).filter(Boolean);
+    if (current.includes(tag)) {
+        current = current.filter(t => t !== tag);
+    } else {
+        current.push(tag);
+    }
+    setManualTags(current.join(', '));
   };
 
-  const handleStopQueue = async () => {
-      await fetch('/queue/stop', { method: 'POST' });
-      appendLog("[USER] Stop signal sent. Finishing current item...\n");
+  const loadProfilePosts = async (username: string) => {
+      const res = await fetch(`/profiles/${username}/posts`);
+      const data = await res.json();
+      setProfilePosts(data);
+      setSelectedProfile(username);
   };
 
-  const handleDelete = async (id: string, link: string) => {
-    if (!confirm("Delete this entry? This allows re-labeling of the link in the queue.")) return;
-    try {
-      const res = await fetch(`/manage/delete?id=${id}&link=${encodeURIComponent(link)}`, { method: 'DELETE' });
-      const json = await res.json();
-      if (json.status === 'deleted') {
-        setRefreshTrigger(prev => prev + 1);
+  const sendToManualLabeler = (link: string, text: string) => {
+      setManualLink(link);
+      setManualCaption(text);
+      setManualScores({
+          visual: 5, audio: 5, source: 5, logic: 5, emotion: 5,
+          va: 5, vc: 5, ac: 5, final: 50
+      });
+      setManualReasoning('');
+      setManualTags('');
+      setAiReference(null); 
+      
+      const ref = datasetList.find(d => 
+          d.source !== 'Manual' && 
+          d.source !== 'manual_promoted' && 
+          (d.link === link)
+      );
+      setAiReference(ref || null);
+      
+      setActiveTab('manual');
+  };
+  
+  const loadFromBrowser = (item: any, mode: 'queue' | 'dataset') => {
+      setManualLink(item.link);
+      
+      const ref = datasetList.find(d => 
+          d.source !== 'Manual' && 
+          d.source !== 'manual_promoted' && 
+          (d.id === item.id || d.link === item.link)
+      );
+      setAiReference(ref || null);
+
+      if (mode === 'dataset') {
+          setManualCaption(item.caption || '');
+          setManualTags(item.tags || '');
+          setManualReasoning(item.reasoning || item.final_reasoning || '');
+          setManualScores({
+              visual: parseInt(item.visual_integrity_score || item.visual_score) || 5,
+              audio: parseInt(item.audio_integrity_score || item.audio_score) || 5,
+              source: parseInt(item.source_credibility_score || item.source_score) || 5, 
+              logic: parseInt(item.logical_consistency_score || item.logic_score) || 5,
+              emotion: parseInt(item.emotional_manipulation_score || item.emotion_score) || 5,
+              va: parseInt(item.video_audio_score || item.align_video_audio) || 5, 
+              vc: parseInt(item.video_caption_score || item.align_video_caption) || 5,
+              ac: parseInt(item.audio_caption_score || item.align_audio_caption) || 5,
+              final: parseInt(item.final_veracity_score) || 50
+          });
       } else {
-        alert("Error deleting: " + JSON.stringify(json));
+          setManualCaption(''); setManualReasoning(''); setManualTags('');
+          setManualScores({
+              visual: 5, audio: 5, source: 5, logic: 5, emotion: 5,
+              va: 5, vc: 5, ac: 5, final: 50
+          });
       }
-    } catch (e) { alert("Fail: " + e); }
   };
 
-  const handleQueueDelete = async (link: string) => {
-    if(!confirm("Remove this link from queue?")) return;
-    try {
-        const res = await fetch(`/queue/delete?link=${encodeURIComponent(link)}`, { method: 'DELETE' });
-        const json = await res.json();
-        if(json.status === 'success') {
-            setRefreshTrigger(prev => prev + 1);
-        } else {
-            alert("Error: " + json.message);
-        }
-    } catch(err) {
-        console.error(err);
-    }
-  }
+  const editSelectedLabel = () => {
+      if (selectedItems.size !== 1) return alert("Please select exactly one item to edit.");
+      const id = Array.from(selectedItems)[0];
+      const item = datasetList.find(d => d.id === id);
+      if(!item) return;
+      loadFromBrowser(item, 'dataset');
+      setActiveTab('manual');
+  };
+
+  const toggleSelection = (e: React.MouseEvent, id: string, index: number, list: any[]) => {
+      let newSet = new Set(selectedItems);
+      if (e.shiftKey && lastDatasetIndex !== null && lastDatasetIndex !== index) {
+          const start = Math.min(lastDatasetIndex, index);
+          const end = Math.max(lastDatasetIndex, index);
+          for (let i = start; i <= end; i++) {
+              newSet.add(list[i].id);
+          }
+      } else {
+          if (newSet.has(id)) newSet.delete(id);
+          else newSet.add(id);
+      }
+      setSelectedItems(newSet);
+      setLastDatasetIndex(index);
+  };
+  
+  const toggleQueueSelection = (e: React.MouseEvent, link: string, index: number, list: any[]) => {
+      let newSet = new Set(selectedQueueItems);
+      if (e.shiftKey && lastQueueIndex !== null && lastQueueIndex !== index) {
+          const start = Math.min(lastQueueIndex, index);
+          const end = Math.max(lastQueueIndex, index);
+          for (let i = start; i <= end; i++) {
+              newSet.add(list[i].link);
+          }
+      } else {
+          if (newSet.has(link)) newSet.delete(link);
+          else newSet.add(link);
+      }
+      setSelectedQueueItems(newSet);
+      setLastQueueIndex(index);
+  };
+
+  const promoteSelected = async () => {
+      if (selectedItems.size === 0) return alert("No items selected.");
+      if (!confirm(`Promote ${selectedItems.size} items to Ground Truth?`)) return;
+      try {
+          const res = await fetch('/manual/promote', {
+              method: 'POST', headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({ ids: Array.from(selectedItems) })
+          });
+          const d = await res.json();
+          if(d.status === 'success') {
+              alert(`Successfully promoted ${d.promoted_count} items.`);
+              setSelectedItems(new Set());
+              setRefreshTrigger(p => p+1);
+          } else alert("Promotion failed: " + d.message);
+      } catch(e: any) { alert("Network error: " + e.toString()); }
+  };
+
+  const verifySelected = async () => {
+      if (selectedItems.size === 0) return alert("No items selected.");
+      if (!confirm(`Queue ${selectedItems.size} Ground Truth items for AI Verification Pipeline?`)) return;
+      try {
+          const res = await fetch('/manual/verify_queue', {
+              method: 'POST', headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({ ids: Array.from(selectedItems), resample_count: resampleCount })
+          });
+          const d = await res.json();
+          if(d.status === 'success') {
+              alert(d.message);
+              setSelectedItems(new Set());
+              setActiveTab('queue');
+              setRefreshTrigger(p => p+1);
+          } else alert("Error: " + d.message);
+      } catch(e) { alert("Network error."); }
+  };
+
+  const deleteSelected = async () => {
+      if (selectedItems.size === 0) return alert("No items selected.");
+      if (!confirm(`Delete ${selectedItems.size} items from Ground Truth? Irreversible.`)) return;
+      try {
+          const res = await fetch('/manual/delete', {
+              method: 'POST', headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({ ids: Array.from(selectedItems) })
+          });
+          const d = await res.json();
+          if(d.status === 'success') {
+              alert(`Deleted ${d.deleted_count} items.`);
+              setSelectedItems(new Set());
+              setRefreshTrigger(p => p+1);
+          } else alert("Error deleting: " + d.message);
+      } catch(e) { alert("Network error."); }
+  };
+
+  const deleteDataEntries = async () => {
+      if (selectedItems.size === 0) return alert("No items selected.");
+      if (!confirm(`Delete ${selectedItems.size} items? This cannot be undone.`)) return;
+
+      const selectedArray = Array.from(selectedItems);
+      const manualIds = selectedArray.filter(id => datasetList.find(d => d.id === id)?.source === 'Manual');
+      const aiIds = selectedArray.filter(id => {
+          const item = datasetList.find(d => d.id === id);
+          return item?.source === 'AI' || !item?.source; 
+      });
+
+      try {
+          let msg = "";
+          if (manualIds.length > 0) {
+              const res = await fetch('/manual/delete', {
+                  method: 'POST', headers: {'Content-Type': 'application/json'},
+                  body: JSON.stringify({ ids: manualIds })
+              });
+              const d = await res.json();
+              if (d.status === 'success') msg += `Deleted ${d.deleted_count} Manual items. `;
+              else msg += `Failed Manual delete: ${d.message}. `;
+          }
+
+          if (aiIds.length > 0) {
+              const res = await fetch('/dataset/delete', {
+                  method: 'POST', headers: {'Content-Type': 'application/json'},
+                  body: JSON.stringify({ ids: aiIds })
+              });
+              const d = await res.json();
+              if (d.status === 'success') msg += `Deleted ${d.deleted_count} AI items. `;
+              else msg += `Failed AI delete: ${d.message}. `;
+          }
+
+          alert(msg || "Done.");
+          setSelectedItems(new Set());
+          setRefreshTrigger(p => p + 1);
+      } catch (e) {
+          alert("Network error: " + e);
+      }
+  };
+
+  const submitManualLabel = async () => {
+      if(!manualLink) return alert("Link is required.");
+      const payload = {
+          link: manualLink, caption: manualCaption, tags: manualTags, reasoning: manualReasoning,
+          visual_integrity_score: manualScores.visual, audio_integrity_score: manualScores.audio,
+          source_credibility_score: manualScores.source, logical_consistency_score: manualScores.logic,
+          emotional_manipulation_score: manualScores.emotion,
+          video_audio_score: manualScores.va, video_caption_score: manualScores.vc, audio_caption_score: manualScores.ac,
+          final_veracity_score: manualScores.final,
+          classification: "Manual Verified"
+      };
+      try {
+          const res = await fetch('/manual/save', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
+          const d = await res.json();
+          if(d.status === 'success') { 
+              alert("Label Saved! Data updated."); 
+              setRefreshTrigger(p => p+1); 
+          } else alert("Error saving label: " + d.message);
+      } catch(e: any) { alert("Network error: " + e.toString()); }
+  };
+
+  const analyzeComments = async (id: string) => {
+      setCommunityAnalysis({ verdict: "Analyzing..." });
+      const res = await fetch('/community/analyze', {
+          method: 'POST', headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ dataset_id: id })
+      });
+      setCommunityAnalysis(await res.json());
+  };
+
+  const runPredictiveTraining = async (useVisual: boolean) => {
+      setPredictiveResult({ status: 'training' });
+      try {
+          const res = await fetch('/benchmarks/train_predictive', {
+              method: 'POST', headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({ use_visual_meta: useVisual, model_type: predictiveModelType })
+          });
+          const data = await res.json();
+          setPredictiveResult(data);
+          setRefreshTrigger(p => p+1);
+      } catch (e) { setPredictiveResult({ error: "Failed to train." }); }
+  };
+
+  const queueUnlabeledPosts = async () => {
+      const unlabeled = profilePosts.filter(p => !p.is_labeled).map(p => p.link);
+      if(unlabeled.length === 0) return alert("All posts already labeled!");
+      const csvContent = "link\n" + unlabeled.join("\n");
+      const blob = new Blob([csvContent], { type: 'text/csv' });
+      const fd = new FormData(); fd.append("file", blob, "batch_upload.csv");
+      try {
+        await fetch('/queue/upload_csv', { method: 'POST', body: fd });
+        alert(`Queued ${unlabeled.length} links.`); setRefreshTrigger(p => p+1);
+      } catch (e) { alert("Error uploading."); }
+  };
+
+  const addSingleLink = async () => {
+      if(!singleLinkInput) return;
+      try {
+          const res = await fetch('/queue/add', {
+              method: 'POST', headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({ link: singleLinkInput })
+          });
+          const d = await res.json();
+          if(d.status === 'success') {
+              setSingleLinkInput('');
+              setRefreshTrigger(p => p+1);
+          } else { alert(d.message); }
+      } catch(e) { alert("Error adding link"); }
+  };
+
+  const clearProcessed = async () => {
+      if(!confirm("Remove all 'Processed' items from the queue?")) return;
+      try {
+          const res = await fetch('/queue/clear_processed', { method: 'POST' });
+          const d = await res.json();
+          alert(`Removed ${d.removed_count} processed items.`);
+          setRefreshTrigger(p => p+1);
+      } catch(e) { alert("Error clearing queue."); }
+  };
+  
+  const requeueItems = async () => {
+      if(selectedQueueItems.size === 0) return alert("No items selected.");
+      if(!confirm(`Requeue ${selectedQueueItems.size} items? Their status will reset to Pending for processing.`)) return;
+      try {
+          const res = await fetch('/queue/requeue', {
+              method: 'POST', headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({ links: Array.from(selectedQueueItems) })
+          });
+          const d = await res.json();
+          if(d.status === 'success') {
+              alert(`Requeued ${d.count} items.`);
+              setSelectedQueueItems(new Set());
+              setRefreshTrigger(p => p+1);
+          }
+      } catch(e) { alert("Error requeuing items."); }
+  };
+
+  const deleteQueueItems = async () => {
+      if(selectedQueueItems.size === 0) return alert("No items selected.");
+      if(!confirm(`Remove ${selectedQueueItems.size} items from queue?`)) return;
+      try {
+          const res = await fetch('/queue/delete', {
+              method: 'POST', headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({ links: Array.from(selectedQueueItems) })
+          });
+          const d = await res.json();
+          if(d.status === 'success') {
+              alert(`Removed ${d.count} items.`);
+              setSelectedQueueItems(new Set());
+              setRefreshTrigger(p => p+1);
+          }
+      } catch(e) { alert("Error deleting queue items."); }
+  };
+
+  const stopProcessing = async () => {
+      if(!confirm("Stop batch processing?")) return;
+      await fetch('/queue/stop', { method: 'POST' });
+      setLogs(prev => prev + '\n[SYSTEM] Stop Signal Sent.\n');
+  };
+
+  const startProcessing = async () => {
+      if (isProcessing) return;
+      setIsProcessing(true);
+      setLogs(prev => prev + '\n[SYSTEM] Starting Queue Processing...\n');
+      const fd = new FormData();
+      
+      const activeProvider = modelProvider === 'gcloud' ? 'vertex' : modelProvider;
+      fd.append('model_selection', activeProvider); 
+      fd.append('gemini_api_key', apiKey);
+      fd.append('gemini_model_name', modelName); 
+      fd.append('vertex_project_id', projectId);
+      fd.append('vertex_location', location); 
+      fd.append('vertex_model_name', modelName); 
+      fd.append('vertex_api_key', apiKey);
+      
+      // Provide generic NRP configs
+      fd.append('nrp_api_key', apiKey);
+      fd.append('nrp_model_name', modelName);
+      fd.append('nrp_base_url', baseUrl);
+
+      fd.append('include_comments', includeComments.toString()); 
+      fd.append('reasoning_method', reasoningMethod);
+      fd.append('prompt_template', promptTemplate); 
+      fd.append('custom_query', customQuery);
+      fd.append('max_reprompts', maxRetries.toString());
+
+      try {
+          const res = await fetch('/queue/run', { method: 'POST', body: fd });
+          const reader = res.body!.pipeThrough(new TextDecoderStream()).getReader();
+          while (true) {
+              const { value, done } = await reader.read();
+              if (done) break;
+              if (value.includes('event: close')) { setIsProcessing(false); break; }
+              const clean = value.replace(/data: /g, '').trim();
+              if (clean) setLogs(prev => prev + clean + '\n');
+          }
+      } catch (e) { setIsProcessing(false); }
+      setRefreshTrigger(p => p+1);
+  };
+
+  const callAgent = async (method: string, payloadParams: any) => {
+      return fetch(agentEndpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+              jsonrpc: "2.0",
+              method: method, 
+              params: payloadParams,
+              id: Date.now()
+          })
+      });
+  };
+
+  const sendAgentMessage = async () => {
+      if (!agentInput.trim() || agentThinking) return;
+      setAgentMessages(prev =>[...prev, {role: 'user', content: agentInput}]);
+      const currentInput = agentInput;
+      setAgentInput('');
+      setAgentThinking(true);
+      
+      try {
+          const fullAgentConfig = {
+              ...agentConfig,
+              provider: modelProvider === 'gcloud' ? 'vertex' : modelProvider,
+              api_key: apiKey,
+              base_url: baseUrl,
+              project_id: projectId,
+              location: location,
+              model_name: modelName,
+              reasoning_method: reasoningMethod,
+              prompt_template: promptTemplate
+          };
+
+          let res = await callAgent(agentMethod, { input: currentInput, agent_config: fullAgentConfig });
+          let data = await res.json();
+
+          if (data.error && data.error.code === -32601 && agentMethod === 'agent.process') {
+              res = await callAgent('agent.generate', { input: currentInput, agent_config: fullAgentConfig });
+              data = await res.json();
+              if (!data.error) {
+                  setAgentMethod('agent.generate'); 
+              }
+          }
+
+          let reply = "Agent sent no text.";
+          if (data.error) {
+              reply = `Agent Error: ${data.error.message || JSON.stringify(data.error)}`;
+          } else if (data.result) {
+               if (typeof data.result === 'string') reply = data.result;
+               else if (data.result.text) reply = data.result.text;
+               else if (data.result.content) reply = data.result.content;
+               else reply = JSON.stringify(data.result);
+               
+               if (data.result.update_config) {
+                   const cfg = data.result.update_config;
+                   if (cfg.provider) setModelProvider(cfg.provider);
+                   if (cfg.api_key) setApiKey(cfg.api_key);
+                   if (cfg.project_id) setProjectId(cfg.project_id);
+               }
+          }
+
+          setAgentMessages(prev =>[...prev, {role: 'agent', content: reply}]);
+          if (currentInput.toLowerCase().includes("queue") || currentInput.includes("http")) {
+              setTimeout(() => setRefreshTrigger(p => p+1), 2000);
+          }
+
+      } catch (e: any) {
+          setAgentMessages(prev =>[...prev, {role: 'agent', content: `Connection Error: ${e.message}.`}]);
+      } finally {
+          setAgentThinking(false);
+      }
+  };
 
   return (
     <div className="flex h-screen w-full bg-[#09090b] text-slate-200 font-sans overflow-hidden">
       
-      {/* LEFT PANEL */}
-      <div className="w-[380px] flex flex-col border-r border-slate-800/60 bg-[#0c0c0e]">
+      {/* SIDEBAR */}
+      <div className="w-[280px] flex flex-col border-r border-slate-800/60 bg-[#0c0c0e]">
         <div className="h-16 flex items-center px-6 border-b border-slate-800/60">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center">
-              <Bot className="w-5 h-5 text-white" />
-            </div>
-            <h1 className="text-sm font-bold text-white">vChat <span className="text-slate-500">Manager</span></h1>
-          </div>
+          <h1 className="text-sm font-bold text-white">vChat <span className="text-slate-500">Manager</span></h1>
         </div>
-
-        <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
-          <form id="control-form" className="space-y-6">
-            <div className="grid grid-cols-2 gap-1 p-1 bg-slate-900 rounded-lg border border-slate-800">
-               {[{id:'guide',l:'User Guide',i:BookOpen}, {id:'queue',l:'Queue',i:List}, {id:'moderation',l:'Data',i:Database}, {id:'manual',l:'Labeler',i:Play}].map(t => (
-                  <button key={t.id} type="button" onClick={() => setActiveTab(t.id)}
-                    className={`flex items-center justify-center gap-2 py-2 text-xs font-medium rounded ${activeTab===t.id ? 'bg-slate-800 text-white' : 'text-slate-500'}`}>
-                    <t.i className="w-3 h-3" /> {t.l}
-                  </button>
-               ))}
-            </div>
-
-            <div className="space-y-3">
-              <label className="text-xs font-bold text-slate-500 uppercase">Model Engine</label>
-              <select name="model_selection" value={model} onChange={(e) => setModel(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-800 rounded px-3 py-2 text-xs outline-none focus:border-indigo-500">
-                <option value="vertex">Google Vertex AI</option>
-                <option value="gemini">Google Gemini API</option>
-              </select>
-
-              {model === 'gemini' && (
-                <div className="space-y-2">
-                  <input type="password" name="gemini_api_key" placeholder="Gemini API Key" className="w-full bg-black/20 border border-slate-800 rounded px-3 py-2 text-xs" />
-                  <input type="text" name="gemini_model_name" defaultValue="models/gemini-2.5-flash-lite" className="w-full bg-black/20 border border-slate-800 rounded px-3 py-2 text-xs" />
-                </div>
-              )}
-              {model === 'vertex' && (
-                 <div className="space-y-2">
-                   <input type="text" name="vertex_project_id" placeholder="GCP Project ID" className="w-full bg-black/20 border border-slate-800 rounded px-3 py-2 text-xs" />
-                   <div className="grid grid-cols-2 gap-2">
-                      <input type="text" name="vertex_location" defaultValue="us-central1" className="w-full bg-black/20 border border-slate-800 rounded px-3 py-2 text-xs" />
-                      <input type="text" name="vertex_model_name" defaultValue="gemini-2.5-flash-lite" className="w-full bg-black/20 border border-slate-800 rounded px-3 py-2 text-xs" />
-                   </div>
-                 </div>
-              )}
-            </div>
-
-            <div className="space-y-3">
-                <label className="text-xs font-bold text-slate-500 uppercase flex items-center gap-2">
-                    <BrainCircuit className="w-3 h-3" /> Reasoning Architecture
-                </label>
-                <div className="grid grid-cols-2 gap-2">
-                    <button type="button" 
-                        onClick={() => setReasoningMethod('cot')}
-                        className={`py-2 px-3 rounded text-xs border ${reasoningMethod === 'cot' ? 'bg-indigo-900/40 border-indigo-500 text-indigo-300' : 'bg-slate-900 border-slate-800 text-slate-500 hover:border-slate-700'}`}>
-                        Standard CoT
-                    </button>
-                    <button type="button" 
-                        onClick={() => setReasoningMethod('fcot')}
-                        className={`py-2 px-3 rounded text-xs border ${reasoningMethod === 'fcot' ? 'bg-indigo-900/40 border-indigo-500 text-indigo-300' : 'bg-slate-900 border-slate-800 text-slate-500 hover:border-slate-700'}`}>
-                        Fractal CoT
-                    </button>
-                </div>
-                <input type="hidden" name="reasoning_method" value={reasoningMethod} />
-                <p className="text-[10px] text-slate-500">
-                    {reasoningMethod === 'cot' ? "Single-pass linear chain of thought." : "Recursive Multi-Scale (Macro → Meso → Consensus)."}
-                </p>
-            </div>
-
-            {activeTab === 'queue' && (
-               <div className="space-y-4">
-                 <div onClick={() => fileInputRef.current?.click()} className="border-2 border-dashed border-slate-700 hover:border-indigo-500 hover:bg-indigo-500/5 rounded-xl p-4 text-center cursor-pointer transition-colors">
-                     <Upload className="w-5 h-5 mx-auto text-slate-500 mb-1" />
-                     <p className="text-xs text-slate-400">Upload CSV to Queue</p>
-                     <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept=".csv" hidden />
-                 </div>
-                 <div className="p-3 bg-indigo-900/10 border border-indigo-500/20 rounded-lg flex justify-between">
-                    <p className="text-xs text-indigo-300">Pending: {queueList.filter(x=>x.status==='Pending').length}</p>
-                    <p className="text-xs text-indigo-300">Total: {queueList.length}</p>
-                 </div>
-               </div>
-            )}
-
-            {activeTab === 'manual' && (
-               <div className="space-y-2">
-                   <label className="text-xs font-bold text-slate-500 uppercase">Single Video URL</label>
-                   <input type="text" name="video_url" value={videoUrl} onChange={e=>setVideoUrl(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded px-3 py-2 text-xs" />
-               </div>
-            )}
-            
-            <div className="flex items-center gap-2 mt-4 bg-slate-900 p-2 rounded border border-slate-800">
-               <input type="checkbox" name="include_comments" id="include_comments" value="true" className="rounded bg-slate-800 border-slate-700 text-indigo-500 focus:ring-offset-0 focus:ring-0" />
-               <label htmlFor="include_comments" className="text-xs text-slate-400 select-none cursor-pointer">Include Reasoning (Detailed Schema)</label>
-            </div>
-          </form>
-        </div>
-
-        <div className="p-6 border-t border-slate-800/60 bg-[#0c0c0e]">
-           {activeTab === 'queue' ? (
-              <div className="flex gap-2">
-                 <button onClick={handleStartQueue} disabled={isProcessing} className={`flex-1 py-3 rounded-lg font-bold text-xs flex items-center justify-center gap-2 ${isProcessing ? 'bg-slate-800 text-slate-400' : 'bg-emerald-600 hover:bg-emerald-500 text-white'}`}>
-                    <Play className="w-4 h-4" /> Start Batch
-                 </button>
-                 {isProcessing && (
-                     <button onClick={handleStopQueue} className="px-4 bg-red-900/50 text-red-400 border border-red-900 rounded-lg hover:bg-red-900/80">
-                        <StopCircle className="w-4 h-4" />
-                     </button>
-                 )}
-              </div>
-           ) : activeTab === 'moderation' ? (
-              <div className="flex flex-col gap-2">
-                  <button onClick={() => setRefreshTrigger(x=>x+1)} className="w-full py-3 bg-slate-800 hover:bg-slate-700 rounded-lg text-xs font-bold text-white">Refresh List</button>
-                  <button onClick={handleDownloadDataset} className="w-full py-3 bg-indigo-900 hover:bg-indigo-800 rounded-lg text-xs font-bold text-white flex items-center justify-center gap-2">
-                    <Download className="w-4 h-4"/> Download CSV
-                  </button>
-              </div>
-           ) : activeTab === 'manual' ? (
-             <button type="submit" form="control-form" className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-xs font-bold text-white flex justify-center gap-2"><Play className="w-4 h-4"/> Run Labeler</button>
-           ) : (
-            <div className="text-center text-[10px] text-slate-500">Select a mode above to start</div>
-           )}
+        <div className="flex-1 p-4 space-y-1">
+           {[
+               {id:'home', l:'Home & Benchmarks', i:Home},
+               {id:'agent', l:'Agent Nexus', i:Bot},
+               {id:'predictive', l:'Predictive Sandbox', i:FlaskConical},
+               {id:'queue', l:'Ingest Queue', i:List}, 
+               {id:'profiles', l:'User Profiles', i:Users}, 
+               {id:'manual', l:'Labeling Studio', i:PenTool},
+               {id:'dataset', l:'Data Manager', i:Archive}, 
+               {id:'groundtruth', l:'Ground Truth (Verified)', i:ShieldCheck},
+               {id:'community', l:'Community Trust', i:MessageSquare}, 
+               {id:'analytics', l:'Analytics', i:BarChart2}
+           ].map(t => (
+              <button key={t.id} onClick={() => setActiveTab(t.id)}
+                className={`w-full flex items-center gap-3 px-4 py-3 text-xs font-medium rounded-lg ${activeTab===t.id ? 'bg-indigo-600/20 text-indigo-300' : 'text-slate-500 hover:bg-white/5'}`}>
+                <t.i className="w-4 h-4" /> {t.l}
+              </button>
+           ))}
         </div>
       </div>
 
-      {/* RIGHT PANEL */}
-      <div className="flex-1 flex flex-col bg-[#09090b] overflow-hidden relative">
-         <div className="h-16 border-b border-slate-800/60 bg-[#09090b]/80 backdrop-blur flex justify-between items-center px-8 z-10">
-            <span className="text-xs font-mono font-medium text-slate-400 tracking-wide">{activeTab.toUpperCase()} VIEW</span>
-            <button onClick={() => setLogs('')} className="text-[10px] text-slate-600 hover:text-slate-400">Clear Logs</button>
+      {/* MAIN CONTENT */}
+      <div className="flex-1 flex flex-col bg-[#09090b] overflow-hidden">
+         <div className="h-16 border-b border-slate-800/60 flex items-center px-8 bg-[#09090b]">
+            <span className="text-sm font-bold text-white uppercase tracking-wider">{activeTab}</span>
          </div>
 
-         <div className="flex-1 p-6 overflow-hidden flex flex-col z-10">
-            {activeTab === 'guide' && (
-                <div className="flex-1 overflow-auto custom-scrollbar p-8 max-w-4xl mx-auto">
-                    <h1 className="text-3xl font-bold text-white mb-6">Getting Started with vChat</h1>
-                    
-                    {/* Step 1 */}
-                    <section className="mb-10">
-                        <h2 className="text-xl font-bold text-indigo-400 mb-4 flex items-center gap-2">
-                            <span className="w-8 h-8 rounded bg-indigo-500/20 flex items-center justify-center text-sm">1</span>
-                            Configure Model
-                        </h2>
-                        <p className="text-slate-400 mb-4 text-sm leading-relaxed">
-                            Before processing videos, you must configure the AI backend in the left sidebar.
-                        </p>
-                        <ul className="list-disc list-inside text-slate-500 text-xs space-y-2 ml-4">
-                            <li>Select <strong>Google Gemini API</strong> for the easiest setup.</li>
-                            <li>Get a free API key from <a href="https://aistudio.google.com/" target="_blank" className="text-indigo-400 underline" rel="noreferrer">Google AI Studio</a>.</li>
-                            <li>Paste the key into the <strong>Gemini API Key</strong> field.</li>
-                        </ul>
-                    </section>
-
-                    {/* Step 2 */}
-                    <section className="mb-10">
-                        <h2 className="text-xl font-bold text-emerald-400 mb-4 flex items-center gap-2">
-                            <span className="w-8 h-8 rounded bg-emerald-500/20 flex items-center justify-center text-sm">2</span>
-                            Prepare Your Data (CSV)
-                        </h2>
-                        <p className="text-slate-400 mb-4 text-sm">
-                            Upload a CSV file containing links to videos (Twitter/X). The file <strong>must</strong> have a header row.
-                        </p>
-                        
-                        <div className="bg-slate-900 border border-slate-800 rounded-lg p-6">
-                            <h3 className="text-xs font-bold text-slate-500 uppercase mb-3">CSV Template Format</h3>
-                            <div className="bg-black/50 rounded border border-slate-800 p-4 font-mono text-xs text-slate-300">
-                                <div className="text-slate-500 mb-2"># filename: queue.csv</div>
-                                <div className="text-emerald-400">link</div>
-                                <div>https://x.com/username/status/1234567890</div>
-                                <div>https://x.com/username/status/0987654321</div>
-                                <div>...</div>
-                            </div>
-                            <div className="mt-4 flex items-center gap-2 text-[10px] text-slate-500">
-                                <AlertCircle className="w-3 h-3" />
-                                <span>Only the <code>link</code> (or <code>url</code>) column is strictly required.</span>
+         <div className="flex-1 p-6 overflow-hidden flex flex-col">
+            
+            {/* HOME TAB */}
+            {activeTab === 'home' && (
+                <div className="h-full overflow-y-auto space-y-8 max-w-5xl pr-2">
+                    <div className="grid grid-cols-3 gap-6">
+                        <div className="col-span-2 bg-slate-900/50 border border-slate-800 rounded-xl p-6">
+                            <h2 className="text-xl font-bold text-white mb-4">Philosophy & Methodology</h2>
+                            <p className="text-sm text-slate-400 mb-4">
+                                The goal of this research is to test various predictive models, generative AI models, prompting techniques, and agents against a rigorous <strong>Ground Truth</strong> standard.
+                            </p>
+                            <div className="grid grid-cols-2 gap-4 mt-6">
+                                <div className="p-4 bg-black/50 border border-slate-800 rounded-lg">
+                                    <div className="flex items-center gap-2 text-indigo-400 font-bold text-xs uppercase mb-2">
+                                        <Calculator className="w-3 h-3"/> AI Generated Label Score
+                                    </div>
+                                    <div className="text-[10px] font-mono text-slate-400 leading-relaxed">
+                                        Formula to calculate the overall veracity score for each post:<br/><br/>
+                                        <code className="text-indigo-300 bg-indigo-950/30 p-1 rounded block mb-2">S_final = ((w1*V_vis + w2*V_aud + w3*V_src) / 3) * min(1, M_vc / 5) * 10</code>
+                                        <span className="text-slate-500 italic mt-2 block">Applies the Recontextualization Penalty based on Alignment metrics. Stored in dataset.csv.</span>
+                                    </div>
+                                </div>
+                                <div className="p-4 bg-black/50 border border-slate-800 rounded-lg">
+                                    <div className="flex items-center gap-2 text-emerald-400 font-bold text-xs uppercase mb-2">
+                                        <Target className="w-3 h-3"/> AI Config Accuracy Formula
+                                    </div>
+                                    <div className="text-[10px] font-mono text-slate-400 leading-relaxed">
+                                        Formula to calculate the overall score for how accurate the config combination is (based on difference against Ground Truth):<br/><br/>
+                                        <code className="text-emerald-300 bg-emerald-950/30 p-1 rounded block mb-1">Composite MAE = Mean Absolute Error across all 8 sub-vectors</code>
+                                        <code className="text-emerald-300 bg-emerald-950/30 p-1 rounded block">Binary Accuracy = Σ(Predict_bin == GT_bin) / N * 100</code>
+                                        <span className="text-slate-500 italic mt-2 block">Evaluates agent parameters & prompt efficacy against comprehensive factors.</span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                    </section>
-
-                    {/* Step 3 */}
-                    <section className="mb-10">
-                        <h2 className="text-xl font-bold text-amber-400 mb-4 flex items-center gap-2">
-                            <span className="w-8 h-8 rounded bg-amber-500/20 flex items-center justify-center text-sm">3</span>
-                            Run Ingestion
-                        </h2>
-                        <p className="text-slate-400 text-sm">
-                            Switch to the <strong>Queue</strong> tab, upload your CSV file, and click <strong>Start Batch</strong>.
-                            The system will download videos, transcribe audio, and run the selected AI model to generate factuality labels.
-                        </p>
-                    </section>
+                        <div className="bg-indigo-900/20 border border-indigo-500/30 rounded-xl p-6 flex flex-col justify-center items-center">
+                            <div className="text-xs uppercase text-indigo-400 font-bold mb-2">Ground Truth Accuracy</div>
+                            {benchmarks ? (
+                                <>
+                                    <div className="text-5xl font-mono font-bold text-white mb-2">{benchmarks.accuracy_percent}%</div>
+                                    <div className="text-xs text-slate-500 mb-1">Comp MAE: {benchmarks.mae} points</div>
+                                    <div className="text-[10px] text-emerald-400 font-bold mb-2">Tag Acc: {benchmarks.tag_accuracy_percent}%</div>
+                                    <div className="text-xs text-slate-500 mt-2">{benchmarks.count} verified samples</div>
+                                </>
+                            ) : (
+                                <span className="text-slate-600">No data found</span>
+                            )}
+                        </div>
+                    </div>
+                    
+                    {/* Configuration Leaderboard */}
+                    <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-6">
+                        <h3 className="text-sm font-bold text-white uppercase mb-4 flex items-center gap-2">
+                            <Trophy className="w-4 h-4 text-amber-400"/> Automated Hill Climbing (Leaderboard)
+                        </h3>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left text-xs text-slate-400">
+                                <thead className="bg-slate-950 text-slate-500 uppercase">
+                                    <tr>
+                                        <th className="p-3">Type</th>
+                                        <th className="p-3">Model</th>
+                                        <th className="p-3">Prompt</th>
+                                        <th className="p-3">Reasoning</th>
+                                        <th className="p-3 text-center">FCoT Depth</th>
+                                        <th className="p-3 text-right text-emerald-400">Accuracy</th>
+                                        <th className="p-3 text-right">Comp. MAE</th>
+                                        <th className="p-3 text-right">Tag Acc</th>
+                                        <th className="p-3 text-right">Samples</th>
+                                        <th className="p-3"></th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-800">
+                                    {leaderboard && leaderboard.map((row, i) => (
+                                        <tr key={i} className="hover:bg-white/5">
+                                            <td className="p-3 font-mono text-xs">{row.type === 'GenAI' ? <span className="text-indigo-400">GenAI</span> : <span className="text-pink-400">Pred</span>}</td>
+                                            <td className="p-3 font-mono text-white">{row.model}</td>
+                                            <td className="p-3">{row.prompt}</td>
+                                            <td className="p-3 uppercase text-[10px]">{row.reasoning}</td>
+                                            <td className="p-3 text-center text-slate-400 font-mono">{row.fcot_depth ?? 0}</td>
+                                            <td className="p-3 text-right font-bold text-emerald-400">{row.accuracy}%</td>
+                                            <td className="p-3 text-right font-mono text-amber-400">{row.comp_mae}</td>
+                                            <td className="p-3 text-right">{row.tag_acc}%</td>
+                                            <td className="p-3 text-right text-slate-500">{row.samples}</td>
+                                            <td className="p-3 text-center" title={row.params}>
+                                                <div className="group relative">
+                                                    <HelpCircle className="w-4 h-4 text-slate-600 cursor-help"/>
+                                                    <div className="absolute right-0 bottom-6 w-64 p-3 bg-black border border-slate-700 rounded shadow-xl hidden group-hover:block z-50 text-[10px] whitespace-pre-wrap text-left">
+                                                        <div className="font-bold mb-1 text-slate-400">Config Params</div>
+                                                        {row.params}
+                                                    </div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    {(!leaderboard || leaderboard.length === 0) && (
+                                        <tr><td colSpan={10} className="p-4 text-center text-slate-600">No benchmark data available.</td></tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
             )}
 
+            {/* AGENT NEXUS TAB */}
+            {activeTab === 'agent' && (
+                <div className="flex h-full gap-6">
+                    <div className="w-1/3 overflow-y-auto pr-2 flex flex-col gap-4">
+                        <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-6 flex flex-col">
+                            <h2 className="text-lg font-bold text-white flex items-center gap-2 mb-4">
+                                <BrainCircuit className="w-5 h-5 text-indigo-400"/> Agent Configuration
+                            </h2>
+                            <div className="text-xs text-slate-400 mb-6">
+                                This interface interacts with the <strong>LiarMP4 Agent</strong> running on the Google Cloud Agent Development Kit (ADK) via the A2A Protocol. You can instruct the agent to change configs directly in chat.
+                            </div>
+                            <div className="bg-slate-950 p-4 rounded border border-slate-800">
+                                 <div className="text-[10px] uppercase text-slate-500 font-bold mb-2 flex items-center gap-2"><Settings className="w-3 h-3"/> Connection</div>
+                                 <div className="space-y-2">
+                                     <label className="text-[10px] text-slate-400">Agent Endpoint URL</label>
+                                     <input 
+                                         value={agentEndpoint}
+                                         onChange={e => setAgentEndpoint(e.target.value)}
+                                         className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-xs text-white font-mono placeholder-slate-600"
+                                         placeholder="e.g. /a2a"
+                                     />
+                                 </div>
+                            </div>
+                        </div>
+
+                        <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-800">
+                            <div className="text-[10px] uppercase text-slate-500 font-bold mb-2 flex items-center gap-2"><Settings className="w-3 h-3"/> Inference Config</div>
+                            <div className="space-y-2">
+                                <label className="text-[10px] text-slate-500">Provider</label>
+                                <select value={modelProvider} onChange={e => setModelProvider(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white">
+                                    <option value="vertex">Vertex AI (Enterprise)</option>
+                                    <option value="gemini">Gemini API (Public)</option>
+                                    <option value="gcloud">Google Cloud (Project + API Key)</option>
+                                    <option value="nrp">NRP (Nautilus Envoy Gateway)</option>
+                                </select>
+                                
+                                {modelProvider === 'vertex' && (
+                                    <>
+                                        <input value={projectId} onChange={e => setProjectId(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white placeholder-slate-600" placeholder="gcp-project-id"/>
+                                        <input value={location} onChange={e => setLocation(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white placeholder-slate-600" placeholder="us-central1"/>
+                                    </>
+                                )}
+                                {modelProvider === 'gemini' && (
+                                    <input type="password" value={apiKey} onChange={e => setApiKey(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white placeholder-slate-600" placeholder="API Key"/>
+                                )}
+                                {modelProvider === 'gcloud' && (
+                                    <>
+                                        <input value={projectId} onChange={e => setProjectId(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white placeholder-slate-600" placeholder="Project Name / ID"/>
+                                        <input type="password" value={apiKey} onChange={e => setApiKey(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white placeholder-slate-600" placeholder="API Key"/>
+                                        <input value={location} onChange={e => setLocation(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white placeholder-slate-600" placeholder="us-central1"/>
+                                    </>
+                                )}
+                                {modelProvider === 'nrp' && (
+                                    <>
+                                        <div className="space-y-1">
+                                            <input value={baseUrl} onChange={e => setBaseUrl(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white placeholder-slate-600" placeholder="https://ellm.nrp-nautilus.io/v1"/>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <input type="password" value={apiKey} onChange={e => setApiKey(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white placeholder-slate-600" placeholder="NRP API Token"/>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <select value={modelName} onChange={e => setModelName(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white">
+                                                <option value="qwen3">qwen3 (Multimodal)</option>
+                                                <option value="gpt-oss">gpt-oss</option>
+                                                <option value="kimi">kimi</option>
+                                                <option value="glm-4.7">glm-4.7</option>
+                                                <option value="minimax-m2">minimax-m2</option>
+                                                <option value="glm-v">glm-v (Multimodal)</option>
+                                                <option value="gemma3">gemma3 (Multimodal)</option>
+                                            </select>
+                                        </div>
+                                    </>
+                                )}
+                                
+                                {modelProvider !== 'nrp' && (
+                                    <div className="space-y-1">
+                                        <input value={modelName} onChange={e => setModelName(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white placeholder-slate-600" placeholder="Model Name"/>
+                                    </div>
+                                )}
+
+                                <select value={reasoningMethod} onChange={e => setReasoningMethod(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white">
+                                    <option value="cot">Standard Chain of Thought</option>
+                                    <option value="fcot">Fractal Chain of Thought</option>
+                                </select>
+                                <select value={promptTemplate} onChange={e => setPromptTemplate(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white">
+                                    {availablePrompts.length > 0 ? availablePrompts.map(p => (
+                                        <option key={p.id} value={p.id}>{p.name}</option>
+                                    )) : <option value="standard">Standard</option>}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-800">
+                            <div className="text-[10px] uppercase text-slate-500 font-bold mb-2 flex items-center gap-2"><Zap className="w-3 h-3"/> Agent Capabilities</div>
+                            <ul className="text-xs text-slate-400 space-y-1 pl-4 list-disc">
+                                <li>Process raw video & audio modalities via A2A</li>
+                                <li>Fetch & analyze comment sentiment and community context</li>
+                                <li>Run full Factuality pipeline (FCoT) & Generate Veracity Vectors</li>
+                                <li>Automatically save raw AI Labeled JSON files & sync to Data Manager</li>
+                                <li>Verify and compare AI outputs against Ground Truth</li>
+                                <li>Reprompt dynamically for missing scores or incomplete data</li>
+                            </ul>
+                        </div>
+                        
+                        <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-800">
+                            <div className="text-[10px] uppercase text-slate-500 font-bold mb-2 flex items-center gap-2"><Cpu className="w-3 h-3"/> Active Tools</div>
+                            <div className="space-y-2">
+                                <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
+                                    <input type="checkbox" className="accent-indigo-500" checked={agentConfig.use_search} onChange={e => setAgentConfig({...agentConfig, use_search: e.target.checked})} />
+                                    Enable Google Search Retrieval
+                                </label>
+                                <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
+                                    <input type="checkbox" className="accent-indigo-500" checked={agentConfig.use_code} onChange={e => setAgentConfig({...agentConfig, use_code: e.target.checked})} />
+                                    Enable Code Execution Environment
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-800 mb-6">
+                            <div className="text-[10px] uppercase text-slate-500 font-bold mb-2 flex items-center gap-2"><MessageSquare className="w-3 h-3"/> Quick Commands</div>
+                            <div className="flex flex-col gap-2">
+                                <button onClick={() => setAgentInput("Set provider to gemini")} className="text-left text-[10px] text-indigo-400 hover:text-indigo-300 bg-indigo-900/20 p-2 rounded border border-indigo-500/30">"Set provider to Gemini"</button>
+                                <button onClick={() => setAgentInput("Run full pipeline on ")} className="text-left text-[10px] text-indigo-400 hover:text-indigo-300 bg-indigo-900/20 p-2 rounded border border-indigo-500/30">"Run full pipeline on [URL]"</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="flex-1 bg-slate-900/50 border border-slate-800 rounded-xl flex flex-col overflow-hidden">
+                        <div className="p-4 border-b border-slate-800 bg-slate-950/50">
+                            <div className="text-xs font-bold text-white">Agent Interaction (A2A)</div>
+                        </div>
+                        <div className="flex-1 p-4 overflow-y-auto space-y-4">
+                            {agentMessages.map((m, i) => (
+                                <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                                    <div className={`max-w-[80%] p-3 rounded-lg text-xs ${m.role === 'user' ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-300'} whitespace-pre-wrap`}>
+                                        {m.content}
+                                    </div>
+                                </div>
+                            ))}
+                            {agentThinking && (
+                                <div className="flex justify-start">
+                                    <div className="max-w-[80%] p-3 rounded-lg text-xs bg-slate-800 text-slate-300 animate-pulse">
+                                        Processing request through pipeline...
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                        <div className="p-4 bg-slate-950 border-t border-slate-800 flex gap-2">
+                            <input 
+                                value={agentInput}
+                                onChange={e => setAgentInput(e.target.value)}
+                                onKeyDown={e => e.key === 'Enter' && sendAgentMessage()}
+                                className="flex-1 bg-slate-900 border border-slate-700 rounded p-2 text-xs text-white placeholder-slate-500"
+                                placeholder="Message the agent (e.g., 'Analyze this video: https://...')"
+                                disabled={agentThinking}
+                            />
+                            <button onClick={sendAgentMessage} disabled={agentThinking} className="bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-700 text-white p-2 rounded">
+                                <ArrowUpRight className="w-4 h-4"/>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* PREDICTIVE SANDBOX */}
+            {activeTab === 'predictive' && (
+                <div className="flex h-full gap-6">
+                    <div className="w-1/3 bg-slate-900/50 border border-slate-800 rounded-xl p-6 flex flex-col gap-6">
+                        <div>
+                            <h2 className="text-lg font-bold text-white flex items-center gap-2"><FlaskConical className="w-5 h-5"/> Model Sandbox</h2>
+                            <p className="text-xs text-slate-400">Train models on the text features of the current Ground Truth dataset.</p>
+                        </div>
+                        <button onClick={() => runPredictiveTraining(false)} className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded font-bold text-xs">Train Baseline</button>
+                    </div>
+                    <div className="flex-1 bg-slate-900/50 border border-slate-800 rounded-xl p-6 relative overflow-hidden overflow-y-auto">
+                        {predictiveResult ? (
+                            predictiveResult.status === 'training' ? (
+                                <div className="absolute inset-0 flex items-center justify-center text-indigo-400 animate-pulse">Training Model...</div>
+                            ) : predictiveResult.error ? ( <div className="text-red-400">{predictiveResult.error}</div> ) : (
+                                <div className="space-y-6">
+                                    <div className="text-xl font-mono text-white">Training Complete ({predictiveResult.type})</div>
+                                    <pre className="text-xs text-slate-400 bg-black p-4 rounded">{JSON.stringify(predictiveResult, null, 2)}</pre>
+                                </div>
+                            )
+                        ) : <div className="flex h-full items-center justify-center text-slate-600">Ready to train.</div>}
+                    </div>
+                </div>
+            )}
+
+            {/* QUEUE TAB */}
             {activeTab === 'queue' && (
-                <div className="flex-1 flex flex-col gap-4">
-                    <div className="h-1/2 bg-slate-900/30 border border-slate-800 rounded-xl overflow-auto custom-scrollbar">
-                        <table className="w-full text-left text-xs text-slate-400">
-                            <thead className="bg-slate-900 text-slate-300 sticky top-0"><tr><th className="p-3">Link</th><th className="p-3">Ingested</th><th className="p-3">Status</th><th className="p-3 text-right">Action</th></tr></thead>
-                            <tbody className="divide-y divide-slate-800/50">
-                                {queueList.map((q,i) => (
-                                    <tr key={i} className="hover:bg-white/5">
-                                        <td className="p-3 truncate max-w-[300px] text-sky-500">{q.link}</td>
-                                        <td className="p-3 text-slate-500">{q.timestamp}</td>
-                                        <td className="p-3"><span className={`px-2 py-0.5 rounded ${q.status==='Processed' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-amber-500/10 text-amber-500'}`}>{q.status}</span></td>
-                                        <td className="p-3 text-right">
-                                            <button onClick={()=>handleQueueDelete(q.link)} className="text-slate-500 hover:text-red-500 p-1">
-                                                <Trash2 className="w-4 h-4"/>
-                                            </button>
+                <div className="flex h-full gap-6">
+                    <div className="w-[300px] bg-slate-900/50 border border-slate-800 rounded-xl p-4 flex flex-col gap-4 overflow-y-auto">
+                         <div className="bg-slate-950 border border-slate-800 rounded p-3">
+                            <label className="text-[10px] text-slate-500 uppercase font-bold mb-2 block">Quick Ingest</label>
+                            <div className="flex gap-2">
+                                <input 
+                                    value={singleLinkInput} 
+                                    onChange={e => setSingleLinkInput(e.target.value)} 
+                                    className="flex-1 bg-slate-900 border border-slate-700 rounded p-1.5 text-xs text-white placeholder-slate-600"
+                                    placeholder="https://x.com/..."
+                                />
+                                <button onClick={addSingleLink} className="bg-indigo-600 hover:bg-indigo-500 text-white rounded p-1.5">
+                                    <Plus className="w-4 h-4" />
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="text-xs font-bold text-indigo-400 uppercase">Config</div>
+                        <div className="space-y-1">
+                            <label className="text-[10px] text-slate-500">Provider</label>
+                            <select value={modelProvider} onChange={e => setModelProvider(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white">
+                                <option value="vertex">Vertex AI (Enterprise)</option>
+                                <option value="gemini">Gemini API (Public)</option>
+                                <option value="gcloud">Google Cloud (Project + API Key)</option>
+                                <option value="nrp">NRP (Nautilus Envoy Gateway)</option>
+                            </select>
+                        </div>
+                        {modelProvider === 'vertex' && (
+                            <>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] text-slate-500">Project ID</label>
+                                    <input value={projectId} onChange={e => setProjectId(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white" placeholder="gcp-project-id"/>
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] text-slate-500">Location</label>
+                                    <input value={location} onChange={e => setLocation(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white" placeholder="us-central1"/>
+                                </div>
+                            </>
+                        )}
+                        {modelProvider === 'gemini' && (
+                            <div className="space-y-1">
+                                <label className="text-[10px] text-slate-500">API Key</label>
+                                <input type="password" value={apiKey} onChange={e => setApiKey(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white" placeholder="AIzaSy..."/>
+                            </div>
+                        )}
+                        {modelProvider === 'gcloud' && (
+                            <>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] text-slate-500">Project Name / ID</label>
+                                    <input value={projectId} onChange={e => setProjectId(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white" placeholder="gcp-project-id"/>
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] text-slate-500">API Key</label>
+                                    <input type="password" value={apiKey} onChange={e => setApiKey(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white" placeholder="AIzaSy..."/>
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] text-slate-500">Location</label>
+                                    <input value={location} onChange={e => setLocation(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white" placeholder="us-central1"/>
+                                </div>
+                            </>
+                        )}
+                        {modelProvider === 'nrp' && (
+                            <>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] text-slate-500">API Base URL</label>
+                                    <input value={baseUrl} onChange={e => setBaseUrl(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white placeholder-slate-600" placeholder="https://ellm.nrp-nautilus.io/v1"/>
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] text-slate-500">API Key</label>
+                                    <input type="password" value={apiKey} onChange={e => setApiKey(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white placeholder-slate-600" placeholder="NRP API Token"/>
+                                </div>
+                            </>
+                        )}
+
+                        {modelProvider === 'nrp' ? (
+                            <div className="space-y-1">
+                                <label className="text-[10px] text-slate-500">Model Name</label>
+                                <select value={modelName} onChange={e => setModelName(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white">
+                                    <option value="qwen3">qwen3 (Multimodal)</option>
+                                    <option value="gpt-oss">gpt-oss</option>
+                                    <option value="kimi">kimi</option>
+                                    <option value="glm-4.7">glm-4.7</option>
+                                    <option value="minimax-m2">minimax-m2</option>
+                                    <option value="glm-v">glm-v (Multimodal)</option>
+                                    <option value="gemma3">gemma3 (Multimodal)</option>
+                                </select>
+                            </div>
+                        ) : (
+                            <div className="space-y-1">
+                                <label className="text-[10px] text-slate-500">Model Name</label>
+                                <input value={modelName} onChange={e => setModelName(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white"/>
+                            </div>
+                        )}
+
+                        <div className="space-y-1">
+                            <label className="text-[10px] text-slate-500">Reasoning Method</label>
+                            <select value={reasoningMethod} onChange={e => setReasoningMethod(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white">
+                                <option value="cot">Standard Chain of Thought</option>
+                                <option value="fcot">Fractal Chain of Thought</option>
+                            </select>
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-[10px] text-slate-500">Prompt Persona</label>
+                            <select value={promptTemplate} onChange={e => setPromptTemplate(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white">
+                                {availablePrompts.length > 0 ? availablePrompts.map(p => (
+                                    <option key={p.id} value={p.id}>{p.name}</option>
+                                )) : <option value="standard">Standard</option>}
+                            </select>
+                        </div>
+                        
+                        {/* Process Controls */}
+                        {isProcessing ? (
+                            <button onClick={stopProcessing} className="w-full py-2 bg-red-600 hover:bg-red-500 text-white rounded font-bold text-xs flex items-center justify-center gap-2 animate-pulse">
+                                 <StopCircle className="w-3 h-3"/> STOP PROCESSING
+                            </button>
+                        ) : (
+                            <button onClick={startProcessing} className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded font-bold text-xs flex items-center justify-center gap-2">
+                                 <Play className="w-3 h-3"/> Start Batch
+                            </button>
+                        )}
+                        
+                        <div className="flex gap-2">
+                            <button onClick={clearProcessed} className="flex-1 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded font-bold text-[10px] flex items-center justify-center gap-1">
+                                 <Trash2 className="w-3 h-3"/> Clear Done
+                            </button>
+                            <button onClick={requeueItems} className="flex-1 py-2 bg-sky-900/50 hover:bg-sky-900 text-sky-300 border border-sky-900 rounded font-bold text-[10px] flex items-center justify-center gap-1">
+                                 <RotateCcw className="w-3 h-3"/> Requeue Sel.
+                            </button>
+                            <button onClick={deleteQueueItems} className="flex-1 py-2 bg-red-900/50 hover:bg-red-900 text-red-300 border border-red-900 rounded font-bold text-[10px] flex items-center justify-center gap-1">
+                                 <Trash2 className="w-3 h-3"/> Delete Sel.
+                            </button>
+                        </div>
+                    </div>
+                    <div className="flex-1 flex flex-col gap-4 overflow-hidden">
+                        <div className="flex-1 bg-slate-900/30 border border-slate-800 rounded-xl overflow-auto">
+                            <table className="w-full text-left text-xs text-slate-400 select-none">
+                                <thead className="bg-slate-950 sticky top-0">
+                                    <tr>
+                                        <th className="p-3 w-8"><Square className="w-4 h-4 text-slate-600"/></th>
+                                        <th className="p-3">Type</th>
+                                        <th className="p-3">Link</th>
+                                        <th className="p-3">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {queueList.map((q, i, arr) => (
+                                        <tr 
+                                            key={i} 
+                                            className={`border-t border-slate-800/50 hover:bg-white/5 ${selectedQueueItems.has(q.link) ? 'bg-indigo-900/20' : ''}`}
+                                            onMouseDown={(e) => {
+                                                isDraggingQueueRef.current = true;
+                                                toggleQueueSelection(e, q.link, i, arr);
+                                            }}
+                                            onMouseEnter={() => {
+                                                if (isDraggingQueueRef.current && !selectedQueueItems.has(q.link)) {
+                                                    setSelectedQueueItems(prev => new Set(prev).add(q.link));
+                                                    setLastQueueIndex(i);
+                                                }
+                                            }}
+                                        >
+                                            <td className="p-3 cursor-pointer">
+                                                {selectedQueueItems.has(q.link) ? <CheckSquare className="w-4 h-4 text-indigo-400"/> : <Square className="w-4 h-4 text-slate-600"/>}
+                                            </td>
+                                            <td className="p-3 font-bold text-[10px]">{q.task_type === 'Verify' ? <span className="text-amber-400">VERIFY</span> : <span className="text-slate-500">INGEST</span>}</td>
+                                            <td className="p-3 text-sky-500 font-mono break-all">{q.link}</td>
+                                            <td className="p-3">
+                                                {q.status === 'Processed' ? 
+                                                    <span className="text-emerald-500 flex items-center gap-1"><CheckCircle2 className="w-3 h-3"/> Done</span> : 
+                                                    q.status === 'Error' ? 
+                                                    <span className="text-red-500 flex items-center gap-1"><AlertCircle className="w-3 h-3"/> Error</span> :
+                                                    <span className="text-amber-500">Pending</span>
+                                                }
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                        <div ref={logContainerRef} className="h-40 bg-black border border-slate-800 rounded-xl p-3 font-mono text-[10px] text-emerald-500 overflow-y-auto whitespace-pre-wrap">{logs}</div>
+                    </div>
+                </div>
+            )}
+
+            {/* PROFILES TAB */}
+            {activeTab === 'profiles' && (
+                <div className="flex h-full gap-6">
+                    <div className="w-1/3 bg-slate-900/50 border border-slate-800 rounded-xl overflow-hidden flex flex-col">
+                        <div className="p-3 bg-slate-950 border-b border-slate-800 text-xs font-bold text-slate-400">Scraped Accounts</div>
+                        <div className="flex-1 overflow-auto">
+                            {profileList.map((p, i) => (
+                                <div key={i} onClick={() => loadProfilePosts(p.username)} 
+                                    className={`p-3 border-b border-slate-800/50 cursor-pointer hover:bg-white/5 ${selectedProfile===p.username ? 'bg-indigo-900/20 border-l-2 border-indigo-500': ''}`}>
+                                    <div className="text-sm font-bold text-white">@{p.username}</div>
+                                    <div className="text-[10px] text-slate-500">{p.posts_count} posts stored</div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                    <div className="flex-1 bg-slate-900/50 border border-slate-800 rounded-xl overflow-hidden flex flex-col">
+                        <div className="p-3 bg-slate-950 border-b border-slate-800 flex justify-between items-center">
+                            <span className="text-xs font-bold text-slate-400">Post History {selectedProfile ? `(@${selectedProfile})` : ''}</span>
+                            {selectedProfile && (
+                                <button onClick={queueUnlabeledPosts} className="px-3 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded text-[10px] flex items-center gap-1 transition hover:scale-105">
+                                    <PlusCircle className="w-3 h-3"/> Auto-Label
+                                </button>
+                            )}
+                        </div>
+                        <div className="flex-1 overflow-auto">
+                            <table className="w-full text-left text-xs text-slate-400">
+                                <thead className="bg-slate-900/80 sticky top-0"><tr><th className="p-3">Date</th><th className="p-3">Text</th><th className="p-3">Status</th><th className="p-3">Action</th></tr></thead>
+                                <tbody className="divide-y divide-slate-800">
+                                    {profilePosts.map((row, i) => (
+                                        <tr key={i} className="hover:bg-white/5">
+                                            <td className="p-3 whitespace-nowrap text-slate-500">{row.timestamp?.split('T')[0]}</td>
+                                            <td className="p-3 truncate max-w-[300px]">{row.text}</td>
+                                            <td className="p-3">{row.is_labeled ? <span className="text-emerald-500 flex items-center gap-1"><ShieldCheck className="w-3 h-3"/> Labeled</span> : <span className="text-slate-600">Unlabeled</span>}</td>
+                                            <td className="p-3 flex gap-2">
+                                                <button onClick={() => sendToManualLabeler(row.link, row.text)} className="text-indigo-400 hover:text-indigo-300 flex items-center gap-1 bg-indigo-900/30 px-2 py-1 rounded hover:bg-indigo-900/50"><PenTool className="w-3 h-3"/> Manual</button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* DATASET TAB (Data Manager) */}
+            {activeTab === 'dataset' && (
+                <div className="h-full overflow-auto bg-slate-900/50 border border-slate-800 rounded-xl flex flex-col">
+                    <div className="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-950">
+                        <span className="font-bold text-slate-400 text-sm flex items-center gap-2">
+                            <Archive className="w-4 h-4"/> Data Manager (Unified)
+                        </span>
+                        <div className="flex gap-2 items-center">
+                             <div className="text-[10px] text-slate-500 bg-slate-900 px-2 py-1 rounded border border-slate-800 flex gap-2">
+                                 <span>Total: {datasetList.length}</span>
+                                 <span>AI: {datasetList.filter(d => d.source === 'AI').length}</span>
+                                 <span>Manual: {datasetList.filter(d => d.source === 'Manual').length}</span>
+                             </div>
+                             {selectedItems.size === 1 && (
+                                <button onClick={editSelectedLabel} className="bg-sky-600 text-white text-xs px-3 py-1 rounded font-bold hover:bg-sky-500 flex items-center gap-2">
+                                     <Edit3 className="w-3 h-3"/> Edit Label
+                                </button>
+                             )}
+                             <button onClick={deleteDataEntries} className="bg-red-600 text-white text-xs px-3 py-1 rounded font-bold hover:bg-red-500 flex items-center gap-2">
+                                <Trash2 className="w-3 h-3"/> Delete Selected
+                             </button>
+                             <button onClick={promoteSelected} className="bg-emerald-600 text-white text-xs px-3 py-1 rounded font-bold hover:bg-emerald-500 flex items-center gap-2">
+                                 <ShieldCheck className="w-3 h-3"/> Add Selected to Ground Truth
+                             </button>
+                        </div>
+                    </div>
+                    <div className="flex-1 overflow-auto">
+                        <table className="w-full text-left text-xs text-slate-400 select-none">
+                            <thead className="bg-slate-950 sticky top-0">
+                                <tr>
+                                    <th className="p-3 w-8"><Square className="w-4 h-4 text-slate-600"/></th>
+                                    <th className="p-3">Source</th>
+                                    <th className="p-3">ID</th>
+                                    <th className="p-3">Config</th>
+                                    <th className="p-3">Caption</th>
+                                    <th className="p-3">Score</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-800">
+                                {datasetList.map((row, i, arr) => (
+                                    <tr 
+                                        key={i} 
+                                        className={`hover:bg-white/5 ${selectedItems.has(row.id) ? 'bg-indigo-900/20' : ''} ${row.source==='Manual'?'bg-emerald-900/5':''}`}
+                                        onMouseDown={(e) => {
+                                            isDraggingDatasetRef.current = true;
+                                            toggleSelection(e, row.id, i, arr);
+                                        }}
+                                        onMouseEnter={() => {
+                                            if (isDraggingDatasetRef.current && !selectedItems.has(row.id)) {
+                                                setSelectedItems(prev => new Set(prev).add(row.id));
+                                                setLastDatasetIndex(i);
+                                            }
+                                        }}
+                                    >
+                                        <td className="p-3 cursor-pointer">
+                                            {selectedItems.has(row.id) ? <CheckSquare className="w-4 h-4 text-indigo-400"/> : <Square className="w-4 h-4 text-slate-600"/>}
                                         </td>
+                                        <td className="p-3">
+                                            {row.source === 'Manual' ? (
+                                                <span className="text-emerald-400 text-[10px] font-bold border border-emerald-900 bg-emerald-900/20 px-1 rounded">MANUAL</span>
+                                            ) : (
+                                                <div className="flex flex-col gap-1">
+                                                    <span className="text-indigo-400 text-[10px] font-bold border border-indigo-900 bg-indigo-900/20 px-1 rounded w-fit">AI</span>
+                                                </div>
+                                            )}
+                                        </td>
+                                        <td className="p-3 font-mono text-slate-500">{row.id}</td>
+                                        <td className="p-3 text-[10px] text-slate-400">
+                                            {row.source !== 'Manual' ? (
+                                                <>
+                                                    <div className="font-bold text-slate-300">{row.config_model || 'N/A'}</div>
+                                                    <div>{row.config_prompt} | {row.config_reasoning}</div>
+                                                </>
+                                            ) : (
+                                                 <span className="text-slate-600">N/A</span>
+                                            )}
+                                        </td>
+                                        <td className="p-3 truncate max-w-[300px]" title={row.caption}>{row.caption}</td>
+                                        <td className="p-3 font-bold text-white">{row.final_veracity_score}</td>
                                     </tr>
                                 ))}
-                                {queueList.length===0 && <tr><td colSpan={4} className="p-4 text-center">Queue empty. Upload CSV or use Extension.</td></tr>}
                             </tbody>
                         </table>
                     </div>
-                    <div className="h-1/2 bg-black/40 border border-slate-800 rounded-xl p-4 font-mono text-[11px] text-slate-300 overflow-auto">
-                        <pre>{logs}</pre>
-                        <div ref={logEndRef} />
+                </div>
+            )}
+
+            {/* GROUND TRUTH TAB */}
+            {activeTab === 'groundtruth' && (
+                <div className="h-full overflow-auto bg-slate-900/50 border border-slate-800 rounded-xl flex flex-col">
+                     <div className="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-950">
+                        <span className="font-bold text-emerald-400 text-sm flex items-center gap-2"><ShieldCheck className="w-4 h-4"/> Verified Ground Truth CSV</span>
+                        <div className="flex gap-2">
+                             <span className="text-xs text-slate-500 py-1 mr-4">{datasetList.filter(d => d.source === 'Manual').length} Verified Items</span>
+                             
+                             <div className="flex items-center gap-2 mr-2">
+                                  <label className="text-[10px] uppercase text-slate-500 font-bold">Resamples:</label>
+                                  <input 
+                                      type="number" min="1" max="50" 
+                                      value={resampleCount} 
+                                      onChange={e => setResampleCount(parseInt(e.target.value) || 1)} 
+                                      className="w-16 bg-slate-900 border border-slate-700 rounded p-1 text-xs text-white" 
+                                  />
+                             </div>
+
+                             <button onClick={verifySelected} className="bg-indigo-600 text-white text-xs px-3 py-1 rounded font-bold hover:bg-indigo-500 flex items-center gap-2">
+                                <RotateCcw className="w-3 h-3"/> Verify Scores (Re-Queue AI Run)
+                             </button>
+                             <button onClick={deleteSelected} className="bg-red-600 text-white text-xs px-3 py-1 rounded font-bold hover:bg-red-500 flex items-center gap-2">
+                                <Trash2 className="w-3 h-3"/> Delete Selected
+                             </button>
+                        </div>
+                    </div>
+                     <div className="flex-1 overflow-auto">
+                        <table className="w-full text-left text-xs text-slate-400 select-none">
+                            <thead className="bg-slate-950 sticky top-0">
+                                <tr>
+                                    <th className="p-3 w-8"><Square className="w-4 h-4 text-slate-600"/></th>
+                                    <th className="p-3">ID</th>
+                                    <th className="p-3">Caption</th>
+                                    <th className="p-3">Score</th>
+                                    <th className="p-3">Source</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-800">
+                                {datasetList.filter(d => d.source === 'Manual').map((row, i, arr) => (
+                                    <tr 
+                                        key={i} 
+                                        className={`hover:bg-white/5 ${selectedItems.has(row.id) ? 'bg-red-900/10' : ''}`}
+                                        onMouseDown={(e) => {
+                                            isDraggingDatasetRef.current = true;
+                                            toggleSelection(e, row.id, i, arr);
+                                        }}
+                                        onMouseEnter={() => {
+                                            if (isDraggingDatasetRef.current && !selectedItems.has(row.id)) {
+                                                setSelectedItems(prev => new Set(prev).add(row.id));
+                                                setLastDatasetIndex(i);
+                                            }
+                                        }}
+                                    >
+                                        <td className="p-3 cursor-pointer">
+                                            {selectedItems.has(row.id) ? <CheckSquare className="w-4 h-4 text-red-400"/> : <Square className="w-4 h-4 text-slate-600"/>}
+                                        </td>
+                                        <td className="p-3 font-mono text-emerald-400">{row.id}</td>
+                                        <td className="p-3 truncate max-w-[300px]" title={row.caption}>{row.caption}</td>
+                                        <td className="p-3 font-bold text-white">{row.final_veracity_score}</td>
+                                        <td className="p-3 text-[10px] uppercase text-slate-500">{row.source}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             )}
 
-            {activeTab === 'moderation' && (
-                <div className="flex-1 bg-slate-900/30 border border-slate-800 rounded-xl overflow-auto custom-scrollbar">
-                   <table className="w-full text-left text-xs text-slate-400">
-                        <thead className="bg-slate-900 text-slate-300 sticky top-0">
-                           <tr><th className="p-4">ID / Source</th><th className="p-4">Link / Caption</th><th className="p-4">Scores (V/A/F)</th><th className="p-4 text-right">Action</th></tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-800/50">
-                           {dataList.map((row, i) => (
-                             <React.Fragment key={i}>
-                               <tr onClick={() => setExpandedRow(expandedRow === row.id ? null : row.id)} className={`hover:bg-white/5 cursor-pointer ${expandedRow===row.id?'bg-white/5':''}`}>
-                                 <td className="p-4">
-                                     <div className="font-mono text-indigo-400 font-bold">{row.id || 'N/A'}</div>
-                                     <span className="text-[9px] uppercase px-1.5 py-0.5 rounded bg-slate-800 text-slate-500">{row.source_type}</span>
-                                 </td>
-                                 <td className="p-4">
-                                     <div className="truncate max-w-[250px] text-white mb-1" title={row.caption}>{row.caption || 'No Caption'}</div>
-                                     <div className="truncate max-w-[250px] text-[10px] text-slate-600">{row.link}</div>
-                                 </td>
-                                 <td className="p-4 font-mono">
-                                     <span title="Visual" className="text-emerald-400">{row.visual_integrity_score}</span> / 
-                                     <span title="Audio" className="text-sky-400">{row.audio_integrity_score}</span> / 
-                                     <span title="Final" className="text-white font-bold">{row.final_veracity_score}</span>
-                                 </td>
-                                 <td className="p-4 text-right"><button onClick={(e)=>{e.stopPropagation(); handleDelete(row.id, row.link)}} className="hover:text-red-400 p-2"><Trash2 className="w-4 h-4"/></button></td>
-                               </tr>
-                               {expandedRow === row.id && (
-                                   <tr><td colSpan={4} className="bg-slate-950 p-6 border-b border-slate-800">
-                                      <div className="grid grid-cols-2 gap-6">
-                                         <div className="space-y-4">
-                                             <div>
-                                                 <h4 className="text-indigo-400 text-[10px] font-bold uppercase mb-2">Prompt Used</h4>
-                                                 <div className="bg-black/30 border border-slate-800 rounded p-2 h-32 overflow-auto text-[9px] font-mono text-slate-500">
-                                                     {row.json_data?.meta_info?.prompt_used || "Prompt not saved in legacy data."}
+            {/* MANUAL LABELING STUDIO */}
+            {activeTab === 'manual' && (
+                <div className="flex h-full gap-6 relative">
+                    {/* Rubric Overlay */}
+                    {showRubric && (
+                        <div className="absolute inset-0 z-50 bg-[#09090b]/95 backdrop-blur-sm p-8 flex justify-center items-center">
+                            <div className="bg-slate-900 border border-slate-800 w-full max-w-4xl h-[90vh] rounded-xl flex flex-col shadow-2xl">
+                                <div className="p-6 border-b border-slate-800 flex justify-between items-center">
+                                    <h2 className="text-xl font-bold text-white">Labeling Guide & Rubric</h2>
+                                    <button onClick={() => setShowRubric(false)} className="text-slate-400 hover:text-white"><Trash2 className="w-6 h-6 rotate-45"/></button>
+                                </div>
+                                <div className="flex-1 overflow-y-auto p-8 prose prose-invert max-w-none">
+                                    <h3>Core Scoring Philosophy</h3>
+                                    <p><strong>1</strong> = Malicious/Fabricated. <strong>5</strong> = Unknown/Generic. <strong>10</strong> = Authentic/Verified.</p>
+                                    <h4>A. Visual Integrity</h4>
+                                    <ul>
+                                        <li><strong>1-2 (Deepfake):</strong> AI-generated or spatially altered.</li>
+                                        <li><strong>3-4 (Deceptive):</strong> Real footage, misleading edit (speed/crop).</li>
+                                        <li><strong>5-6 (Context):</strong> Real footage, false context or stock B-roll.</li>
+                                        <li><strong>9-10 (Raw):</strong> Verified raw footage/metadata.</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="w-[280px] bg-slate-900/50 border border-slate-800 rounded-xl flex flex-col overflow-hidden">
+                        <div className="flex border-b border-slate-800">
+                             <button onClick={() => setLabelBrowserMode('queue')} className={`flex-1 py-3 text-xs font-bold ${labelBrowserMode==='queue'?'text-indigo-400 border-b-2 border-indigo-500':''}`}>Queue</button>
+                             <button onClick={() => setLabelBrowserMode('dataset')} className={`flex-1 py-3 text-xs font-bold ${labelBrowserMode==='dataset'?'text-indigo-400 border-b-2 border-indigo-500':''}`}>Reviewed</button>
+                        </div>
+                        <div className="p-2 border-b border-slate-800">
+                             <input value={labelFilter} onChange={e => setLabelFilter(e.target.value)} placeholder="Filter..." className="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs text-white"/>
+                        </div>
+                        <div className="flex-1 overflow-auto">
+                            {(labelBrowserMode==='queue' ? queueList : datasetList)
+                                .filter(i => (i.link || '').includes(labelFilter) || (i.id || '').includes(labelFilter))
+                                .map((item, i) => (
+                                    <div key={i} onClick={() => loadFromBrowser(item, labelBrowserMode)} 
+                                        className={`p-3 border-b border-slate-800/50 cursor-pointer hover:bg-white/5 ${manualLink===item.link?'bg-indigo-900/20 border-l-2 border-indigo-500':''}`}>
+                                        <div className="text-[10px] text-indigo-400 font-mono mb-1 truncate">{item.id || 'Pending'}</div>
+                                        <div className="text-xs text-slate-300 truncate">{item.link}</div>
+                                    </div>
+                            ))}
+                        </div>
+                    </div>
+                    
+                    {/* Main Workspace with Split View Support */}
+                    <div className="flex-1 bg-slate-900/50 border border-slate-800 rounded-xl overflow-hidden flex">
+                        
+                        {/* THE FORM */}
+                        <div className="flex-1 p-6 overflow-y-auto">
+                            <div className="flex justify-between items-center mb-6 pb-4 border-b border-slate-800">
+                                 <h2 className="text-lg font-bold text-white flex items-center gap-2"><PenTool className="w-5 h-5"/> Studio</h2>
+                                 <div className="flex gap-2">
+                                    <button onClick={() => setShowRubric(true)} className="bg-slate-800 hover:bg-slate-700 text-indigo-400 px-3 py-2 rounded-lg font-bold text-xs flex gap-2 items-center"><Info className="w-4 h-4"/> Reference Guide</button>
+                                    <a href={manualLink} target="_blank" rel="noreferrer" className={`bg-slate-800 text-white px-3 py-2 rounded-lg font-bold flex gap-2 ${!manualLink && 'opacity-50 pointer-events-none'}`}><ExternalLink className="w-4 h-4"/> Open</a>
+                                    <button onClick={submitManualLabel} className="bg-emerald-600 text-white px-6 py-2 rounded-lg font-bold flex gap-2"><ClipboardCheck className="w-4 h-4"/> Save & Add to GT</button>
+                                 </div>
+                            </div>
+                            <div className="space-y-6">
+                                 <div className="bg-slate-950 p-4 rounded-lg border border-slate-800">
+                                     <div className="mb-4">
+                                         <label className="text-xs uppercase text-slate-500 font-bold">Link</label>
+                                         <input value={manualLink} onChange={e => setManualLink(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-indigo-400 font-mono mt-1"/>
+                                     </div>
+                                     <div>
+                                         <label className="text-xs uppercase text-slate-500 font-bold">Caption</label>
+                                         <textarea value={manualCaption} onChange={e => setManualCaption(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-slate-300 mt-1 h-20"/>
+                                     </div>
+                                 </div>
+                                 
+                                 <div className="grid grid-cols-2 gap-8">
+                                     <div>
+                                         <h3 className="text-sm font-bold text-indigo-400 uppercase mb-4 border-b border-slate-800 pb-2">Veracity Vectors</h3>
+                                         {['visual', 'audio', 'source', 'logic', 'emotion'].map(k => (
+                                             <div key={k} className="mb-4">
+                                                 <div className="flex justify-between text-xs mb-1">
+                                                     <span className="capitalize text-slate-300 font-bold">{k}</span>
+                                                     <span className="text-indigo-400 font-mono font-bold">{(manualScores as any)[k]}/10</span>
                                                  </div>
+                                                 <input type="range" min="1" max="10" value={(manualScores as any)[k]} onChange={e => setManualScores({...manualScores, [k]: parseInt(e.target.value)})} className="w-full accent-indigo-500"/>
                                              </div>
-                                             <div>
-                                                 <h4 className="text-indigo-400 text-[10px] font-bold uppercase mb-2">Reasoning</h4>
-                                                 <p className="text-sm text-slate-300 italic">{row.final_reasoning}</p>
+                                         ))}
+                                     </div>
+                                     <div>
+                                         <h3 className="text-sm font-bold text-emerald-400 uppercase mb-4 border-b border-slate-800 pb-2">Modality Alignment</h3>
+                                         {['va', 'vc', 'ac'].map(k => (
+                                             <div key={k} className="mb-4">
+                                                  <div className="flex justify-between text-xs mb-1">
+                                                     <span className="capitalize text-slate-300 font-bold">{k.replace('v', 'Video-').replace('a', 'Audio-').replace('c', 'Caption')}</span>
+                                                     <span className="text-emerald-400 font-mono font-bold">{(manualScores as any)[k]}/10</span>
+                                                 </div>
+                                                 <input type="range" min="1" max="10" value={(manualScores as any)[k]} onChange={e => setManualScores({...manualScores, [k]: parseInt(e.target.value)})} className="w-full accent-emerald-500"/>
                                              </div>
-                                         </div>
-                                         <div>
-                                             <h4 className="text-indigo-400 text-[10px] font-bold uppercase mb-2">Raw JSON Data</h4>
-                                             <div className="h-[300px] overflow-auto border border-slate-800 rounded p-3 bg-black/50 custom-scrollbar">
-                                                 <pre className="text-[10px] font-mono text-emerald-500">{JSON.stringify(row.json_data || row, null, 2)}</pre>
-                                             </div>
-                                         </div>
+                                         ))}
+                                     </div>
+                                 </div>
+
+                                 <div className="bg-slate-950 p-4 rounded-lg border border-slate-800">
+                                      <div className="flex justify-between items-center mb-4">
+                                          <h3 className="text-sm font-bold text-white uppercase">Final Veracity Score</h3>
+                                          <span className="text-2xl font-bold font-mono text-emerald-400">{manualScores.final}</span>
                                       </div>
-                                   </td></tr>
-                               )}
-                             </React.Fragment>
-                           ))}
-                        </tbody>
-                   </table>
+                                      <input type="range" min="0" max="100" value={manualScores.final} onChange={e => setManualScores({...manualScores, final: parseInt(e.target.value)})} className="w-full accent-white mb-6"/>
+                                      
+                                      <div className="mb-4">
+                                         <label className="text-xs uppercase text-slate-500 font-bold">Reasoning</label>
+                                         <textarea value={manualReasoning} onChange={e => setManualReasoning(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-slate-300 mt-1 h-24" placeholder="Justification..."/>
+                                     </div>
+                                     <div>
+                                         <label className="text-xs uppercase text-slate-500 font-bold">Tags</label>
+                                         <input value={manualTags} onChange={handleTagsChange} className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-slate-300 mt-1" placeholder="politics, satire..."/>
+                                         {existingTags.length > 0 && (
+                                             <div className="flex flex-wrap gap-2 mt-2">
+                                                 {existingTags.map(t => (
+                                                     <button key={t} onClick={() => toggleTag(t)} className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-[10px] rounded text-slate-400 border border-slate-700">{t}</button>
+                                                 ))}
+                                             </div>
+                                         )}
+                                     </div>
+                                 </div>
+                            </div>
+                        </div>
+
+                        {/* AI REFERENCE PANEL */}
+                        {aiReference && (
+                            <div className="w-[300px] bg-slate-950 border-l border-slate-800 p-4 overflow-y-auto">
+                                <h3 className="text-xs font-bold text-indigo-400 uppercase mb-4 flex items-center gap-2">
+                                    <BrainCircuit className="w-4 h-4"/> AI Reference
+                                </h3>
+                                <div className="text-[10px] text-slate-500 mb-2 font-mono break-all">ID: {aiReference.id}</div>
+                                
+                                <div className="mb-6 bg-slate-900 p-3 rounded border border-slate-800">
+                                    <div className="text-xs text-slate-400 font-bold uppercase mb-1">AI Score</div>
+                                    <div className={`text-2xl font-mono font-bold ${aiReference.final_veracity_score < 50 ? 'text-red-400' : 'text-emerald-400'}`}>
+                                        {aiReference.final_veracity_score}/100
+                                    </div>
+                                </div>
+                                
+                                <div className="mb-4">
+                                    <div className="text-xs text-slate-400 font-bold uppercase mb-1">Reasoning</div>
+                                    <div className="text-xs text-slate-400 whitespace-pre-wrap leading-relaxed p-2 bg-slate-900 rounded border border-slate-800/50">
+                                        {aiReference.reasoning || "No reasoning provided."}
+                                    </div>
+                                </div>
+
+                                <div className="mb-4">
+                                    <div className="text-xs text-slate-400 font-bold uppercase mb-1">Configuration</div>
+                                    <div className="text-[10px] space-y-1">
+                                        <div className="flex justify-between"><span className="text-slate-500">Model:</span> <span className="text-slate-300">{aiReference.config_model || 'Unknown'}</span></div>
+                                        <div className="flex justify-between"><span className="text-slate-500">Prompt:</span> <span className="text-slate-300">{aiReference.config_prompt || 'Unknown'}</span></div>
+                                        <div className="flex justify-between"><span className="text-slate-500">Reasoning:</span> <span className="text-slate-300">{aiReference.config_reasoning || 'Unknown'}</span></div>
+                                    </div>
+                                </div>
+
+                                {aiReference.raw_toon && (
+                                    <div className="mt-4 pt-4 border-t border-slate-800">
+                                        <details>
+                                            <summary className="text-[10px] cursor-pointer text-indigo-400 hover:text-indigo-300 font-bold">Show Raw AI-Labeled Data (JSON/TOON)</summary>
+                                            <pre className="text-[9px] text-slate-500 whitespace-pre-wrap mt-2 bg-black p-2 rounded border border-slate-800 overflow-x-auto">
+                                                {aiReference.raw_toon}
+                                            </pre>
+                                        </details>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                    </div>
                 </div>
             )}
 
-            {activeTab === 'manual' && (
-                <div className="flex-1 bg-black/40 border border-slate-800 rounded-xl p-4 font-mono text-[11px] text-slate-300 overflow-auto">
-                    <pre>{logs}</pre>
-                    <div ref={logEndRef} />
+            {/* COMMUNITY AND ANALYTICS TABS */}
+            {activeTab === 'community' && (
+                <div className="flex h-full gap-6">
+                    <div className="w-1/3 bg-slate-900/50 border border-slate-800 rounded-xl overflow-auto">
+                        <div className="p-3 bg-slate-950 border-b border-slate-800 text-xs font-bold text-slate-400">Comment Datasets</div>
+                        {communityDatasets.map((d, i) => (
+                            <div key={i} onClick={() => analyzeComments(d.id)} className="p-4 border-b border-slate-800/50 cursor-pointer hover:bg-white/5">
+                                <div className="text-xs font-mono text-indigo-400 mb-1">{d.id}</div>
+                                <div className="text-[10px] text-slate-500">{d.count} comments</div>
+                            </div>
+                        ))}
+                    </div>
+                    <div className="flex-1 flex flex-col justify-center items-center bg-slate-900/20 border border-slate-800 rounded-xl p-8">
+                        {communityAnalysis ? (
+                            <div className="text-center w-full max-w-md">
+                                <div className="text-xs uppercase text-slate-500 mb-2 tracking-widest">Community Quantization</div>
+                                <h2 className="text-5xl font-bold text-white mb-2">{communityAnalysis.trust_score?.toFixed(0)}<span className="text-xl text-slate-600">/100</span></h2>
+                                <div className={`text-lg font-bold mb-8 px-4 py-1 rounded-full inline-block ${communityAnalysis.trust_score < 40 ? 'bg-red-500/10 text-red-400' : 'bg-emerald-500/10 text-emerald-400'}`}>
+                                    {communityAnalysis.verdict}
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="text-slate-600 flex flex-col items-center">
+                                <MessageSquare className="w-12 h-12 mb-4 opacity-20"/>
+                                <span>Select a dataset to analyze community sentiment.</span>
+                            </div>
+                        )}
+                    </div>
                 </div>
             )}
+
+            {activeTab === 'analytics' && (
+                <div className="h-full overflow-auto">
+                    <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-sm font-bold text-indigo-400 uppercase flex items-center gap-2">
+                            <UserCheck className="w-4 h-4"/> Account Integrity Leaderboard
+                        </h3>
+                        <button onClick={() => setRefreshTrigger(p => p+1)} className="text-xs text-slate-500 hover:text-white flex gap-1 items-center"><RefreshCw className="w-3 h-3"/> Refresh</button>
+                    </div>
+                    <div className="bg-slate-900/50 border border-slate-800 rounded-xl overflow-hidden">
+                        <table className="w-full text-left text-xs text-slate-400">
+                            <thead className="bg-slate-950"><tr><th className="p-4">User</th><th className="p-4">Avg Veracity</th><th className="p-4">Samples</th><th className="p-4">Rating</th></tr></thead>
+                            <tbody className="divide-y divide-slate-800">
+                                {integrityBoard.map((row, i) => (
+                                    <tr key={i} className="hover:bg-white/5">
+                                        <td className="p-4 font-bold text-white">@{row.username}</td>
+                                        <td className="p-4 text-indigo-300 font-mono text-lg">{row.avg_veracity}</td>
+                                        <td className="p-4 text-slate-500">{row.posts_labeled} posts</td>
+                                        <td className="p-4">
+                                            {row.avg_veracity > 70 ? <span className="text-emerald-500 bg-emerald-500/10 px-2 py-1 rounded font-bold">High Trust</span> : 
+                                             <span className="text-amber-500 bg-amber-500/10 px-2 py-1 rounded font-bold">Mixed</span>}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
+
          </div>
       </div>
     </div>

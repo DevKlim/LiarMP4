@@ -3,7 +3,23 @@
 const BACKEND_URL = "http://localhost:8005";
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    // 1. Single Link Ingestion
+    // 1. Live Agent Analyze
+    if (message.type === 'LIVE_ANALYZE') {
+        postData('/a2a', {
+            jsonrpc: "2.0",
+            method: "agent.process",
+            params: {
+                input: message.link,
+                agent_config: { use_search: true }
+            },
+            id: Date.now()
+        })
+        .then(data => sendResponse({success: true, data}))
+        .catch(err => sendResponse({success: false, error: err.toString()}));
+        return true; 
+    }
+
+    // 2. Single Link Ingestion
     if (message.type === 'INGEST_LINK') {
         postData('/extension/ingest', { link: message.link })
             .then(data => sendResponse({success: true, data}))
@@ -11,7 +27,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return true; 
     }
     
-    // 2. Ingest Link WITH Comments (New)
+    // 3. Ingest Link WITH Comments
     if (message.type === 'INGEST_LINK_COMMENTS') {
         postData('/extension/ingest', { link: message.link, comments: message.comments })
             .then(data => sendResponse({success: true, data}))
@@ -19,7 +35,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return true; 
     }
     
-    // 3. User History Bulk Ingestion
+    // 4. User History Bulk Ingestion
     if (message.type === 'INGEST_USER_HISTORY') {
         postData('/extension/ingest_user_history', message.payload)
             .then(data => sendResponse({success: true, data}))
@@ -27,7 +43,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return true;
     }
 
-    // 4. Trigger Agentic Analysis
+    // 5. Trigger Agentic Analysis
     if (message.type === 'TRIGGER_USER_ANALYSIS') {
         postData('/analyze/user_context', message.payload)
             .then(data => sendResponse({success: true, data}))
@@ -35,7 +51,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return true;
     }
     
-    // 5. Manual Labeling
+    // 6. Manual Labeling
     if (message.type === 'SAVE_MANUAL') {
         postData('/extension/save_manual', message.payload)
             .then(data => sendResponse({success: true, data}))
@@ -43,7 +59,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return true;
     }
 
-    // 6. Save Comments
+    // 7. Save Comments
     if (message.type === 'SAVE_COMMENTS') {
         postData('/extension/save_comments', message.payload)
             .then(data => sendResponse({success: true, data}))

@@ -3,32 +3,76 @@
     display: flex;
     gap: 6px;
     margin-top: 8px;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    z-index: 10;
+    font-family: "Google Sans", Roboto, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    z-index: 2147483646;
     position: relative;
     line-height: 1.2;
 }
 
 .vchat-btn {
-    background-color: #6366f1; /* Indigo */
-    color: white;
+    color: #e8eaed;
     border: none;
-    border-radius: 999px;
-    padding: 5px 12px;
-    font-size: 11px;
-    font-weight: 700;
+    border-radius: 4px;
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 500;
     cursor: pointer;
-    transition: transform 0.1s, opacity 0.2s;
+    transition: all 0.2s ease;
     white-space: nowrap;
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 6px;
     box-shadow: 0 1px 2px rgba(0,0,0,0.2);
-    opacity: 0.9;
 }
-.vchat-btn:hover { opacity: 1; transform: translateY(-1px); }
 
-.vchat-btn.comments { background-color: #f59e0b; /* Amber */ }
+.vchat-btn.primary {
+    background-color: #4285F4;
+    border: 1px solid #4285F4;
+    color: #ffffff;
+}
+.vchat-btn.primary:hover { 
+    background-color: #1a73e8; 
+    box-shadow: 0 1px 3px rgba(66, 133, 244, 0.4);
+}
+
+.vchat-btn.secondary {
+    background-color: #292a2d;
+    border: 1px solid #3c4043;
+    color: #e8eaed;
+}
+.vchat-btn.secondary:hover { 
+    background-color: #3c4043; 
+    color: #ffffff; 
+}
+
+/* --- GLOBAL DROPDOWN MENU --- */
+.vchat-dropdown-menu {
+    display: none;
+    position: fixed !important; /* Break out of Twitter's layout */
+    margin-top: 4px;
+    background-color: #292a2d;
+    border: 1px solid #3c4043;
+    border-radius: 4px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.2);
+    min-width: 180px;
+    z-index: 2147483647 !important; /* Force to absolute front */
+    overflow: hidden;
+}
+
+.vchat-dropdown-item {
+    padding: 10px 14px;
+    font-size: 12px;
+    color: #e8eaed;
+    cursor: pointer;
+    transition: background 0.1s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.vchat-dropdown-item:hover {
+    background-color: #3c4043;
+    color: #ffffff;
+}
 
 /* --- SIDE PANEL CONTAINER --- */
 #vchat-panel {
@@ -36,26 +80,22 @@
     top: 0;
     right: 0;
     bottom: 0;
-    width: 360px;
+    width: 380px;
     height: 100vh;
     z-index: 2147483647; 
-    background-color: #0f172a; /* Slate-900 */
-    border-left: 1px solid #334155;
-    box-shadow: -10px 0 30px rgba(0,0,0,0.5);
-    
+    background-color: #202124;
+    border-left: 1px solid #3c4043;
+    box-shadow: -4px 0 24px rgba(0,0,0,0.5);
     box-sizing: border-box;
     margin: 0;
     padding: 0;
-    
-    color: #e2e8f0;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: #e8eaed;
+    font-family: "Google Sans", Roboto, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
     font-size: 14px;
     line-height: 1.5;
     text-align: left;
-
     display: flex;
     flex-direction: column;
-    
     transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1);
     transform: translateX(0); 
 }
@@ -70,54 +110,57 @@
 /* --- PANEL HEADER --- */
 .vchat-panel-header {
     flex-shrink: 0;
-    height: 50px;
+    height: 64px;
     padding: 0 20px;
-    background-color: #1e293b;
-    border-bottom: 1px solid #334155;
+    background-color: #292a2d;
+    border-bottom: 1px solid #3c4043;
     display: flex;
     align-items: center;
     justify-content: space-between;
 }
 
 .vchat-title {
-    font-weight: 700;
-    color: #818cf8;
+    font-weight: 500;
+    color: #ffffff;
     font-size: 16px;
+    letter-spacing: 0.2px;
 }
+.vchat-title span { color: #8ab4f8; }
 
 .vchat-close-btn {
     background: transparent;
     border: none;
-    color: #94a3b8;
+    color: #9aa0a6;
     font-size: 24px;
     cursor: pointer;
     padding: 5px;
+    line-height: 1;
 }
-.vchat-close-btn:hover { color: white; }
+.vchat-close-btn:hover { color: #ffffff; }
 
 /* --- TABS --- */
 .vchat-tabs {
     display: flex;
-    background: #1e293b;
-    border-bottom: 1px solid #334155;
+    background: #202124;
+    border-bottom: 1px solid #3c4043;
 }
 
 .vchat-tab {
     flex: 1;
     background: transparent;
     border: none;
-    color: #94a3b8;
+    color: #9aa0a6;
     padding: 12px;
     cursor: pointer;
-    font-weight: 600;
-    font-size: 12px;
+    font-weight: 500;
+    font-size: 13px;
     border-bottom: 2px solid transparent;
 }
-.vchat-tab:hover { color: white; }
+.vchat-tab:hover { color: #e8eaed; background: #292a2d; }
 .vchat-tab.active {
-    color: #6366f1;
-    border-bottom-color: #6366f1;
-    background: #0f172a;
+    color: #8ab4f8;
+    border-bottom-color: #8ab4f8;
+    background: #292a2d;
 }
 
 /* --- PANEL BODY --- */
@@ -125,99 +168,92 @@
     flex: 1;
     overflow-y: auto;
     padding: 20px;
+    background-color: #202124;
 }
 
 .vchat-section-title {
-    font-size: 11px;
+    font-size: 12px;
     text-transform: uppercase;
-    color: #94a3b8;
-    font-weight: 800;
-    letter-spacing: 0.05em;
+    color: #9aa0a6;
+    font-weight: 600;
+    letter-spacing: 0.5px;
     margin-bottom: 12px;
     padding-bottom: 6px;
-    border-bottom: 1px solid #334155;
+    border-bottom: 1px solid #3c4043;
 }
 
 .vchat-link-preview {
-    font-family: monospace;
+    font-family: "Roboto Mono", monospace;
     font-size: 11px;
-    color: #6366f1;
-    background: rgba(99, 102, 241, 0.1);
-    padding: 8px;
+    color: #8ab4f8;
+    background: rgba(138, 180, 248, 0.08);
+    padding: 10px;
     border-radius: 4px;
     word-break: break-all;
-    margin-bottom: 10px;
-    border: 1px solid rgba(99, 102, 241, 0.2);
+    margin-bottom: 16px;
+    border: 1px solid rgba(138, 180, 248, 0.2);
 }
 
-.vchat-stats-row {
+/* --- ANALYSIS RESULTS UI --- */
+.vchat-score-card {
+    background: #292a2d;
+    border: 1px solid #3c4043;
+    border-radius: 6px;
+    padding: 16px;
+    margin-bottom: 16px;
+    text-align: center;
+}
+.vchat-score-card .label { font-size: 11px; text-transform: uppercase; color: #9aa0a6; font-weight: 500; letter-spacing: 0.5px; }
+.vchat-score-card .score { font-size: 42px; font-weight: 400; font-family: "Google Sans", sans-serif; line-height: 1.1; margin: 8px 0; }
+.vchat-score-card .score.high { color: #34A853; }
+.vchat-score-card .score.med { color: #FBBC05; }
+.vchat-score-card .score.low { color: #EA4335; }
+
+.vchat-reasoning-box {
+    background: #292a2d;
+    border-left: 3px solid #8ab4f8;
+    padding: 12px;
+    border-radius: 0 4px 4px 0;
+    font-size: 13px;
+    color: #e8eaed;
+    margin-bottom: 16px;
+}
+
+.vchat-vector-row {
     display: flex;
-    gap: 15px;
+    justify-content: space-between;
     font-size: 12px;
-    color: #cbd5e1;
-    margin-bottom: 20px;
-    background: #1e293b;
-    padding: 8px;
-    border-radius: 6px;
-    justify-content: center;
+    padding: 6px 0;
+    border-bottom: 1px solid #3c4043;
 }
+.vchat-vector-row:last-child { border-bottom: none; }
+.vchat-vector-row .v-name { color: #9aa0a6; font-weight: 500; }
+.vchat-vector-row .v-score { color: #e8eaed; font-family: "Roboto Mono", monospace; }
 
-/* --- COMMENTS LIST --- */
-.vchat-comment-item {
-    background: #1e293b;
-    padding: 10px;
-    border-radius: 6px;
-    margin-bottom: 10px;
-    font-size: 12px;
-    border-left: 3px solid #6366f1;
-    color: #cbd5e1;
+.vchat-loading-pulse {
+    animation: pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    color: #8ab4f8;
+    text-align: center;
+    padding: 40px 0;
+    font-size: 13px;
+    font-weight: 500;
 }
-.vchat-comment-item b { color: #818cf8; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
 
 /* --- FORM ELEMENTS --- */
-.form-group { margin-bottom: 15px; }
-.form-label { 
-    display: block; 
-    font-size: 12px; 
-    color: #cbd5e1; 
-    margin-bottom: 5px;
-}
-.range-container {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-.form-input { flex: 1; }
-.range-val { 
-    width: 30px; 
-    text-align: center; 
-    font-weight: bold; 
-    color: #6366f1; 
-}
-
-textarea.vchat-input {
-    width: 100%;
-    background: #1e293b;
-    border: 1px solid #334155;
-    color: white;
-    padding: 10px;
-    border-radius: 6px;
-    resize: vertical;
-    min-height: 80px;
-}
-
 .vchat-action-btn {
     width: 100%;
     padding: 10px;
     margin-top: 10px;
-    background: #334155;
-    color: white;
-    border: none;
-    border-radius: 6px;
+    background: #292a2d;
+    color: #e8eaed;
+    border: 1px solid #3c4043;
+    border-radius: 4px;
     cursor: pointer;
-    font-weight: 600;
+    font-weight: 500;
+    transition: background 0.2s;
 }
-.vchat-action-btn:hover { background: #475569; }
+.vchat-action-btn:hover { background: #3c4043; color: #ffffff; }
 
 /* --- FLOATING TOGGLE --- */
 #vchat-toggle {
@@ -226,7 +262,7 @@ textarea.vchat-input {
     right: 30px;
     width: 50px;
     height: 50px;
-    background-color: #6366f1;
+    background-color: #4285F4;
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -239,9 +275,9 @@ textarea.vchat-input {
     font-size: 24px;
     transition: transform 0.2s;
 }
-#vchat-toggle:hover { transform: scale(1.1); }
+#vchat-toggle:hover { transform: scale(1.1); background-color: #1a73e8; }
 
 /* Scrollbar */
 #vchat-panel ::-webkit-scrollbar { width: 6px; }
-#vchat-panel ::-webkit-scrollbar-track { background: #0f172a; }
-#vchat-panel ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+#vchat-panel ::-webkit-scrollbar-track { background: #202124; }
+#vchat-panel ::-webkit-scrollbar-thumb { background: #3c4043; border-radius: 3px; }

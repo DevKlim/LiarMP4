@@ -3,7 +3,7 @@ services:
     build: .
     container_name: videochat_webui
     ports:
-      - "8005:8000"
+      - "8005:8080"
       - "8006:8001"
     
     shm_size: '8gb'

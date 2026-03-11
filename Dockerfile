@@ -70,7 +70,7 @@ RUN sed -i 's/\r$//' /usr/local/bin/start.sh && \
     chmod +x /usr/local/bin/start.sh
 
 # Expose the Go Server port
-EXPOSE 8000
+EXPOSE 8080
 
 # Run the Orchestrator
 CMD ["/usr/local/bin/start.sh"]

@@ -10,7 +10,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             method: "agent.process",
             params: {
                 input: message.link,
-                agent_config: { use_search: true }
+                agent_config: { use_search: true },
+                comments: message.comments
             },
             id: Date.now()
         })

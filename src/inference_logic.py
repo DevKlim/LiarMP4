@@ -96,7 +96,7 @@ def inference_step(video_path, prompt, generation_kwargs, sampling_fps, pred_glu
     global processor, active_model
     if active_model is None: raise RuntimeError("Models not loaded.")
 
-    messages =[
+    messages = [
         {"role": "user", "content":[
                 {"type": "video", "video": video_path, 'key_time': pred_glue, 'fps': sampling_fps,
                  "total_pixels": 128*12 * 28 * 28, "min_pixels": 128 * 28 * 28},
@@ -146,6 +146,21 @@ async def generate_simple_text(prompt: str, model_type: str, config: dict):
                 )
             )
             return response.text
+
+        elif model_type == 'nrp':
+            api_key = config.get("api_key")
+            model_name = config.get("model_name", "gpt-4")
+            base_url = config.get("base_url", "https://api.openai.com/v1").rstrip("/")
+            if not api_key: return "Error: NRP API key missing."
+            headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+            payload = {"model": model_name, "messages": [{"role": "user", "content": prompt}], "temperature": 0.0}
+            def do_request():
+                resp = requests.post(f"{base_url}/chat/completions", headers=headers, json=payload, timeout=600)
+                if resp.status_code == 200:
+                    return resp.json()["choices"][0]["message"]["content"]
+                return f"Error: {resp.status_code} {resp.text}"
+            return await loop.run_in_executor(None, do_request)
+
     except Exception as e:
         logger.error(f"Text Gen Error: {e}")
         return f"Error generating text: {e}"
@@ -182,7 +197,7 @@ def validate_parsed_data(data, is_text_only):
     vectors = data.get('veracity_vectors', {})
     required_vectors =['visual_integrity_score', 'audio_integrity_score', 'source_credibility_score', 'logical_consistency_score', 'emotional_manipulation_score']
     for k in required_vectors:
-        if k in['visual_integrity_score', 'audio_integrity_score'] and is_text_only: continue
+        if k in ['visual_integrity_score', 'audio_integrity_score'] and is_text_only: continue
         v = vectors.get(k)
         if not v or str(v) == '0' or str(v).lower() == 'n/a': missing.append(f"vector:{k}")
 
@@ -279,7 +294,7 @@ async def run_gemini_labeling_pipeline(video_path: str, caption: str, transcript
                      f"{toon_schema}"
                 )
                 save_debug_log(request_id, 'prompt', prompt_text, attempt, 'reprompt')
-                inputs =[prompt_text]
+                inputs = [prompt_text]
                 if uploaded_file: inputs.append(uploaded_file)
                 response = await loop.run_in_executor(None, lambda: model.generate_content(inputs, generation_config={"temperature": 0.2}))
                 raw_text = response.text
@@ -319,7 +334,7 @@ async def run_gemini_labeling_pipeline(video_path: str, caption: str, transcript
                     prompt_used = prompt_text
                     if is_text_only: prompt_text = "NOTE: Text Analysis Only.\n" + prompt_text
                     save_debug_log(request_id, 'prompt', prompt_text, attempt, 'standard')
-                    inputs =[prompt_text]
+                    inputs = [prompt_text]
                     if uploaded_file: inputs.append(uploaded_file)
                     response = await loop.run_in_executor(None, lambda: model.generate_content(inputs, generation_config={"temperature": 0.1}))
                     raw_text = response.text
@@ -425,7 +440,7 @@ async def run_vertex_labeling_pipeline(video_path: str, caption: str, transcript
                 )
                 
                 save_debug_log(request_id, 'prompt', prompt_text, attempt, 'reprompt')
-                contents =[prompt_text]
+                contents = [prompt_text]
                 if video_part: contents.insert(0, video_part)
                 
                 response = await loop.run_in_executor(None, lambda: client.models.generate_content(model=model_name, contents=contents, config=config))
@@ -438,7 +453,7 @@ async def run_vertex_labeling_pipeline(video_path: str, caption: str, transcript
                     
                     macro_prompt = FCOT_MACRO_PROMPT.format(system_persona=system_persona, caption=caption, transcript=transcript)
                     save_debug_log(request_id, 'prompt', macro_prompt, attempt, 'fcot_macro')
-                    inputs1 =[macro_prompt]
+                    inputs1 = [macro_prompt]
                     if video_part: inputs1.insert(0, video_part)
                     else: inputs1[0] = "NOTE: Text Only Analysis.\n" + inputs1[0]
 
@@ -465,7 +480,7 @@ async def run_vertex_labeling_pipeline(video_path: str, caption: str, transcript
                         system_persona=system_persona, caption=caption, transcript=transcript,
                         toon_schema=toon_schema, score_instructions=score_instructions, tag_list_text=tag_list_text
                     )
-                    contents =[]
+                    contents = []
                     if video_part: contents =[video_part, prompt_text]
                     else: contents =[f"NOTE: Text Only Analysis (No Video).\n{prompt_text}"]
                     prompt_used = prompt_text
@@ -598,7 +613,7 @@ async def run_nrp_labeling_pipeline(video_path: str, caption: str, transcript: s
                     macro_prompt = "NOTE: Text Only Analysis.\n" + macro_prompt
                     save_debug_log(request_id, 'prompt', macro_prompt, attempt, 'fcot_macro')
                     
-                    macro_messages = [{"role": "system", "content": system_persona}, {"role": "user", "content": macro_prompt}]
+                    macro_messages =[{"role": "system", "content": system_persona}, {"role": "user", "content": macro_prompt}]
                     yield f"  - Stage 1: Sending Macro Hypothesis request to NRP API (Timeout: 600s)...\n"
                     macro_hypothesis = await _call_nrp(macro_messages, attempt_label="fcot_macro")
                     yield f"  - Stage 1: Received Macro Hypothesis response.\n"
@@ -608,7 +623,7 @@ async def run_nrp_labeling_pipeline(video_path: str, caption: str, transcript: s
 
                     meso_prompt = FCOT_MESO_PROMPT.format(macro_hypothesis=macro_hypothesis)
                     save_debug_log(request_id, 'prompt', meso_prompt, attempt, 'fcot_meso')
-                    meso_messages = macro_messages + [{"role": "assistant", "content": macro_hypothesis}, {"role": "user", "content": meso_prompt}]
+                    meso_messages = macro_messages +[{"role": "assistant", "content": macro_hypothesis}, {"role": "user", "content": meso_prompt}]
                     
                     yield f"  - Stage 2: Sending Meso Analysis request to NRP API (Timeout: 600s)...\n"
                     micro_observations = await _call_nrp(meso_messages, attempt_label="fcot_meso")
@@ -619,7 +634,7 @@ async def run_nrp_labeling_pipeline(video_path: str, caption: str, transcript: s
 
                     synthesis_prompt = FCOT_SYNTHESIS_PROMPT.format(toon_schema=toon_schema, score_instructions=score_instructions, tag_list_text=tag_list_text)
                     save_debug_log(request_id, 'prompt', synthesis_prompt, attempt, 'fcot_synthesis')
-                    synthesis_messages = meso_messages + [{"role": "assistant", "content": micro_observations}, {"role": "user", "content": synthesis_prompt}]
+                    synthesis_messages = meso_messages +[{"role": "assistant", "content": micro_observations}, {"role": "user", "content": synthesis_prompt}]
                     
                     yield f"  - Stage 3: Sending Synthesis/Formatting request to NRP API (Timeout: 600s)...\n"
                     raw_text = await _call_nrp(synthesis_messages, attempt_label="fcot_synthesis")
@@ -674,3 +689,4 @@ async def run_nrp_labeling_pipeline(video_path: str, caption: str, transcript: s
     except Exception as e:
         yield f"ERROR: {e}\n\n"
         logger.error("NRP Labeling Error", exc_info=True)
+

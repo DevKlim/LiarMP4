@@ -111,7 +111,7 @@ except OverflowError:
 STOP_QUEUE_SIGNAL = False
 
 # --- CONSTANTS ---
-QUEUE_COLUMNS =["link", "ingest_timestamp", "status", "task_type"]
+QUEUE_COLUMNS = ["link", "ingest_timestamp", "status", "task_type"]
 
 GROUND_TRUTH_FIELDS =[
     "id", "link", "timestamp", "caption", 
@@ -498,11 +498,16 @@ async def extension_save_comments(request: Request):
         tweet_id = common_utils.extract_tweet_id(link) or hashlib.md5(link.encode()).hexdigest()[:10]
         csv_path = Path(f"data/comments/{tweet_id}.csv")
         with open(csv_path, 'w', newline='', encoding='utf-8') as f:
-            writer = csv.DictWriter(f, fieldnames=["author", "text", "timestamp"])
+            writer = csv.DictWriter(f, fieldnames=["author", "text", "link", "timestamp"])
             writer.writeheader()
             ts = datetime.datetime.now().isoformat()
             for c in comments:
-                writer.writerow({"author": c.get("author", "Unknown"), "text": c.get("text", "").replace("\n", " "), "timestamp": ts})
+                writer.writerow({
+                    "author": c.get("author", "Unknown"), 
+                    "text": c.get("text", "").replace("\n", " "), 
+                    "link": c.get("link", ""),
+                    "timestamp": ts
+                })
         return {"status": "success", "count": len(comments)}
     except Exception as e: raise HTTPException(status_code=500, detail=str(e))
 
@@ -847,7 +852,26 @@ async def get_queue_list():
             task_type = row.get("task_type") or "Ingest"
             
             if status == "Pending" and task_type != "Verify" and check_if_processed(l, p_ids, p_links): status = "Processed"
-            items.append({"link": l, "timestamp": row.get("ingest_timestamp",""), "status": status, "task_type": task_type})
+            
+            # Fetch associated comments to display in the dropdown
+            comments =[]
+            tid = common_utils.extract_tweet_id(l) or hashlib.md5(l.encode()).hexdigest()[:10]
+            c_path = Path(f"data/comments/{tid}_ingest.json")
+            if c_path.exists():
+                try:
+                    with open(c_path, 'r') as f:
+                        c_data = json.load(f)
+                        comments = c_data.get('comments',[])
+                except Exception:
+                    pass
+            
+            items.append({
+                "link": l, 
+                "timestamp": row.get("ingest_timestamp",""), 
+                "status": status, 
+                "task_type": task_type,
+                "comments": comments
+            })
     return items
 
 @app.post("/queue/run")

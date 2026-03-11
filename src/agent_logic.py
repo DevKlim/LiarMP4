@@ -63,7 +63,34 @@ async def _analyze_video_async(video_url: str, context: str, agent_config: dict)
 
         final_result = None
         raw_toon_text = ""
-        pipeline_logs =[]
+        pipeline_logs = []
+        
+        comments = agent_config.get("comments",[])
+        tid = common_utils.extract_tweet_id(video_url) or hashlib.md5(video_url.encode()).hexdigest()[:10]
+        
+        if not comments:
+            comments_path = Path(f"data/comments/{tid}_ingest.json")
+            if comments_path.exists():
+                try:
+                    with open(comments_path, 'r') as f:
+                        c_data = json.load(f)
+                        comments = c_data.get('comments',[])
+                except Exception as e:
+                    logger.error(f"Error loading comments: {e}")
+                    
+        if comments:
+            pipeline_logs.append(f"Found {len(comments)} comments. Generating Community Context...")
+            
+            if provider == "gemini":
+                community_config = {"api_key": api_key, "model_name": model_name}
+            elif provider == "nrp":
+                community_config = {"api_key": api_key, "model_name": model_name, "base_url": agent_config.get("base_url", "https://ellm.nrp-nautilus.io/v1")}
+            else:
+                community_config = {"project_id": project_id, "location": location, "model_name": model_name, "api_key": api_key}
+                
+            community_summary = await inference_logic.generate_community_summary(comments, provider, community_config)
+            system_persona += f"\n\n### COMMUNITY NOTES / CONTEXT (from Comments):\n{community_summary}\n\nUse this community context to cross-reference claims but remain objective."
+            pipeline_logs.append("Community Context Generated.")
         
         if provider == "gemini":
             if not api_key:
@@ -85,7 +112,7 @@ async def _analyze_video_async(video_url: str, context: str, agent_config: dict)
                     final_result = chunk["parsed_data"]
                     raw_toon_text = chunk.get("raw_toon", "")
         else:
-            if not project_id:
+            if not project_id and provider != "nrp":
                 return {"error": "Vertex Project ID missing. Please provide it in the Inference Config."}
             vertex_config = {
                 "project_id": project_id,
@@ -258,6 +285,8 @@ def create_a2a_app():
             if isinstance(params, dict):
                 input_text = params.get("input", params.get("text", params.get("query", params.get("prompt", ""))))
                 agent_config = params.get("agent_config", {})
+                if "comments" in params:
+                    agent_config["comments"] = params.get("comments",[])
                 if not input_text and "url" in params:
                     input_text = params["url"]
             elif isinstance(params, list) and len(params) > 0:
@@ -278,7 +307,7 @@ def create_a2a_app():
                 low_input = str(input_text).lower()
                 if "set provider to " in low_input:
                     val = low_input.split("set provider to ")[-1].strip().split()[0]
-                    if val in["gemini", "vertex"]: update_config["provider"] = val
+                    if val in ["gemini", "vertex", "nrp"]: update_config["provider"] = val
                 if "set api key to " in low_input:
                     val = input_text.split("set api key to ")[-1].strip().split()[0]
                     update_config["api_key"] = val
@@ -321,13 +350,13 @@ def create_a2a_app():
                         "- Verify and compare AI outputs against Ground Truth\n"
                         "- Reprompt dynamically for missing scores or incomplete data\n\n"
                         "**Easy Command:**\n"
-                        "Use `Run full pipeline on[URL]` to analyze a video, extract all vectors (source, logic, emotion, etc.), and save aligned files."
+                        "Use `Run full pipeline on [URL]` to analyze a video, extract all vectors (source, logic, emotion, etc.), and save aligned files."
                     )
                     
                     if provider == 'vertex' and not project_id:
                         reply = f"Welcome to the LiarMP4 Agent Nexus!\n\nIt looks like you haven't configured **Vertex AI** yet. Please enter your Google Cloud Project ID in the 'Inference Config' panel on the left, or tell me directly: *'set project id to [YOUR_PROJECT]'*.\n\n{base_capabilities}"
                     elif provider == 'gemini' and not api_key:
-                        reply = f"👋 Welcome to the LiarMP4 Agent Nexus!\n\nIt looks like you haven't configured **Gemini** yet. Please enter your API Key in the 'Inference Config' panel on the left, or tell me directly: *'set api key to[YOUR_KEY]'*.\n\n{base_capabilities}"
+                        reply = f"👋 Welcome to the LiarMP4 Agent Nexus!\n\nIt looks like you haven't configured **Gemini** yet. Please enter your API Key in the 'Inference Config' panel on the left, or tell me directly: *'set api key to [YOUR_KEY]'*.\n\n{base_capabilities}"
                     else:
                         reply = f"✅ I am the LiarMP4 Verifier, fully configured ({provider.capitalize()}) and ready!\n\n{base_capabilities}"
 
@@ -355,4 +384,3 @@ def create_a2a_app():
             
     logger.info("✅ A2A Custom Agent App created successfully.")
     return a2a_app
-

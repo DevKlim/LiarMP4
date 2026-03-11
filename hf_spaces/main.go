@@ -33,7 +33,17 @@ func main() {
 			strings.HasPrefix(r.URL.Path, "/download-dataset") ||
 			strings.HasPrefix(r.URL.Path, "/extension") ||
 			strings.HasPrefix(r.URL.Path, "/manage") ||
-			strings.HasPrefix(r.URL.Path, "/queue") {
+			strings.HasPrefix(r.URL.Path, "/queue") ||
+			strings.HasPrefix(r.URL.Path, "/a2a") ||
+			strings.HasPrefix(r.URL.Path, "/health") ||
+			strings.HasPrefix(r.URL.Path, "/benchmarks") ||
+			strings.HasPrefix(r.URL.Path, "/config") ||
+			strings.HasPrefix(r.URL.Path, "/tags") ||
+			strings.HasPrefix(r.URL.Path, "/manual") ||
+			strings.HasPrefix(r.URL.Path, "/profiles") ||
+			strings.HasPrefix(r.URL.Path, "/community") ||
+			strings.HasPrefix(r.URL.Path, "/dataset") ||
+			strings.HasPrefix(r.URL.Path, "/analyze") {
 
 			log.Printf("Proxying %s to Python Backend...", r.URL.Path)
 			proxy.ServeHTTP(w, r)

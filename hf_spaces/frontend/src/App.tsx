@@ -5,21 +5,21 @@ import {
   StopCircle, RefreshCw, CheckCircle2, PenTool, ClipboardCheck, Info, Clock, FileText,
   Tag, Home, Cpu, FlaskConical, Target, Trash2, ArrowUpRight, CheckSquare, Square,
   Layers, Activity, Zap, BrainCircuit, Network, Archive, Plus, Edit3, RotateCcw,
-  Bot, Trophy, HelpCircle, Settings, Calculator
+  Bot, Trophy, HelpCircle, Settings, Calculator, ChevronDown, ChevronUp
 } from 'lucide-react';
 
 function App() {
   const[activeTab, setActiveTab] = useState('home');
   const [logs, setLogs] = useState<string>('System Ready.\n');
-  const [isProcessing, setIsProcessing] = useState(false);
+  const[isProcessing, setIsProcessing] = useState(false);
   const logContainerRef = useRef<HTMLDivElement>(null);
   
   // Processing Config State
-  const[modelProvider, setModelProvider] = useState('nrp');
+  const [modelProvider, setModelProvider] = useState('nrp');
   const [apiKey, setApiKey] = useState('');
-  const [baseUrl, setBaseUrl] = useState('https://ellm.nrp-nautilus.io/v1'); // NRP Default
-  const [modelName, setModelName] = useState('qwen3'); // NRP Default
-  const [projectId, setProjectId] = useState('');
+  const[baseUrl, setBaseUrl] = useState('https://ellm.nrp-nautilus.io/v1'); // NRP Default
+  const[modelName, setModelName] = useState('qwen3'); // Default
+  const[projectId, setProjectId] = useState('');
   const [location, setLocation] = useState('us-central1');
   const [includeComments, setIncludeComments] = useState(false);
   const[reasoningMethod, setReasoningMethod] = useState('cot');
@@ -35,6 +35,7 @@ function App() {
   // Data States
   const [queueList, setQueueList] = useState<any[]>([]);
   const[selectedQueueItems, setSelectedQueueItems] = useState<Set<string>>(new Set());
+  const[expandedQueueItems, setExpandedQueueItems] = useState<Set<string>>(new Set());
   const[lastQueueIndex, setLastQueueIndex] = useState<number | null>(null);
   
   const[singleLinkInput, setSingleLinkInput] = useState(''); 
@@ -43,10 +44,10 @@ function App() {
   const[profilePosts, setProfilePosts] = useState<any[]>([]);
   const [communityDatasets, setCommunityDatasets] = useState<any[]>([]);
   const [communityAnalysis, setCommunityAnalysis] = useState<any>(null);
-  const [integrityBoard, setIntegrityBoard] = useState<any[]>([]);
+  const[integrityBoard, setIntegrityBoard] = useState<any[]>([]);
   
-  const [datasetList, setDatasetList] = useState<any[]>([]);
-  const[selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  const[datasetList, setDatasetList] = useState<any[]>([]);
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [lastDatasetIndex, setLastDatasetIndex] = useState<number | null>(null);
 
   const [benchmarks, setBenchmarks] = useState<any>(null);
@@ -79,11 +80,19 @@ function App() {
   const [agentConfig, setAgentConfig] = useState({ use_search: true, use_code: false });
 
   // Resampling configuration
-  const [resampleCount, setResampleCount] = useState<number>(1);
+  const[resampleCount, setResampleCount] = useState<number>(1);
   
   // Drag Selection references
   const isDraggingQueueRef = useRef(false);
   const isDraggingDatasetRef = useRef(false);
+
+  // Quick Demo State
+  const[demoLink, setDemoLink] = useState('');
+  const [demoLogs, setDemoLogs] = useState('');
+  const [demoIsProcessing, setDemoIsProcessing] = useState(false);
+  const[demoResult, setDemoResult] = useState<any>(null);
+  const[showDemoConfig, setShowDemoConfig] = useState(false);
+  const demoLogContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleMouseUp = () => {
@@ -123,11 +132,15 @@ function App() {
     
     setSelectedItems(new Set());
     setLastDatasetIndex(null);
-  }, [activeTab, refreshTrigger]);
+  },[activeTab, refreshTrigger]);
 
   useEffect(() => {
     if (logContainerRef.current) logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight;
   }, [logs]);
+
+  useEffect(() => {
+    if (demoLogContainerRef.current) demoLogContainerRef.current.scrollTop = demoLogContainerRef.current.scrollHeight;
+  },[demoLogs]);
 
   useEffect(() => {
       if (activeTab === 'agent' && agentMessages.length === 0) {
@@ -272,6 +285,14 @@ function App() {
       }
       setSelectedQueueItems(newSet);
       setLastQueueIndex(index);
+  };
+
+  const toggleQueueExpand = (e: React.MouseEvent, link: string) => {
+      e.stopPropagation();
+      const newSet = new Set(expandedQueueItems);
+      if (newSet.has(link)) newSet.delete(link);
+      else newSet.add(link);
+      setExpandedQueueItems(newSet);
   };
 
   const promoteSelected = async () => {
@@ -437,6 +458,20 @@ function App() {
       } catch(e) { alert("Error adding link"); }
   };
 
+  const addSingleLinkDirect = async (link: string) => {
+      if(!link) return;
+      try {
+          const res = await fetch('/queue/add', {
+              method: 'POST', headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({ link: link })
+          });
+          const d = await res.json();
+          if(d.status === 'success') {
+              setRefreshTrigger(p => p+1);
+          } else { alert(d.message); }
+      } catch(e) { alert("Error adding link"); }
+  };
+
   const clearProcessed = async () => {
       if(!confirm("Remove all 'Processed' items from the queue?")) return;
       try {
@@ -527,6 +562,84 @@ function App() {
       setRefreshTrigger(p => p+1);
   };
 
+  const runDemo = async () => {
+      if (!demoLink) return;
+      setDemoIsProcessing(true);
+      setDemoLogs('[SYSTEM] Preparing pipeline for single execution...\n');
+      setDemoResult(null);
+
+      try {
+          // 1. Ensure the link is added and forcefully requeued so it is 'Pending'
+          await fetch('/queue/add', {
+              method: 'POST', headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({ link: demoLink })
+          });
+          await fetch('/queue/requeue', {
+              method: 'POST', headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({ links: [demoLink] })
+          });
+
+          // 2. Setup FormData exactly like normal queue
+          const fd = new FormData();
+          const activeProvider = modelProvider === 'gcloud' ? 'vertex' : modelProvider;
+          fd.append('model_selection', activeProvider); 
+          fd.append('gemini_api_key', apiKey);
+          fd.append('gemini_model_name', modelName); 
+          fd.append('vertex_project_id', projectId);
+          fd.append('vertex_location', location); 
+          fd.append('vertex_model_name', modelName); 
+          fd.append('vertex_api_key', apiKey);
+          fd.append('nrp_api_key', apiKey);
+          fd.append('nrp_model_name', modelName);
+          fd.append('nrp_base_url', baseUrl);
+          fd.append('include_comments', includeComments.toString()); 
+          fd.append('reasoning_method', reasoningMethod);
+          fd.append('prompt_template', promptTemplate); 
+          fd.append('custom_query', customQuery);
+          fd.append('max_reprompts', maxRetries.toString());
+
+          setDemoLogs(prev => prev + '[SYSTEM] Sending analysis payload to model server...\n');
+          
+          // 3. Read Stream
+          const runRes = await fetch('/queue/run', { method: 'POST', body: fd });
+          const reader = runRes.body!.pipeThrough(new TextDecoderStream()).getReader();
+
+          while (true) {
+              const { value, done } = await reader.read();
+              if (done) break;
+              if (value.includes('event: close')) break;
+              const clean = value.replace(/data: /g, '').trim();
+              if (clean) setDemoLogs(prev => prev + clean + '\n');
+          }
+
+          // 4. Look up result from dataset
+          setDemoLogs(prev => prev + '\n[SYSTEM] Fetching structured object result...\n');
+          const dsRes = await fetch('/dataset/list');
+          const dsList = await dsRes.json();
+
+          const normalize = (l: string) => l.split('?')[0].replace('https://', '').replace('http://', '').replace('www.', '').replace(/\/$/, '');
+          const targetLink = normalize(demoLink);
+
+          // Sort descending to ensure we get the latest processed run
+          dsList.sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+          const match = dsList.find((d: any) => normalize(d.link || '') === targetLink && d.source !== 'Manual');
+          
+          if (match) {
+              setDemoResult(match);
+              setDemoLogs(prev => prev + '[SYSTEM] Result rendered successfully.\n');
+          } else {
+              setDemoLogs(prev => prev + '[SYSTEM] Error: Could not find parsed result. Processing might have failed.\n');
+          }
+
+      } catch (err: any) {
+          setDemoLogs(prev => prev + `\n[ERROR] ${err.message}\n`);
+      } finally {
+          setDemoIsProcessing(false);
+          setRefreshTrigger(p => p+1); 
+      }
+  }
+
   const callAgent = async (method: string, payloadParams: any) => {
       return fetch(agentEndpoint, {
           method: 'POST',
@@ -602,7 +715,18 @@ function App() {
 
   return (
     <div className="flex h-screen w-full bg-[#09090b] text-slate-200 font-sans overflow-hidden">
-      
+      <datalist id="modelSuggestions">
+          <option value="gemini-1.5-pro-preview-0409" />
+          <option value="gemini-2.0-flash-exp" />
+          <option value="qwen3" />
+          <option value="gpt-oss" />
+          <option value="kimi" />
+          <option value="glm-4.7" />
+          <option value="minimax-m2" />
+          <option value="glm-v" />
+          <option value="gemma3" />
+      </datalist>
+
       {/* SIDEBAR */}
       <div className="w-[280px] flex flex-col border-r border-slate-800/60 bg-[#0c0c0e]">
         <div className="h-16 flex items-center px-6 border-b border-slate-800/60">
@@ -640,6 +764,196 @@ function App() {
             {/* HOME TAB */}
             {activeTab === 'home' && (
                 <div className="h-full overflow-y-auto space-y-8 max-w-5xl pr-2">
+                    
+                    {/* QUICK DEMO SECTION */}
+                    <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-6 shadow-sm">
+                        <div className="flex justify-between items-start mb-4">
+                            <div>
+                                <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                                    <Zap className="w-5 h-5 text-amber-400" /> Try LiarMP4 - Quick Demo
+                                </h2>
+                                <p className="text-sm text-slate-400 mt-1">
+                                    Test the Multimodal Factuality Pipeline on a single video URL.
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => setShowDemoConfig(!showDemoConfig)}
+                                className="text-xs font-bold text-slate-500 hover:text-slate-300 flex items-center gap-1 bg-slate-950 px-3 py-1.5 rounded border border-slate-800"
+                            >
+                                <Settings className="w-4 h-4" />
+                                {showDemoConfig ? "Hide Config" : "Show Config"}
+                            </button>
+                        </div>
+
+                        {showDemoConfig && (
+                            <div className="bg-slate-950 p-4 rounded-lg border border-slate-800 mb-4 grid grid-cols-2 gap-6 animate-in fade-in zoom-in-95 duration-200">
+                                <div className="space-y-3">
+                                    <label className="text-[10px] text-slate-500 uppercase font-bold block border-b border-slate-800 pb-1">LLM Provider Config</label>
+                                    <select value={modelProvider} onChange={e => setModelProvider(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-xs text-white">
+                                        <option value="vertex">Vertex AI (Enterprise)</option>
+                                        <option value="gemini">Gemini API (Public)</option>
+                                        <option value="gcloud">Google Cloud (Project + API Key)</option>
+                                        <option value="nrp">NRP (Nautilus Envoy Gateway)</option>
+                                    </select>
+                                    
+                                    {modelProvider === 'nrp' && (
+                                        <>
+                                            <input value={baseUrl} onChange={e => setBaseUrl(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-xs text-white" placeholder="Base URL"/>
+                                            <input type="password" value={apiKey} onChange={e => setApiKey(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-xs text-white" placeholder="API Token"/>
+                                        </>
+                                    )}
+                                    {modelProvider === 'gemini' && (
+                                         <input type="password" value={apiKey} onChange={e => setApiKey(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-xs text-white" placeholder="API Key"/>
+                                    )}
+                                    {(modelProvider === 'vertex' || modelProvider === 'gcloud') && (
+                                         <>
+                                            <input value={projectId} onChange={e => setProjectId(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-xs text-white" placeholder="Project ID"/>
+                                            <input value={location} onChange={e => setLocation(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-xs text-white" placeholder="Location"/>
+                                            {modelProvider === 'gcloud' && <input type="password" value={apiKey} onChange={e => setApiKey(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-xs text-white" placeholder="API Key"/>}
+                                         </>
+                                    )}
+                                    <input list="modelSuggestions" value={modelName} onChange={e => setModelName(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-xs text-white" placeholder="Model Name (e.g. gemini-1.5-pro)"/>
+                                </div>
+                                <div className="space-y-3">
+                                    <label className="text-[10px] text-slate-500 uppercase font-bold block border-b border-slate-800 pb-1">Inference Strategy</label>
+                                    <select value={reasoningMethod} onChange={e => setReasoningMethod(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-xs text-white">
+                                        <option value="cot">Standard Chain of Thought</option>
+                                        <option value="fcot">Fractal Chain of Thought</option>
+                                    </select>
+                                    <select value={promptTemplate} onChange={e => setPromptTemplate(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-xs text-white">
+                                        {availablePrompts.length > 0 ? availablePrompts.map(p => (
+                                            <option key={p.id} value={p.id}>{p.name}</option>
+                                        )) : <option value="standard">Standard</option>}
+                                    </select>
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="flex gap-2 mb-4">
+                            <input
+                                type="text"
+                                value={demoLink}
+                                onChange={(e) => setDemoLink(e.target.value)}
+                                placeholder="Enter X/Twitter Video URL here..."
+                                className="flex-1 bg-slate-950 border border-slate-700 rounded-lg p-3 text-sm text-white focus:outline-none focus:border-indigo-500"
+                                disabled={demoIsProcessing}
+                            />
+                            <button
+                                onClick={runDemo}
+                                disabled={demoIsProcessing || !demoLink}
+                                className="bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-700 text-white px-6 py-3 rounded-lg font-bold flex items-center gap-2 transition"
+                            >
+                                {demoIsProcessing ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4 fill-white" />}
+                                {demoIsProcessing ? "Processing..." : "Analyze"}
+                            </button>
+                        </div>
+
+                        {(demoIsProcessing || demoLogs) && !demoResult && (
+                            <div className="bg-black border border-slate-800 rounded-lg p-4 font-mono text-[10px] text-emerald-500 h-64 overflow-y-auto whitespace-pre-wrap animate-in fade-in duration-300" ref={demoLogContainerRef}>
+                                {demoLogs || "Initializing pipeline..."}
+                            </div>
+                        )}
+
+                        {demoResult && (
+                            <div className="mt-6 border-t border-slate-800 pt-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                                <div className="flex justify-between items-start mb-6">
+                                    <div>
+                                        <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                                            <ShieldCheck className="w-6 h-6 text-emerald-400" />
+                                            <span className="text-indigo-400 uppercase tracking-wider text-[16px] bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20">[{demoResult.config_model || 'AI'}]
+                                            </span>
+                                            Analysis Complete
+                                        </h3>
+                                        <div className="text-xs text-slate-400 mt-2 font-mono">
+                                            ID: {demoResult.id} | Prompt: {demoResult.config_prompt} | Reasoning: {demoResult.config_reasoning}
+                                        </div>
+                                    </div>
+                                    <div className="bg-slate-950 border border-slate-800 px-6 py-2 rounded-lg text-center">
+                                        <div className="text-[10px] uppercase text-slate-500 font-bold mb-1">Final Score</div>
+                                        <div className={`text-4xl font-bold font-mono ${demoResult.final_veracity_score < 50 ? 'text-red-400' : 'text-emerald-400'}`}>
+                                            {demoResult.final_veracity_score}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-3 gap-6 mb-6">
+                                    <div className="col-span-2 space-y-4">
+                                        <div className="bg-slate-950 p-4 rounded-lg border border-slate-800">
+                                            <div className="text-xs font-bold text-indigo-400 uppercase mb-2">Video Context</div>
+                                            <div className="text-sm text-slate-300 italic leading-relaxed">"{demoResult.caption || 'No specific context found'}"</div>
+                                        </div>
+                                        
+                                        <div className="bg-slate-950 p-4 rounded-lg border border-slate-800">
+                                            <div className="text-xs font-bold text-amber-400 uppercase mb-2">AI Reasoning</div>
+                                            <div className="text-sm text-slate-300 whitespace-pre-wrap leading-relaxed">{demoResult.reasoning || 'No reasoning provided'}</div>
+                                        </div>
+
+                                        {demoResult.tags && (
+                                            <div className="flex flex-wrap gap-2">
+                                                {demoResult.tags.split(',').map((t: string) => (
+                                                    <span key={t} className="px-2 py-1 bg-slate-800 border border-slate-700 rounded text-xs text-slate-400 font-mono">{t.trim()}</span>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div className="space-y-4">
+                                        <div className="bg-slate-950 p-4 rounded-lg border border-slate-800">
+                                            <div className="text-xs font-bold text-sky-400 uppercase mb-3">Veracity Vectors</div>
+                                            <div className="space-y-2">
+                                                {[
+                                                    { label: 'Visual Integrity', score: parseFloat(demoResult.visual_score) || 0 },
+                                                    { label: 'Audio Integrity', score: parseFloat(demoResult.audio_score) || 0 },
+                                                    { label: 'Source Credibility', score: parseFloat(demoResult.source_score) || 0 },
+                                                    { label: 'Logical Consistency', score: parseFloat(demoResult.logic_score) || 0 },
+                                                    { label: 'Emotional Manip.', score: parseFloat(demoResult.emotion_score) || 0 },
+                                                ].map((v) => (
+                                                    <div key={v.label} className="flex justify-between items-center text-xs">
+                                                        <span className="text-slate-400 w-32 truncate">{v.label}</span>
+                                                        <div className="flex items-center gap-2 flex-1 ml-2">
+                                                            <div className="flex-1 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                                                                <div className={`h-full ${v.score < 5 ? 'bg-red-400' : v.score < 8 ? 'bg-amber-400' : 'bg-emerald-400'}`} style={{ width: `${(v.score / 10) * 100}%` }} />
+                                                            </div>
+                                                            <span className="font-mono text-slate-300 w-6 text-right">{v.score}</span>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        <div className="bg-slate-950 p-4 rounded-lg border border-slate-800">
+                                            <div className="text-xs font-bold text-pink-400 uppercase mb-3">Modality Alignment</div>
+                                            <div className="space-y-2">
+                                                {[
+                                                    { label: 'Video ↔ Audio', score: parseFloat(demoResult.align_video_audio) || 0 },
+                                                    { label: 'Video ↔ Caption', score: parseFloat(demoResult.align_video_caption) || 0 },
+                                                    { label: 'Audio ↔ Caption', score: parseFloat(demoResult.align_audio_caption) || 0 },
+                                                ].map((v) => (
+                                                    <div key={v.label} className="flex justify-between items-center text-xs">
+                                                        <span className="text-slate-400 w-32 truncate">{v.label}</span>
+                                                        <div className="flex items-center gap-2 flex-1 ml-2">
+                                                            <div className="flex-1 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                                                                <div className={`h-full ${v.score < 5 ? 'bg-red-400' : v.score < 8 ? 'bg-amber-400' : 'bg-emerald-400'}`} style={{ width: `${(v.score / 10) * 100}%` }} />
+                                                            </div>
+                                                            <span className="font-mono text-slate-300 w-6 text-right">{v.score}</span>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="flex justify-end">
+                                    <button onClick={() => {setDemoResult(null); setDemoLogs(''); setDemoLink('');}} className="text-xs text-slate-500 hover:text-white flex items-center gap-1 border border-slate-800 px-3 py-1.5 rounded bg-slate-950">
+                                        <RotateCcw className="w-3 h-3"/> Reset Demo
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* EXISTING HOME TAB CONTENT */}
                     <div className="grid grid-cols-3 gap-6">
                         <div className="col-span-2 bg-slate-900/50 border border-slate-800 rounded-xl p-6">
                             <h2 className="text-xl font-bold text-white mb-4">Philosophy & Methodology</h2>
@@ -799,35 +1113,29 @@ function App() {
                                         <div className="space-y-1">
                                             <input type="password" value={apiKey} onChange={e => setApiKey(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white placeholder-slate-600" placeholder="NRP API Token"/>
                                         </div>
-                                        <div className="space-y-1">
-                                            <select value={modelName} onChange={e => setModelName(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white">
-                                                <option value="qwen3">qwen3 (Multimodal)</option>
-                                                <option value="gpt-oss">gpt-oss</option>
-                                                <option value="kimi">kimi</option>
-                                                <option value="glm-4.7">glm-4.7</option>
-                                                <option value="minimax-m2">minimax-m2</option>
-                                                <option value="glm-v">glm-v (Multimodal)</option>
-                                                <option value="gemma3">gemma3 (Multimodal)</option>
-                                            </select>
-                                        </div>
                                     </>
                                 )}
-                                
-                                {modelProvider !== 'nrp' && (
-                                    <div className="space-y-1">
-                                        <input value={modelName} onChange={e => setModelName(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white placeholder-slate-600" placeholder="Model Name"/>
-                                    </div>
-                                )}
 
-                                <select value={reasoningMethod} onChange={e => setReasoningMethod(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white">
-                                    <option value="cot">Standard Chain of Thought</option>
-                                    <option value="fcot">Fractal Chain of Thought</option>
-                                </select>
-                                <select value={promptTemplate} onChange={e => setPromptTemplate(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white">
-                                    {availablePrompts.length > 0 ? availablePrompts.map(p => (
-                                        <option key={p.id} value={p.id}>{p.name}</option>
-                                    )) : <option value="standard">Standard</option>}
-                                </select>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] text-slate-500">Model Name</label>
+                                    <input list="modelSuggestions" value={modelName} onChange={e => setModelName(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white placeholder-slate-600" placeholder="Model Name"/>
+                                </div>
+
+                                <div className="space-y-1 mt-2">
+                                    <label className="text-[10px] text-slate-500">Reasoning Method</label>
+                                    <select value={reasoningMethod} onChange={e => setReasoningMethod(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white">
+                                        <option value="cot">Standard Chain of Thought</option>
+                                        <option value="fcot">Fractal Chain of Thought</option>
+                                    </select>
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] text-slate-500">Prompt Persona</label>
+                                    <select value={promptTemplate} onChange={e => setPromptTemplate(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white">
+                                        {availablePrompts.length > 0 ? availablePrompts.map(p => (
+                                            <option key={p.id} value={p.id}>{p.name}</option>
+                                        )) : <option value="standard">Standard</option>}
+                                    </select>
+                                </div>
                             </div>
                         </div>
 
@@ -1004,27 +1312,12 @@ function App() {
                             </>
                         )}
 
-                        {modelProvider === 'nrp' ? (
-                            <div className="space-y-1">
-                                <label className="text-[10px] text-slate-500">Model Name</label>
-                                <select value={modelName} onChange={e => setModelName(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white">
-                                    <option value="qwen3">qwen3 (Multimodal)</option>
-                                    <option value="gpt-oss">gpt-oss</option>
-                                    <option value="kimi">kimi</option>
-                                    <option value="glm-4.7">glm-4.7</option>
-                                    <option value="minimax-m2">minimax-m2</option>
-                                    <option value="glm-v">glm-v (Multimodal)</option>
-                                    <option value="gemma3">gemma3 (Multimodal)</option>
-                                </select>
-                            </div>
-                        ) : (
-                            <div className="space-y-1">
-                                <label className="text-[10px] text-slate-500">Model Name</label>
-                                <input value={modelName} onChange={e => setModelName(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white"/>
-                            </div>
-                        )}
-
                         <div className="space-y-1">
+                            <label className="text-[10px] text-slate-500">Model Name</label>
+                            <input list="modelSuggestions" value={modelName} onChange={e => setModelName(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white" placeholder="Model Name"/>
+                        </div>
+
+                        <div className="space-y-1 mt-2">
                             <label className="text-[10px] text-slate-500">Reasoning Method</label>
                             <select value={reasoningMethod} onChange={e => setReasoningMethod(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white">
                                 <option value="cot">Standard Chain of Thought</option>
@@ -1076,34 +1369,68 @@ function App() {
                                 </thead>
                                 <tbody>
                                     {queueList.map((q, i, arr) => (
-                                        <tr 
-                                            key={i} 
-                                            className={`border-t border-slate-800/50 hover:bg-white/5 ${selectedQueueItems.has(q.link) ? 'bg-indigo-900/20' : ''}`}
-                                            onMouseDown={(e) => {
-                                                isDraggingQueueRef.current = true;
-                                                toggleQueueSelection(e, q.link, i, arr);
-                                            }}
-                                            onMouseEnter={() => {
-                                                if (isDraggingQueueRef.current && !selectedQueueItems.has(q.link)) {
-                                                    setSelectedQueueItems(prev => new Set(prev).add(q.link));
-                                                    setLastQueueIndex(i);
-                                                }
-                                            }}
-                                        >
-                                            <td className="p-3 cursor-pointer">
-                                                {selectedQueueItems.has(q.link) ? <CheckSquare className="w-4 h-4 text-indigo-400"/> : <Square className="w-4 h-4 text-slate-600"/>}
-                                            </td>
-                                            <td className="p-3 font-bold text-[10px]">{q.task_type === 'Verify' ? <span className="text-amber-400">VERIFY</span> : <span className="text-slate-500">INGEST</span>}</td>
-                                            <td className="p-3 text-sky-500 font-mono break-all">{q.link}</td>
-                                            <td className="p-3">
-                                                {q.status === 'Processed' ? 
-                                                    <span className="text-emerald-500 flex items-center gap-1"><CheckCircle2 className="w-3 h-3"/> Done</span> : 
-                                                    q.status === 'Error' ? 
-                                                    <span className="text-red-500 flex items-center gap-1"><AlertCircle className="w-3 h-3"/> Error</span> :
-                                                    <span className="text-amber-500">Pending</span>
-                                                }
-                                            </td>
-                                        </tr>
+                                        <React.Fragment key={i}>
+                                            <tr 
+                                                className={`border-t border-slate-800/50 hover:bg-white/5 ${selectedQueueItems.has(q.link) ? 'bg-indigo-900/20' : ''}`}
+                                                onMouseDown={(e) => {
+                                                    isDraggingQueueRef.current = true;
+                                                    toggleQueueSelection(e, q.link, i, arr);
+                                                }}
+                                                onMouseEnter={() => {
+                                                    if (isDraggingQueueRef.current && !selectedQueueItems.has(q.link)) {
+                                                        setSelectedQueueItems(prev => new Set(prev).add(q.link));
+                                                        setLastQueueIndex(i);
+                                                    }
+                                                }}
+                                            >
+                                                <td className="p-3 cursor-pointer">
+                                                    {selectedQueueItems.has(q.link) ? <CheckSquare className="w-4 h-4 text-indigo-400"/> : <Square className="w-4 h-4 text-slate-600"/>}
+                                                </td>
+                                                <td className="p-3 font-bold text-[10px]">{q.task_type === 'Verify' ? <span className="text-amber-400">VERIFY</span> : <span className="text-slate-500">INGEST</span>}</td>
+                                                <td className="p-3">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-sky-500 font-mono break-all">{q.link}</span>
+                                                        {q.comments && q.comments.length > 0 && (
+                                                            <button 
+                                                                onClick={(e) => toggleQueueExpand(e, q.link)} 
+                                                                className="px-2 py-1 bg-slate-800 rounded text-[10px] text-slate-300 hover:bg-slate-700 flex items-center gap-1 z-10"
+                                                            >
+                                                                {expandedQueueItems.has(q.link) ? <ChevronUp className="w-3 h-3"/> : <ChevronDown className="w-3 h-3"/>}
+                                                                {q.comments.length} Comments
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td className="p-3">
+                                                    {q.status === 'Processed' ? 
+                                                        <span className="text-emerald-500 flex items-center gap-1"><CheckCircle2 className="w-3 h-3"/> Done</span> : 
+                                                        q.status === 'Error' ? 
+                                                        <span className="text-red-500 flex items-center gap-1"><AlertCircle className="w-3 h-3"/> Error</span> :
+                                                        <span className="text-amber-500">Pending</span>
+                                                    }
+                                                </td>
+                                            </tr>
+                                            {expandedQueueItems.has(q.link) && q.comments && q.comments.length > 0 && (
+                                                <tr className="bg-slate-900/40">
+                                                    <td colSpan={4} className="p-0">
+                                                        <div className="px-12 py-3 border-l-2 border-indigo-500 ml-4 space-y-2">
+                                                            {q.comments.map((c: any, ci: number) => (
+                                                                <div key={ci} className="flex flex-col gap-1 p-2 bg-slate-900 border border-slate-800 rounded">
+                                                                    <div className="flex justify-between items-center">
+                                                                        <div className="text-[10px] font-bold text-indigo-400">{c.author}</div>
+                                                                        <div className="flex gap-2">
+                                                                            {c.link && <a href={c.link} target="_blank" rel="noreferrer" className="text-[10px] text-sky-400 hover:underline">View Post</a>}
+                                                                            {c.link && <button onClick={() => addSingleLinkDirect(c.link)} className="text-[10px] bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-0.5 rounded flex items-center gap-1"><Plus className="w-3 h-3"/> Queue Comment</button>}
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="text-xs text-slate-400 line-clamp-2">{c.text}</div>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </React.Fragment>
                                     ))}
                                 </tbody>
                             </table>
@@ -1406,7 +1733,7 @@ function App() {
                                                      <span className="capitalize text-slate-300 font-bold">{k.replace('v', 'Video-').replace('a', 'Audio-').replace('c', 'Caption')}</span>
                                                      <span className="text-emerald-400 font-mono font-bold">{(manualScores as any)[k]}/10</span>
                                                  </div>
-                                                 <input type="range" min="1" max="10" value={(manualScores as any)[k]} onChange={e => setManualScores({...manualScores, [k]: parseInt(e.target.value)})} className="w-full accent-emerald-500"/>
+                                                 <input type="range" min="1" max="10" value={(manualScores as any)[k]} onChange={e => setManualScores({...manualScores,[k]: parseInt(e.target.value)})} className="w-full accent-emerald-500"/>
                                              </div>
                                          ))}
                                      </div>
@@ -1486,7 +1813,7 @@ function App() {
                 </div>
             )}
 
-            {/* COMMUNITY AND ANALYTICS TABS */}
+            {/* COMMUNITY AND ANALYTICS TABS (UNCHANGED) */}
             {activeTab === 'community' && (
                 <div className="flex h-full gap-6">
                     <div className="w-1/3 bg-slate-900/50 border border-slate-800 rounded-xl overflow-auto">

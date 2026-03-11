@@ -98,7 +98,7 @@ class UserProfileScraper {
         const path = window.location.pathname;
         if (window.location.hostname.includes('x.com') || window.location.hostname.includes('twitter.com')) {
             const match = path.match(/^\/([^/]+)(?:\/.*)?$/);
-            const reservedRoutes = ['home', 'explore', 'notifications', 'messages', 'i', 'compose', 'settings', 'search', 'hashtag'];
+            const reservedRoutes =['home', 'explore', 'notifications', 'messages', 'i', 'compose', 'settings', 'search', 'hashtag'];
 
             if (match && match[1] && !reservedRoutes.includes(match[1])) {
                 this.targetHandle = match[1];
@@ -358,7 +358,7 @@ function createButtonUI(container, link, caption, platform, stats, tweetElement)
     btnAnalyze.title = "Live Factuality Analysis";
     btnAnalyze.onclick = (e) => { 
         e.stopPropagation(); 
-        handleLiveAnalyze(link, caption, btnAnalyze); 
+        handleLiveAnalyze(link, caption, btnAnalyze, tweetElement); 
     };
 
     // Secondary: More Menu triggers Global Dropdown
@@ -377,7 +377,7 @@ function createButtonUI(container, link, caption, platform, stats, tweetElement)
 // HANDLERS
 // ----------------------------------------------------------------------------
 
-async function handleLiveAnalyze(link, caption, btn) {
+async function handleLiveAnalyze(link, caption, btn, tweetElement) {
     currentLink = link;
     currentCaption = caption;
     
@@ -392,7 +392,16 @@ async function handleLiveAnalyze(link, caption, btn) {
     
     showAnalysisLoading(link);
 
-    chrome.runtime.sendMessage({type: 'LIVE_ANALYZE', link: link}, (res) => {
+    let comments =[];
+    if (window.location.href.includes('/status/') && tweetElement) {
+         try {
+             comments = await scrapeLocalComments(tweetElement, 10);
+         } catch(e) {
+             console.error("Failed to scrape comments for live analyze", e);
+         }
+    }
+
+    chrome.runtime.sendMessage({type: 'LIVE_ANALYZE', link: link, comments: comments}, (res) => {
         btn.style.opacity = '1';
         if (res && res.success && res.data && res.data.result && !res.data.error) {
             btn.innerHTML = '✔ Verified';
@@ -502,17 +511,33 @@ function renderPanelForLink(link, caption, platform, tab) {
     }
 }
 
-// Scrapes ~10 comments and returns them
+// Scrapes ~10 comments and returns them, including their links
 async function scrapeLocalComments(tweetElement, amount=10) {
-    if (!window.location.href.includes('/status/')) return [];
+    if (!window.location.href.includes('/status/')) return[];
     window.scrollBy(0, 500);
     await new Promise(r => setTimeout(r, 1000));
-    const comments = [];
+    const comments =[];
     document.querySelectorAll('article[data-testid="tweet"]').forEach(node => {
         if(node === tweetElement) return;
         const textNode = node.querySelector('[data-testid="tweetText"]');
         const userNode = node.querySelector('[data-testid="User-Name"]');
-        if(textNode) comments.push({ author: userNode ? userNode.innerText.split('\n')[0] : "Unknown", text: textNode.innerText });
+        
+        // Extract comment permalink
+        const timeEl = node.querySelector('time');
+        let commentLink = "";
+        if (timeEl) {
+            const aTag = timeEl.closest('a');
+            if (aTag && aTag.href) commentLink = aTag.href;
+        } else {
+            const aTag = node.querySelector('a[href*="/status/"]');
+            if (aTag && aTag.href) commentLink = aTag.href;
+        }
+
+        if(textNode) comments.push({ 
+            author: userNode ? userNode.innerText.split('\n')[0] : "Unknown", 
+            text: textNode.innerText,
+            link: commentLink
+        });
     });
     return comments.slice(0, amount);
 }
@@ -544,12 +569,28 @@ async function handleScrapeComments(link, tweetElement, btnSource) {
         }
         window.scrollBy(0, 500); await new Promise(r => setTimeout(r, 1000));
         window.scrollBy(0, 1000); await new Promise(r => setTimeout(r, 1500));
-        const comments = [];
+        const comments =[];
         document.querySelectorAll('article[data-testid="tweet"]').forEach(node => {
             if(node === tweetElement) return;
             const textNode = node.querySelector('[data-testid="tweetText"]');
             const userNode = node.querySelector('[data-testid="User-Name"]');
-            if(textNode) comments.push({ author: userNode ? userNode.innerText.split('\n')[0] : "Unknown", text: textNode.innerText });
+            
+            // Extract comment permalink
+            const timeEl = node.querySelector('time');
+            let commentLink = "";
+            if (timeEl) {
+                const aTag = timeEl.closest('a');
+                if (aTag && aTag.href) commentLink = aTag.href;
+            } else {
+                const aTag = node.querySelector('a[href*="/status/"]');
+                if (aTag && aTag.href) commentLink = aTag.href;
+            }
+
+            if(textNode) comments.push({ 
+                author: userNode ? userNode.innerText.split('\n')[0] : "Unknown", 
+                text: textNode.innerText,
+                link: commentLink
+            });
         });
         
         chrome.runtime.sendMessage({ type: 'SAVE_COMMENTS', payload: { link: link, comments: comments.slice(0, amount) } }, (res) => {

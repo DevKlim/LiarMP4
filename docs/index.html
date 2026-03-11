@@ -223,6 +223,104 @@
                     </p>
                 </div>
             </div>
+
+            <!-- EMPIRICAL LEADERBOARD -->
+            <div class="mt-16">
+                <div class="text-center mb-8">
+                    <h3 class="text-2xl font-bold text-google-textMain mb-2">Empirical Model Leaderboard</h3>
+                    <p class="text-google-textSecondary max-w-2xl mx-auto text-sm">
+                        Detailed performance metrics evaluated across our verified Ground Truth dataset.
+                    </p>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm border border-google-border overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-google-bg border-b border-google-border">
+                                    <th class="p-4 font-bold text-google-textMain">Type</th>
+                                    <th class="p-4 font-bold text-google-textMain">Model</th>
+                                    <th class="p-4 font-bold text-google-textMain">Prompt</th>
+                                    <th class="p-4 font-bold text-google-textMain">Reasoning</th>
+                                    <th class="p-4 font-bold text-google-textMain text-center">FCoT Depth</th>
+                                    <th class="p-4 font-bold text-google-textMain text-right">Accuracy</th>
+                                    <th class="p-4 font-bold text-google-textMain text-right">Comp. MAE</th>
+                                    <th class="p-4 font-bold text-google-textMain text-right">Tag Acc</th>
+                                    <th class="p-4 font-bold text-google-textMain text-right">Samples</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-google-border text-sm text-google-textSecondary">
+                                <tr class="hover:bg-gray-50 transition-colors bg-google-blueLight/10">
+                                    <td class="p-4">GenAI</td>
+                                    <td class="p-4 font-bold text-google-textMain">gemini-2.5-flash</td>
+                                    <td class="p-4">standard</td>
+                                    <td class="p-4 font-mono text-xs">fcot</td>
+                                    <td class="p-4 text-center">2</td>
+                                    <td class="p-4 text-right font-bold text-google-green">83%</td>
+                                    <td class="p-4 text-right font-mono text-gray-700">15.11</td>
+                                    <td class="p-4 text-right">64.8%</td>
+                                    <td class="p-4 text-right">47</td>
+                                </tr>
+                                <tr class="hover:bg-gray-50 transition-colors">
+                                    <td class="p-4">GenAI</td>
+                                    <td class="p-4 font-medium text-google-textMain">Unknown</td>
+                                    <td class="p-4">Standard</td>
+                                    <td class="p-4 font-mono text-xs">None</td>
+                                    <td class="p-4 text-center">0</td>
+                                    <td class="p-4 text-right font-bold text-google-green">73.3%</td>
+                                    <td class="p-4 text-right font-mono text-gray-700">11.04</td>
+                                    <td class="p-4 text-right">100%</td>
+                                    <td class="p-4 text-right">15</td>
+                                </tr>
+                                <tr class="hover:bg-gray-50 transition-colors">
+                                    <td class="p-4">GenAI</td>
+                                    <td class="p-4 font-medium text-google-textMain">gemini-2.5-flash</td>
+                                    <td class="p-4">standard</td>
+                                    <td class="p-4 font-mono text-xs">cot</td>
+                                    <td class="p-4 text-center">1</td>
+                                    <td class="p-4 text-right font-bold text-yellow-600">63.6%</td>
+                                    <td class="p-4 text-right font-mono text-gray-700">26.16</td>
+                                    <td class="p-4 text-right">32.7%</td>
+                                    <td class="p-4 text-right">11</td>
+                                </tr>
+                                <tr class="hover:bg-gray-50 transition-colors">
+                                    <td class="p-4">GenAI</td>
+                                    <td class="p-4 font-medium text-google-textMain">gemini-2.5-flash-lite</td>
+                                    <td class="p-4">standard</td>
+                                    <td class="p-4 font-mono text-xs">cot</td>
+                                    <td class="p-4 text-center">1</td>
+                                    <td class="p-4 text-right font-bold text-yellow-600">56.5%</td>
+                                    <td class="p-4 text-right font-mono text-gray-700">20.37</td>
+                                    <td class="p-4 text-right">24.5%</td>
+                                    <td class="p-4 text-right">23</td>
+                                </tr>
+                                <tr class="hover:bg-gray-50 transition-colors">
+                                    <td class="p-4">GenAI</td>
+                                    <td class="p-4 font-medium text-google-textMain">gemini-2.5-flash-lite</td>
+                                    <td class="p-4">standard</td>
+                                    <td class="p-4 font-mono text-xs">fcot</td>
+                                    <td class="p-4 text-center">2</td>
+                                    <td class="p-4 text-right font-bold text-google-red">28.6%</td>
+                                    <td class="p-4 text-right font-mono text-gray-700">27.21</td>
+                                    <td class="p-4 text-right">30.7%</td>
+                                    <td class="p-4 text-right">21</td>
+                                </tr>
+                                <tr class="hover:bg-gray-50 transition-colors">
+                                    <td class="p-4">GenAI</td>
+                                    <td class="p-4 font-medium text-google-textMain">qwen3</td>
+                                    <td class="p-4">standard</td>
+                                    <td class="p-4 font-mono text-xs">cot</td>
+                                    <td class="p-4 text-center">1</td>
+                                    <td class="p-4 text-right font-bold text-google-red">0%</td>
+                                    <td class="p-4 text-right font-mono text-gray-700">54.44</td>
+                                    <td class="p-4 text-right">80%</td>
+                                    <td class="p-4 text-right">1</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
         </div>
     </section>
 

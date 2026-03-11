@@ -20,7 +20,7 @@ func main() {
 	// Create Reverse Proxy
 	proxy := httputil.NewSingleHostReverseProxy(pythonURL)
 
-	// FIXED: Point to the new location safe from Docker Volumes
+	// Point to the location safe from Docker Volumes
 	staticPath := "/usr/share/vchat/static"
 	fs := http.FileServer(http.Dir(staticPath))
 
@@ -36,15 +36,14 @@ func main() {
 			strings.HasPrefix(r.URL.Path, "/manage") ||
 			strings.HasPrefix(r.URL.Path, "/workflow") ||
 			strings.HasPrefix(r.URL.Path, "/queue") ||
-			// NEW ROUTES ADDED HERE
 			strings.HasPrefix(r.URL.Path, "/profiles") ||
 			strings.HasPrefix(r.URL.Path, "/community") ||
 			strings.HasPrefix(r.URL.Path, "/analyze") ||
 			strings.HasPrefix(r.URL.Path, "/analytics") ||
 			strings.HasPrefix(r.URL.Path, "/dataset") ||
-			// FIXED: Added missing routes for Manual Labeling and Config
 			strings.HasPrefix(r.URL.Path, "/manual") ||
 			strings.HasPrefix(r.URL.Path, "/benchmarks") ||
+			strings.HasPrefix(r.URL.Path, "/a2a") ||
 			strings.HasPrefix(r.URL.Path, "/config") {
 
 			log.Printf("Proxying %s to Python Backend...", r.URL.Path)
@@ -62,7 +61,12 @@ func main() {
 		fs.ServeHTTP(w, r)
 	})
 
-	port := "8000"
+	// Cloud Run sets the PORT environment variable
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+
 	log.Printf("vChat Modern Server listening on port %s", port)
 	log.Printf("Serving static files from %s", staticPath)
 	if err := http.ListenAndServe(":"+port, nil); err != nil {

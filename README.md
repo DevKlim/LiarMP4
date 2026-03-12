@@ -31,6 +31,7 @@ By standardizing on the A2A protocol, the system dynamically shifts configuratio
 
 *   **Live Demonstration (Hugging Face):**[https://huggingface.co/spaces/GlazedDon0t/liarMP4](https://huggingface.co/spaces/GlazedDon0t/liarMP4)
 *   **Source Code (GitHub):** [https://github.com/DevKlim/LiarMP4](https://github.com/DevKlim/LiarMP4)
+*   **Vision for this project:** [http://alternusvera.com/](http://alternusvera.com/)
 
 ## Installation and Deployment
 

@@ -36,7 +36,7 @@ def parse_toon_line(line_def, data_line):
                     v_str = parts[0].strip()
             cleaned_values.append(v_str)
 
-        headers = line_def.get('headers', [])
+        headers = line_def.get('headers',[])
         
         # Ensure values match headers length if possible, or pad
         if len(cleaned_values) < len(headers):
@@ -60,7 +60,7 @@ def fuzzy_extract_scores(text: str) -> dict:
     }
     
     # Mappings: Regex Pattern -> Score Key
-    mappings = [
+    mappings =[
         ('visual', 'visual'),
         ('visual.*?integrity', 'visual'),
         ('accuracy', 'visual'), # Fallback
@@ -107,7 +107,7 @@ def parse_veracity_toon(text: str) -> dict:
             'audio_caption_score': '0'
         },
         'video_context_summary': '',
-        'tags': [],
+        'tags':[],
         'factuality_factors': {
             'claim_accuracy': 'Unverifiable',
             'evidence_gap': '',
@@ -132,7 +132,7 @@ def parse_veracity_toon(text: str) -> dict:
     parsed_sections = {}
 
     # --- STRATEGY 1: Strict Block Regex (Original) ---
-    # Matches: key : type [ count ] { headers } :
+    # Matches: key : type[ count ] { headers } :
     block_pattern = re.compile(
         r'([a-zA-Z0-9_]+)\s*:\s*(?:\w+\s*)?(?:\[\s*(\d+)\s*\])?\s*\{\s*(.*?)\s*\}\s*:\s*', 
         re.MULTILINE
@@ -147,13 +147,13 @@ def parse_veracity_toon(text: str) -> dict:
             key = match.group(1).lower()
             count = int(match.group(2)) if match.group(2) else 1
             headers_str = match.group(3)
-            headers = [h.strip().lower() for h in headers_str.split(',')]
+            headers =[h.strip().lower() for h in headers_str.split(',')]
             
             start_idx = match.end()
             end_idx = matches[i+1].start() if i + 1 < len(matches) else len(clean_text)
             block_content = clean_text[start_idx:end_idx].strip()
             
-            lines = [line.strip() for line in block_content.splitlines() if line.strip()]
+            lines =[line.strip() for line in block_content.splitlines() if line.strip()]
             valid_lines = [l for l in lines if len(l) > 1] 
             
             data_items = []
@@ -183,7 +183,7 @@ def parse_veracity_toon(text: str) -> dict:
             potential_key = line.split(':')[0].strip().lower()
             if potential_key in KNOWN_KEYS:
                 current_key = potential_key
-                if current_key not in temp_sections: temp_sections[current_key] = []
+                if current_key not in temp_sections: temp_sections[current_key] =[]
                 
                 # Check for inline value "key: value"
                 if ':' in line:
@@ -225,7 +225,7 @@ def parse_veracity_toon(text: str) -> dict:
                     
                     # Construct pseudo-CSV: "Visual, 7/10, ..."
                     pseudo_line = f"{subkey}, {subval}"
-                    headers = ['category', 'score', 'reasoning']
+                    headers =['category', 'score', 'reasoning']
                     
                     # Ensure container is list
                     if isinstance(temp_sections[current_key], dict): 
@@ -237,7 +237,7 @@ def parse_veracity_toon(text: str) -> dict:
                 if ':' not in line and not line.startswith('{'):
                     # Data line for current key (Standard TOON)
                     headers = []
-                    if current_key in ['vectors', 'modalities']:
+                    if current_key in['vectors', 'modalities']:
                         headers = ['category', 'score', 'reasoning']
                     elif current_key == 'disinfo':
                         headers = ['class', 'intent', 'threat']
@@ -274,7 +274,7 @@ def parse_veracity_toon(text: str) -> dict:
     got_modalities = False
 
     # 1. Process 'vectors'
-    vectors_data = parsed_sections.get('vectors', [])
+    vectors_data = parsed_sections.get('vectors',[])
     if isinstance(vectors_data, dict): 
         v = vectors_data
         if 'visual' in v: flat_result['veracity_vectors']['visual_integrity_score'] = str(v['visual'])
@@ -299,7 +299,7 @@ def parse_veracity_toon(text: str) -> dict:
             elif 'emotion' in cat: flat_result['veracity_vectors']['emotional_manipulation_score'] = score
 
     # 2. Process 'modalities'
-    modalities_data = parsed_sections.get('modalities', [])
+    modalities_data = parsed_sections.get('modalities',[])
     if isinstance(modalities_data, dict):
         m = modalities_data
         for k, v in m.items():
@@ -363,12 +363,16 @@ def parse_veracity_toon(text: str) -> dict:
         flat_result['tags'] = t
     elif isinstance(t, list) and t and isinstance(t[0], dict):
         raw_tags = t[0].get('keywords', '')
-        if raw_tags:
-            flat_result['tags'] = [x.strip() for x in raw_tags.split(',')]
+        if isinstance(raw_tags, list):
+            flat_result['tags'] =[str(x).strip() for x in raw_tags]
+        elif raw_tags:
+            flat_result['tags'] =[x.strip() for x in str(raw_tags).split(',')]
     elif isinstance(t, dict):
         raw_tags = t.get('keywords', '')
-        if raw_tags:
-             flat_result['tags'] = [x.strip() for x in raw_tags.split(',')]
+        if isinstance(raw_tags, list):
+            flat_result['tags'] = [str(x).strip() for x in raw_tags]
+        elif raw_tags:
+             flat_result['tags'] =[x.strip() for x in str(raw_tags).split(',')]
 
     # 7. Summary
     s = parsed_sections.get('summary', {})
@@ -384,3 +388,4 @@ def parse_veracity_toon(text: str) -> dict:
     flat_result['raw_parsed_structure'] = parsed_sections
     
     return flat_result
+

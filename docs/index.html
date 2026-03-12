@@ -555,9 +555,9 @@
             <div class="mt-16 bg-white p-8 rounded-xl border border-google-border shadow-sm">
                 <h3 class="text-2xl font-bold text-google-textMain mb-4">Key Takeaways & Future Directions</h3>
                 <ul class="list-disc pl-5 space-y-4 text-google-textSecondary">
-                    <li><strong>FCoT Efficacy:</strong> Deep, recursive reasoning (FCoT Depth 2) without external tools achieves the highest overall accuracy (83%) and effectively maps videos into a stable latent space, producing a robust Tagging Solution that prevents rigid, misclassified pigeonholing.</li>
-                    <li><strong>The Distraction of External Tools:</strong> Counterintuitively, providing the agent with Web Search and Code Execution decreased accuracy and severely degraded Tag Accuracy (from 64.8% to 34.2%), as the agent over-indexed on text results and ignored raw visual/audio alignment vectors.</li>
-                    <li><strong>Account Honesty & Credibility Tracking:</strong> Expanding our User Credibility Profiler, future versions will persistently track "Account Honesty", maintaining historical integrity scores that penalize accounts repeatedly posting recontextualized media.</li>
+                    <li><strong>FCoT Efficacy:</strong> Deep, recursive reasoning like depth 2 without external tools achieves the highest overall accuracy (64.8%) and effectively maps videos into a stable latent space, producing a robust Tagging Solution that prevents rigid, misclassified pigeonholing.</li>
+                    <li><strong>External Tools:</strong> Counterintuitively, providing the agent with Web Search and Code Execution decreased accuracy; however,  it increased Tag Accuracy (from 64.8% to 92.1%), as the agent had better context on text results but weighed raw visual/audio alignment vectors less.</li>
+                    <li><strong>Credibility Tracking:</strong> Expanding our User Credibility Profiler, future versions will persistently track "Account Honesty", maintaining historical integrity scores that penalize accounts repeatedly posting recontextualized media.</li>
                     <li><strong>Video-Post Alignment Database:</strong> We are establishing a dedicated database to track specific video-post alignment patterns, allowing the system to cross-reference known "cheap fakes" and flag recycled authentic videos weaponized with deceptive captions.</li>
                 </ul>
             </div>
@@ -919,7 +919,7 @@
                     <div class="bg-google-bg p-6 rounded-xl border border-google-border shadow-sm h-full">
                         <h3 class="font-bold text-google-yellow mb-2 text-lg">Phase 2: Factuality Alignment</h3>
                         <p class="text-sm text-google-textSecondary leading-relaxed">
-                            We integrated the Ali Arsanjani Factuality Factors and Modality Alignment criteria. This shift allowed us to evaluate how audio, video, and text relate to one another. This successfully penalized malicious content where authentic videos were recontextualized with deceptive claims.
+                            We integrated the Professor Ali Arsanjani's Factuality Factors (visit [Alternus Vera](https://alternusvera.wordpress.com/)) and Modality Alignment criteria. This shift allowed us to evaluate how audio, video, and text relate to one another. This successfully penalized malicious content where authentic videos were recontextualized with deceptive claims.
                         </p>
                     </div>
                 </div>

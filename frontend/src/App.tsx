@@ -16,15 +16,15 @@ function App() {
   
   // Processing Config State
   const [modelProvider, setModelProvider] = useState('nrp');
-  const [apiKey, setApiKey] = useState('');
+  const[apiKey, setApiKey] = useState('');
   const [baseUrl, setBaseUrl] = useState('https://ellm.nrp-nautilus.io/v1'); // NRP Default
   const[modelName, setModelName] = useState('qwen3'); // Default
   const[projectId, setProjectId] = useState('');
   const [location, setLocation] = useState('us-central1');
-  const [includeComments, setIncludeComments] = useState(false);
+  const[includeComments, setIncludeComments] = useState(false);
   const[reasoningMethod, setReasoningMethod] = useState('cot');
   const [promptTemplate, setPromptTemplate] = useState('standard');
-  const [customQuery, setCustomQuery] = useState('');
+  const[customQuery, setCustomQuery] = useState('');
   const[maxRetries, setMaxRetries] = useState(1);
   const [availablePrompts, setAvailablePrompts] = useState<any[]>([]);
 
@@ -47,7 +47,7 @@ function App() {
   const [integrityBoard, setIntegrityBoard] = useState<any[]>([]);
   
   const[datasetList, setDatasetList] = useState<any[]>([]);
-  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  const[selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [lastDatasetIndex, setLastDatasetIndex] = useState<number | null>(null);
 
   const [benchmarks, setBenchmarks] = useState<any>(null);
@@ -55,10 +55,10 @@ function App() {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   // Tags
-  const [configuredTags, setConfiguredTags] = useState<any>({});
+  const[configuredTags, setConfiguredTags] = useState<any>({});
 
   // Manual Labeling State
-  const [manualLink, setManualLink] = useState('');
+  const[manualLink, setManualLink] = useState('');
   const[manualCaption, setManualCaption] = useState('');
   const [manualTags, setManualTags] = useState('');
   const[manualReasoning, setManualReasoning] = useState('');
@@ -67,17 +67,17 @@ function App() {
       va: 5, vc: 5, ac: 5, final: 50
   });
   const[showRubric, setShowRubric] = useState(false);
-  const [aiReference, setAiReference] = useState<any>(null);
+  const[aiReference, setAiReference] = useState<any>(null);
   const [labelBrowserMode, setLabelBrowserMode] = useState<'queue' | 'dataset'>('queue');
   const [labelFilter, setLabelFilter] = useState('');
 
   // Agent Chat State
   const[agentInput, setAgentInput] = useState('');
-  const [agentMessages, setAgentMessages] = useState<any[]>([]);
-  const [agentThinking, setAgentThinking] = useState(false);
+  const[agentMessages, setAgentMessages] = useState<any[]>([]);
+  const[agentThinking, setAgentThinking] = useState(false);
   const[agentEndpoint, setAgentEndpoint] = useState('/a2a');
   const [agentMethod, setAgentMethod] = useState('agent.process');
-  const [agentConfig, setAgentConfig] = useState({ use_search: true, use_code: false });
+  const[agentConfig, setAgentConfig] = useState({ use_search: true, use_code: false });
 
   // Resampling configuration
   const [resampleCount, setResampleCount] = useState<number>(1);
@@ -89,7 +89,7 @@ function App() {
   // Quick Demo State
   const[demoLink, setDemoLink] = useState('');
   const [demoLogs, setDemoLogs] = useState('');
-  const [demoIsProcessing, setDemoIsProcessing] = useState(false);
+  const[demoIsProcessing, setDemoIsProcessing] = useState(false);
   const[demoResult, setDemoResult] = useState<any>(null);
   const [showDemoConfig, setShowDemoConfig] = useState(false);
   const demoLogContainerRef = useRef<HTMLDivElement>(null);
@@ -1046,6 +1046,52 @@ function App() {
                                     ))}
                                     {(!leaderboard || leaderboard.length === 0) && (
                                         <tr><td colSpan={10} className="p-4 text-center text-slate-600">No benchmark data available.</td></tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    {/* Detailed Vector Accuracies */}
+                    <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-6 mt-6 mb-8">
+                        <h3 className="text-sm font-bold text-white uppercase mb-4 flex items-center gap-2">
+                            <BarChart2 className="w-4 h-4 text-sky-400"/> Detailed Vector Error Analysis (MAE)
+                        </h3>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left text-xs text-slate-400">
+                                <thead className="bg-slate-950 text-slate-500 uppercase">
+                                    <tr>
+                                        <th className="p-3">Model</th>
+                                        <th className="p-3">Prompt</th>
+                                        <th className="p-3">Tools / Techniques</th>
+                                        <th className="p-3 text-right">Vis MAE</th>
+                                        <th className="p-3 text-right">Aud MAE</th>
+                                        <th className="p-3 text-right">Src MAE</th>
+                                        <th className="p-3 text-right">Log MAE</th>
+                                        <th className="p-3 text-right">Emo MAE</th>
+                                        <th className="p-3 text-right">V-A MAE</th>
+                                        <th className="p-3 text-right">V-C MAE</th>
+                                        <th className="p-3 text-right">A-C MAE</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-800">
+                                    {leaderboard && leaderboard.map((row, i) => (
+                                        <tr key={i} className="hover:bg-white/5">
+                                            <td className="p-3 font-mono text-white">{row.model}</td>
+                                            <td className="p-3">{row.prompt}</td>
+                                            <td className="p-3 text-sky-400 font-mono">{row.tools || 'None'}</td>
+                                            <td className="p-3 text-right font-mono">{row.err_visual_score ?? '-'}</td>
+                                            <td className="p-3 text-right font-mono">{row.err_audio_score ?? '-'}</td>
+                                            <td className="p-3 text-right font-mono">{row.err_source_score ?? '-'}</td>
+                                            <td className="p-3 text-right font-mono">{row.err_logic_score ?? '-'}</td>
+                                            <td className="p-3 text-right font-mono">{row.err_emotion_score ?? '-'}</td>
+                                            <td className="p-3 text-right font-mono">{row.err_align_video_audio ?? '-'}</td>
+                                            <td className="p-3 text-right font-mono">{row.err_align_video_caption ?? '-'}</td>
+                                            <td className="p-3 text-right font-mono">{row.err_align_audio_caption ?? '-'}</td>
+                                        </tr>
+                                    ))}
+                                    {(!leaderboard || leaderboard.length === 0) && (
+                                        <tr><td colSpan={11} className="p-4 text-center text-slate-600">No detailed benchmark data available.</td></tr>
                                     )}
                                 </tbody>
                             </table>

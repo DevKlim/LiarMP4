@@ -158,6 +158,22 @@ def generate_leaderboard():
     merged = merged.fillna({'config_model': 'Unknown', 'config_prompt': 'Standard', 'config_reasoning': 'None'})
 
     merged['params_readable'] = merged['config_params'].apply(format_config_params)
+    
+    def extract_tools(p_raw):
+        try:
+            if isinstance(p_raw, str): p = json.loads(p_raw)
+            else: p = p_raw
+            if not isinstance(p, dict): return "None"
+            tools =[]
+            if p.get('agent_active'): tools.append("Agent")
+            if p.get('use_search'): tools.append("Search")
+            if p.get('use_code'): tools.append("Code")
+            if p.get('few_shot') or p.get('multi_shot'): tools.append("Few-Shot")
+            return ", ".join(tools) if tools else "None"
+        except:
+            return "None"
+
+    merged['tools'] = merged['config_params'].apply(extract_tools)
 
     merged['bin_ai'] = merged['final_veracity_score_ai'] >= 50
     merged['bin_manual'] = merged['final_veracity_score_manual'] >= 50
@@ -170,28 +186,44 @@ def generate_leaderboard():
         return 0
     merged['fcot_depth'] = merged.apply(get_fcot_depth, axis=1)
 
+    agg_dict = {
+        'comp_mae': ('composite_mae', 'mean'),
+        'tag_accuracy': ('tag_accuracy', 'mean'),
+        'accuracy': ('is_correct', 'mean'),
+        'count': ('id', 'count')
+    }
+    
+    err_cols =[
+        'err_visual_score', 'err_audio_score', 'err_source_score',
+        'err_logic_score', 'err_emotion_score', 'err_align_video_audio',
+        'err_align_video_caption', 'err_align_audio_caption'
+    ]
+    for col in err_cols:
+        if col in merged.columns:
+            agg_dict[col] = (col, 'mean')
+
     # Group By Configuration using Composite MAE and Tag Accuracy
-    grouped = merged.groupby(['config_model', 'config_prompt', 'config_reasoning', 'params_readable', 'fcot_depth']).agg(
-        comp_mae=('composite_mae', 'mean'),
-        tag_accuracy=('tag_accuracy', 'mean'),
-        accuracy=('is_correct', 'mean'),
-        count=('id', 'count')
-    ).reset_index()
+    grouped = merged.groupby(['config_model', 'config_prompt', 'config_reasoning', 'params_readable', 'tools', 'fcot_depth']).agg(**agg_dict).reset_index()
 
     leaderboard =[]
     for _, row in grouped.iterrows():
-        leaderboard.append({
+        entry = {
             "type": "GenAI",
             "model": row['config_model'],
             "prompt": row['config_prompt'],
             "reasoning": row['config_reasoning'],
             "params": row['params_readable'],
+            "tools": row['tools'],
             "fcot_depth": int(row['fcot_depth']),
             "comp_mae": round(row['comp_mae'], 2),
             "tag_acc": round(row['tag_accuracy'] * 100, 1),
             "accuracy": round(row['accuracy'] * 100, 1),
             "samples": int(row['count'])
-        })
+        }
+        for col in err_cols:
+            if col in row:
+                entry[col] = round(row[col], 2)
+        leaderboard.append(entry)
 
     # Sort: Highest Accuracy, Highest Tag Accuracy, then Lowest Composite MAE
     leaderboard.sort(key=lambda x: (-x['accuracy'], -x['tag_acc'], x['comp_mae']))
@@ -222,3 +254,4 @@ def train_predictive_sandbox(features_config: dict):
         }
     except Exception as e:
         return {"error": str(e)}
+

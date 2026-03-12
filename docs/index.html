@@ -212,21 +212,6 @@
                 </div>
             </div>
 
-            <div class="grid md:grid-cols-2 gap-8">
-                <div class="bg-white p-6 rounded-xl border border-google-border shadow-sm">
-                    <h4 class="font-bold text-google-textMain mb-2"><i class="fa-solid fa-chart-line text-google-blue mr-2"></i> Interpretation Guidance</h4>
-                    <p class="text-sm text-google-textSecondary leading-relaxed">
-                        The Baseline Predictive AI acts as a fast filter but fundamentally fails to understand multimodal context. Implementing deep Fractal Chain of Thought reduces hallucinations significantly, driving the Composite error down by over 50 percent. The Agent architecture yields the highest accuracy but introduces significant latency tradeoffs.
-                    </p>
-                </div>
-                <div class="bg-white p-6 rounded-xl border border-google-border shadow-sm">
-                    <h4 class="font-bold text-google-textMain mb-2"><i class="fa-solid fa-shield-halved text-google-green mr-2"></i> Dataset Rigor and Prevention</h4>
-                    <p class="text-sm text-google-textSecondary leading-relaxed">
-                        Evaluation was conducted on a curated dataset built via our internal labeling studio. To prevent data leakage, the Predictive AI models were trained strictly on isolated tabular metadata from the training split. Meanwhile, Generative AI models performed zero-shot semantic inference on the unseen test holdouts.
-                    </p>
-                </div>
-            </div>
-
             <!-- EMPIRICAL LEADERBOARD -->
             <div class="mt-16">
                 <div class="text-center mb-8">
@@ -249,7 +234,6 @@
                                     <th class="px-2 py-3 font-bold text-google-textMain text-right">Accuracy</th>
                                     <th class="px-2 py-3 font-bold text-google-textMain text-right">Comp. MAE</th>
                                     <th class="px-2 py-3 font-bold text-google-textMain text-right">Tag Acc</th>
-                                    <th class="px-2 py-3 text-center">Info</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-google-border text-google-textSecondary">
@@ -263,11 +247,10 @@
                                     <td class="px-2 py-3 text-right font-bold text-google-green">83%</td>
                                     <td class="px-2 py-3 text-right font-mono text-gray-700">15.11</td>
                                     <td class="px-2 py-3 text-right">64.8%</td>
-                                    <td class="px-2 py-3 text-center cursor-help" title="Samples: 47"><i class="fa-solid fa-circle-info"></i></td>
                                 </tr>
                                 <tr class="hover:bg-gray-50 transition-colors">
                                     <td class="px-2 py-3">GenAI</td>
-                                    <td class="px-2 py-3 font-medium text-google-textMain">gemini-2.5-flash</td>
+                                    <td class="px-2 py-3 font-bold text-google-textMain">gemini-2.5-flash</td>
                                     <td class="px-2 py-3">standard</td>
                                     <td class="px-2 py-3 font-mono text-[10px] uppercase">fcot</td>
                                     <td class="px-2 py-3 text-center text-google-blue">Search, Code</td>
@@ -275,11 +258,10 @@
                                     <td class="px-2 py-3 text-right font-bold text-google-green">77.3%</td>
                                     <td class="px-2 py-3 text-right font-mono text-gray-700">16.69</td>
                                     <td class="px-2 py-3 text-right">34.2%</td>
-                                    <td class="px-2 py-3 text-center cursor-help" title="Samples: 22"><i class="fa-solid fa-circle-info"></i></td>
                                 </tr>
                                 <tr class="hover:bg-gray-50 transition-colors">
                                     <td class="px-2 py-3">GenAI</td>
-                                    <td class="px-2 py-3 font-medium text-google-textMain">gemini-2.5-flash</td>
+                                    <td class="px-2 py-3 font-bold text-google-textMain">gemini-2.5-flash</td>
                                     <td class="px-2 py-3">standard</td>
                                     <td class="px-2 py-3 font-mono text-[10px] uppercase">cot</td>
                                     <td class="px-2 py-3 text-center text-google-blue">Search, Code</td>
@@ -287,11 +269,10 @@
                                     <td class="px-2 py-3 text-right font-bold text-google-green">76.2%</td>
                                     <td class="px-2 py-3 text-right font-mono text-gray-700">20.79</td>
                                     <td class="px-2 py-3 text-right">20.2%</td>
-                                    <td class="px-2 py-3 text-center cursor-help" title="Samples: 21"><i class="fa-solid fa-circle-info"></i></td>
                                 </tr>
                                 <tr class="hover:bg-gray-50 transition-colors">
                                     <td class="px-2 py-3">GenAI</td>
-                                    <td class="px-2 py-3 font-medium text-google-textMain">Unknown</td>
+                                    <td class="px-2 py-3 font-bold text-google-textMain">Unknown</td>
                                     <td class="px-2 py-3">Standard</td>
                                     <td class="px-2 py-3 font-mono text-[10px] uppercase">none</td>
                                     <td class="px-2 py-3 text-center text-google-blue">None</td>
@@ -299,23 +280,21 @@
                                     <td class="px-2 py-3 text-right font-bold text-google-green">73.3%</td>
                                     <td class="px-2 py-3 text-right font-mono text-gray-700">11.04</td>
                                     <td class="px-2 py-3 text-right">100%</td>
-                                    <td class="px-2 py-3 text-center cursor-help" title="Samples: 15"><i class="fa-solid fa-circle-info"></i></td>
                                 </tr>
                                 <tr class="hover:bg-gray-50 transition-colors">
                                     <td class="px-2 py-3">GenAI</td>
-                                    <td class="px-2 py-3 font-medium text-google-textMain">gemini-2.5-flash</td>
+                                    <td class="px-2 py-3 font-bold text-google-textMain">gemini-2.5-flash</td>
                                     <td class="px-2 py-3">standard</td>
                                     <td class="px-2 py-3 font-mono text-[10px] uppercase">none</td>
                                     <td class="px-2 py-3 text-center text-google-blue">Search, Code</td>
                                     <td class="px-2 py-3 text-center">0</td>
-                                    <td class="px-2 py-3 text-right font-bold text-yellow-600">71.4%</td>
+                                    <td class="px-2 py-3 text-right font-bold text-google-green">71.4%</td>
                                     <td class="px-2 py-3 text-right font-mono text-gray-700">23.33</td>
                                     <td class="px-2 py-3 text-right">22.2%</td>
-                                    <td class="px-2 py-3 text-center cursor-help" title="Samples: 21"><i class="fa-solid fa-circle-info"></i></td>
                                 </tr>
                                 <tr class="hover:bg-gray-50 transition-colors">
                                     <td class="px-2 py-3">GenAI</td>
-                                    <td class="px-2 py-3 font-medium text-google-textMain">gemini-2.5-flash</td>
+                                    <td class="px-2 py-3 font-bold text-google-textMain">gemini-2.5-flash</td>
                                     <td class="px-2 py-3">standard</td>
                                     <td class="px-2 py-3 font-mono text-[10px] uppercase">cot</td>
                                     <td class="px-2 py-3 text-center text-google-blue">None</td>
@@ -323,11 +302,10 @@
                                     <td class="px-2 py-3 text-right font-bold text-yellow-600">63.6%</td>
                                     <td class="px-2 py-3 text-right font-mono text-gray-700">26.16</td>
                                     <td class="px-2 py-3 text-right">32.7%</td>
-                                    <td class="px-2 py-3 text-center cursor-help" title="Samples: 11"><i class="fa-solid fa-circle-info"></i></td>
                                 </tr>
                                 <tr class="hover:bg-gray-50 transition-colors">
                                     <td class="px-2 py-3">GenAI</td>
-                                    <td class="px-2 py-3 font-medium text-google-textMain">gemini-2.5-flash</td>
+                                    <td class="px-2 py-3 font-bold text-google-textMain">gemini-2.5-flash</td>
                                     <td class="px-2 py-3">standard</td>
                                     <td class="px-2 py-3 font-mono text-[10px] uppercase">none</td>
                                     <td class="px-2 py-3 text-center text-google-blue">None</td>
@@ -335,11 +313,10 @@
                                     <td class="px-2 py-3 text-right font-bold text-yellow-600">63%</td>
                                     <td class="px-2 py-3 text-right font-mono text-gray-700">20.66</td>
                                     <td class="px-2 py-3 text-right">18.4%</td>
-                                    <td class="px-2 py-3 text-center cursor-help" title="Samples: 27"><i class="fa-solid fa-circle-info"></i></td>
                                 </tr>
                                 <tr class="hover:bg-gray-50 transition-colors">
                                     <td class="px-2 py-3">GenAI</td>
-                                    <td class="px-2 py-3 font-medium text-google-textMain">gemini-2.5-flash-lite</td>
+                                    <td class="px-2 py-3 font-bold text-google-textMain">gemini-2.5-flash-lite</td>
                                     <td class="px-2 py-3">standard</td>
                                     <td class="px-2 py-3 font-mono text-[10px] uppercase">cot</td>
                                     <td class="px-2 py-3 text-center text-google-blue">None</td>
@@ -347,11 +324,21 @@
                                     <td class="px-2 py-3 text-right font-bold text-yellow-600">56.5%</td>
                                     <td class="px-2 py-3 text-right font-mono text-gray-700">20.37</td>
                                     <td class="px-2 py-3 text-right">24.5%</td>
-                                    <td class="px-2 py-3 text-center cursor-help" title="Samples: 23"><i class="fa-solid fa-circle-info"></i></td>
                                 </tr>
                                 <tr class="hover:bg-gray-50 transition-colors">
                                     <td class="px-2 py-3">GenAI</td>
-                                    <td class="px-2 py-3 font-medium text-google-textMain">gemini-2.5-flash-lite</td>
+                                    <td class="px-2 py-3 font-bold text-google-textMain">qwen3</td>
+                                    <td class="px-2 py-3">standard</td>
+                                    <td class="px-2 py-3 font-mono text-[10px] uppercase">none</td>
+                                    <td class="px-2 py-3 text-center text-google-blue">None</td>
+                                    <td class="px-2 py-3 text-center">0</td>
+                                    <td class="px-2 py-3 text-right font-bold text-google-red">46.2%</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">44.36</td>
+                                    <td class="px-2 py-3 text-right">27.8%</td>
+                                </tr>
+                                <tr class="hover:bg-gray-50 transition-colors">
+                                    <td class="px-2 py-3">GenAI</td>
+                                    <td class="px-2 py-3 font-bold text-google-textMain">gemini-2.5-flash-lite</td>
                                     <td class="px-2 py-3">standard</td>
                                     <td class="px-2 py-3 font-mono text-[10px] uppercase">fcot</td>
                                     <td class="px-2 py-3 text-center text-google-blue">None</td>
@@ -359,11 +346,10 @@
                                     <td class="px-2 py-3 text-right font-bold text-google-red">28.6%</td>
                                     <td class="px-2 py-3 text-right font-mono text-gray-700">27.21</td>
                                     <td class="px-2 py-3 text-right">30.7%</td>
-                                    <td class="px-2 py-3 text-center cursor-help" title="Samples: 21"><i class="fa-solid fa-circle-info"></i></td>
                                 </tr>
                                 <tr class="hover:bg-gray-50 transition-colors">
                                     <td class="px-2 py-3">GenAI</td>
-                                    <td class="px-2 py-3 font-medium text-google-textMain">qwen3</td>
+                                    <td class="px-2 py-3 font-bold text-google-textMain">qwen3</td>
                                     <td class="px-2 py-3">standard</td>
                                     <td class="px-2 py-3 font-mono text-[10px] uppercase">cot</td>
                                     <td class="px-2 py-3 text-center text-google-blue">None</td>
@@ -371,7 +357,6 @@
                                     <td class="px-2 py-3 text-right font-bold text-google-red">0%</td>
                                     <td class="px-2 py-3 text-right font-mono text-gray-700">54.44</td>
                                     <td class="px-2 py-3 text-right">80%</td>
-                                    <td class="px-2 py-3 text-center cursor-help" title="Samples: 1"><i class="fa-solid fa-circle-info"></i></td>
                                 </tr>
                             </tbody>
                         </table>
@@ -396,14 +381,14 @@
                                     <th class="px-2 py-3 font-bold text-google-textMain">Prompt</th>
                                     <th class="px-2 py-3 font-bold text-google-textMain">Reasoning</th>
                                     <th class="px-2 py-3 font-bold text-google-textMain">Tools</th>
-                                    <th class="px-2 py-3 font-bold text-google-textMain text-right">Vis MAE</th>
-                                    <th class="px-2 py-3 font-bold text-google-textMain text-right">Aud MAE</th>
-                                    <th class="px-2 py-3 font-bold text-google-textMain text-right">Src MAE</th>
-                                    <th class="px-2 py-3 font-bold text-google-textMain text-right">Log MAE</th>
-                                    <th class="px-2 py-3 font-bold text-google-textMain text-right">Emo MAE</th>
-                                    <th class="px-2 py-3 font-bold text-google-textMain text-right">V-A MAE</th>
-                                    <th class="px-2 py-3 font-bold text-google-textMain text-right">V-C MAE</th>
-                                    <th class="px-2 py-3 font-bold text-google-textMain text-right">A-C MAE</th>
+                                    <th class="px-2 py-3 font-bold text-google-textMain text-right">Vis</th>
+                                    <th class="px-2 py-3 font-bold text-google-textMain text-right">Aud</th>
+                                    <th class="px-2 py-3 font-bold text-google-textMain text-right">Src</th>
+                                    <th class="px-2 py-3 font-bold text-google-textMain text-right">Log</th>
+                                    <th class="px-2 py-3 font-bold text-google-textMain text-right">Emo</th>
+                                    <th class="px-2 py-3 font-bold text-google-textMain text-right">V-A</th>
+                                    <th class="px-2 py-3 font-bold text-google-textMain text-right">V-C</th>
+                                    <th class="px-2 py-3 font-bold text-google-textMain text-right">A-C</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-google-border text-google-textSecondary">
@@ -429,7 +414,7 @@
                                     <td class="px-2 py-3 text-right font-mono text-gray-700">5.91</td>
                                     <td class="px-2 py-3 text-right font-mono text-gray-700">13.18</td>
                                     <td class="px-2 py-3 text-right font-mono text-gray-700">16.36</td>
-                                    <td class="px-2 py-3 text-right font-mono text-gray-700">15</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">15.00</td>
                                     <td class="px-2 py-3 text-right font-mono text-gray-700">16.36</td>
                                     <td class="px-2 py-3 text-right font-mono text-gray-700">30.91</td>
                                     <td class="px-2 py-3 text-right font-mono text-gray-700">12.27</td>
@@ -441,11 +426,11 @@
                                     <td class="px-2 py-3 font-mono text-[10px] uppercase">cot</td>
                                     <td class="px-2 py-3 text-google-blue">Search, Code</td>
                                     <td class="px-2 py-3 text-right font-mono text-gray-700">12.86</td>
-                                    <td class="px-2 py-3 text-right font-mono text-gray-700">21.9</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">21.90</td>
                                     <td class="px-2 py-3 text-right font-mono text-gray-700">17.14</td>
                                     <td class="px-2 py-3 text-right font-mono text-gray-700">20.48</td>
                                     <td class="px-2 py-3 text-right font-mono text-gray-700">23.33</td>
-                                    <td class="px-2 py-3 text-right font-mono text-gray-700">30</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">30.00</td>
                                     <td class="px-2 py-3 text-right font-mono text-gray-700">17.62</td>
                                     <td class="px-2 py-3 text-right font-mono text-gray-700">27.14</td>
                                 </tr>
@@ -456,9 +441,9 @@
                                     <td class="px-2 py-3 text-google-blue">None</td>
                                     <td class="px-2 py-3 text-right font-mono text-gray-700">23.33</td>
                                     <td class="px-2 py-3 text-right font-mono text-gray-700">20.67</td>
-                                    <td class="px-2 py-3 text-right font-mono text-gray-700">6</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">6.00</td>
                                     <td class="px-2 py-3 text-right font-mono text-gray-700">11.33</td>
-                                    <td class="px-2 py-3 text-right font-mono text-gray-700">6</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">6.00</td>
                                     <td class="px-2 py-3 text-right font-mono text-gray-700">6.67</td>
                                     <td class="px-2 py-3 text-right font-mono text-gray-700">5.33</td>
                                     <td class="px-2 py-3 text-right font-mono text-gray-700">5.33</td>
@@ -470,11 +455,11 @@
                                     <td class="px-2 py-3 text-google-blue">Search, Code</td>
                                     <td class="px-2 py-3 text-right font-mono text-gray-700">17.14</td>
                                     <td class="px-2 py-3 text-right font-mono text-gray-700">24.29</td>
-                                    <td class="px-2 py-3 text-right font-mono text-gray-700">18.1</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">18.10</td>
                                     <td class="px-2 py-3 text-right font-mono text-gray-700">24.29</td>
                                     <td class="px-2 py-3 text-right font-mono text-gray-700">24.76</td>
                                     <td class="px-2 py-3 text-right font-mono text-gray-700">32.38</td>
-                                    <td class="px-2 py-3 text-right font-mono text-gray-700">28.1</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">28.10</td>
                                     <td class="px-2 py-3 text-right font-mono text-gray-700">23.81</td>
                                 </tr>
                                 <tr class="hover:bg-gray-50 transition-colors">
@@ -483,7 +468,7 @@
                                     <td class="px-2 py-3 font-mono text-[10px] uppercase">cot</td>
                                     <td class="px-2 py-3 text-google-blue">None</td>
                                     <td class="px-2 py-3 text-right font-mono text-gray-700">12.73</td>
-                                    <td class="px-2 py-3 text-right font-mono text-gray-700">30</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">30.00</td>
                                     <td class="px-2 py-3 text-right font-mono text-gray-700">19.09</td>
                                     <td class="px-2 py-3 text-right font-mono text-gray-700">25.45</td>
                                     <td class="px-2 py-3 text-right font-mono text-gray-700">30.91</td>
@@ -502,7 +487,7 @@
                                     <td class="px-2 py-3 text-right font-mono text-gray-700">22.22</td>
                                     <td class="px-2 py-3 text-right font-mono text-gray-700">20.74</td>
                                     <td class="px-2 py-3 text-right font-mono text-gray-700">30.74</td>
-                                    <td class="px-2 py-3 text-right font-mono text-gray-700">20</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">20.00</td>
                                     <td class="px-2 py-3 text-right font-mono text-gray-700">28.15</td>
                                 </tr>
                                 <tr class="hover:bg-gray-50 transition-colors">
@@ -517,14 +502,28 @@
                                     <td class="px-2 py-3 text-right font-mono text-gray-700">16.52</td>
                                     <td class="px-2 py-3 text-right font-mono text-gray-700">26.52</td>
                                     <td class="px-2 py-3 text-right font-mono text-gray-700">17.39</td>
-                                    <td class="px-2 py-3 text-right font-mono text-gray-700">21.3</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">21.30</td>
+                                </tr>
+                                <tr class="hover:bg-gray-50 transition-colors">
+                                    <td class="px-2 py-3 font-bold text-google-textMain">qwen3</td>
+                                    <td class="px-2 py-3">standard</td>
+                                    <td class="px-2 py-3 font-mono text-[10px] uppercase">none</td>
+                                    <td class="px-2 py-3 text-google-blue">None</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">88.46</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">65.38</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">19.23</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">33.08</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">21.54</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">52.31</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">53.85</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">34.62</td>
                                 </tr>
                                 <tr class="hover:bg-gray-50 transition-colors">
                                     <td class="px-2 py-3 font-bold text-google-textMain">gemini-2.5-flash-lite</td>
                                     <td class="px-2 py-3">standard</td>
                                     <td class="px-2 py-3 font-mono text-[10px] uppercase">fcot</td>
                                     <td class="px-2 py-3 text-google-blue">None</td>
-                                    <td class="px-2 py-3 text-right font-mono text-gray-700">20</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">20.00</td>
                                     <td class="px-2 py-3 text-right font-mono text-gray-700">32.38</td>
                                     <td class="px-2 py-3 text-right font-mono text-gray-700">19.05</td>
                                     <td class="px-2 py-3 text-right font-mono text-gray-700">19.52</td>
@@ -538,19 +537,29 @@
                                     <td class="px-2 py-3">standard</td>
                                     <td class="px-2 py-3 font-mono text-[10px] uppercase">cot</td>
                                     <td class="px-2 py-3 text-google-blue">None</td>
-                                    <td class="px-2 py-3 text-right font-mono text-gray-700">90</td>
-                                    <td class="px-2 py-3 text-right font-mono text-gray-700">90</td>
-                                    <td class="px-2 py-3 text-right font-mono text-gray-700">30</td>
-                                    <td class="px-2 py-3 text-right font-mono text-gray-700">50</td>
-                                    <td class="px-2 py-3 text-right font-mono text-gray-700">30</td>
-                                    <td class="px-2 py-3 text-right font-mono text-gray-700">50</td>
-                                    <td class="px-2 py-3 text-right font-mono text-gray-700">70</td>
-                                    <td class="px-2 py-3 text-right font-mono text-gray-700">30</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">90.00</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">90.00</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">30.00</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">50.00</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">30.00</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">50.00</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">70.00</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">30.00</td>
                                 </tr>
                             </tbody>
                         </table>
                     </div>
                 </div>
+            </div>
+
+            <div class="mt-16 bg-white p-8 rounded-xl border border-google-border shadow-sm">
+                <h3 class="text-2xl font-bold text-google-textMain mb-4">Key Takeaways & Future Directions</h3>
+                <ul class="list-disc pl-5 space-y-4 text-google-textSecondary">
+                    <li><strong>FCoT Efficacy:</strong> Deep, recursive reasoning (FCoT Depth 2) without external tools achieves the highest overall accuracy (83%) and effectively maps videos into a stable latent space, producing a robust Tagging Solution that prevents rigid, misclassified pigeonholing.</li>
+                    <li><strong>The Distraction of External Tools:</strong> Counterintuitively, providing the agent with Web Search and Code Execution decreased accuracy and severely degraded Tag Accuracy (from 64.8% to 34.2%), as the agent over-indexed on text results and ignored raw visual/audio alignment vectors.</li>
+                    <li><strong>Account Honesty & Credibility Tracking:</strong> Expanding our User Credibility Profiler, future versions will persistently track "Account Honesty", maintaining historical integrity scores that penalize accounts repeatedly posting recontextualized media.</li>
+                    <li><strong>Video-Post Alignment Database:</strong> We are establishing a dedicated database to track specific video-post alignment patterns, allowing the system to cross-reference known "cheap fakes" and flag recycled authentic videos weaponized with deceptive captions.</li>
+                </ul>
             </div>
 
         </div>

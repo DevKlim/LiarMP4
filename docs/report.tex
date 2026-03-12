@@ -1,0 +1,273 @@
+% !TEX TS-program = xelatex
+% !TEX TS-program = bibtex
+\documentclass[12pt,letterpaper]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{listings}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{amsmath}
+\usepackage{microtype}
+\usepackage{pdfpages}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%% Reference / Bibliography Content
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{filecontents}[overwrite]{reference.bib}
+@article{al2022multi,
+  title={A multi-modal approach to misinformation detection on social media},
+  author={Al-Saadi, Hamza and Koidl, Kevin and Conlan, Owen},
+  journal={Scientific reports},
+  volume={12},
+  number={1},
+  pages={6588},
+  year={2022},
+  publisher={Nature Publishing Group UK London}
+}
+
+@inproceedings{zhao2024vidl,
+  title={{VidL-V An Automated System for Misinformation Video Detection}},
+  author={Zhao, Ziyi and Hu, Kaize and Li, Yixin and Wang, Zhaoxuan and Luo, Yida and Yan, Wen-Hsuan and Zhang, Xin and Zhang, Dongxiang},
+  booktitle={Proceedings of the 33rd ACM International Conference on Information and Knowledge Management},
+  pages={5355--5359},
+  year={2024}
+}
+
+@article{li2024videochat,
+  title={VideoChat-R1. 5: A Joyful Conversation Companion for Multi-turn Video Understanding},
+  author={Li, Kun and He, Anxin and Zhu, Jia-Xin and Wang, Zhaoyang and Zhang, Ailin and Wang, Yicong and Liu, Jing and Li, Hongwei and Qiao, Yu and Luo, Ping},
+  journal={arXiv preprint arXiv:2407.03126},
+  year={2024}
+}
+
+@misc{google_adk,
+    title={Google Cloud Agent Development Kit (ADK)},
+    author={Google Cloud},
+    howpublished={\url{https://github.com/GoogleCloudPlatform/agent-development-kit}},
+    year={2024}
+}
+
+@article{wei2022chain,
+  title={Chain-of-thought prompting elicits reasoning in large language models},
+  author={Wei, Jason and Wang, Xuezhi and Schuurmans, Dale and Bosma, Maarten and Chi, Ed and Le, Quoc and Zhou, Denny},
+  journal={Advances in Neural Information Processing Systems},
+  volume={35},
+  pages={24824--24837},
+  year={2022}
+}
+\end{filecontents}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%% Title and Authors
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\title{\textbf{liarMP4: An Agentic Framework for Multimodal Misinformation Mitigation and Account Integrity Scoring}}
+
+\author{
+  Kliment Ho \\
+  \texttt{klh005@ucsd.edu} \and
+  Keqing Li \\
+  \texttt{kel062@ucsd.edu} \and
+  Shiwei Yang \\
+  \texttt{shy041@ucsd.edu} \and
+  Ali Arsanjani (Mentor) \\
+  \texttt{arsanjani@google.com} \and
+  Sam Lau (Mentor) \\
+  \texttt{samlau@ucsd.edu}
+}
+
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+As generative media becomes increasingly indistinguishable from reality, traditional content moderation—which relies heavily on static, predictive metadata analysis—is proving insufficient. This report introduces \textbf{vChat (liarMP4)}, an autonomous Agentic System designed to detect ``contextual malformation'' and recontextualization in multimedia content. Building upon our Quarter 1 proposal, vChat evolves from a passive classification model into an active \textbf{Agent-to-Agent (A2A)} framework utilizing the Google Agent Development Kit (ADK).
+
+The system integrates three novel components: (1) A \textbf{Fractal Chain-of-Thought (FCoT)} inference engine that recursively analyzes visual, audio, and textual dissonance; (2) A \textbf{User Credibility Profiler} that constructs historical integrity scores for social media accounts; and (3) A \textbf{Community Quantization} module that transforms unstructured comment sections into trusted verification signals. We benchmark this agentic workflow against traditional predictive scalars, demonstrating that the multimodal generative approach provides superior interpretability, geometric alignment mapping, and resilience against ``cheap fakes.''
+\end{abstract}
+
+\tableofcontents
+\newpage
+
+\section{Introduction}
+
+The central challenge in modern video moderation is no longer limited to detecting fabricated pixels (deepfakes), but rather detecting false context. A video may be visually authentic yet semantically false if the accompanying caption misrepresents the time, place, or underlying event. We refer to this phenomenon as ``cheap fakes'' or ``recontextualization'' \cite{zhao2024vidl}.
+
+In Quarter 1, we proposed \texttt{liarMP4}, a pipeline for scoring video veracity utilizing foundational multimodal models. In this Quarter 2 report, we expand this concept into \textbf{vChat}, a fully scalable \textbf{Multi-Agentic System}. Traditional content moderation relies on Predictive AI (PredAI) \cite{al2022multi}, utilizing tabular metadata (such as account age and engagement velocity) to produce singular, opaque scalar probabilities. By contrast, vChat shifts the paradigm toward Generative AI (GenAI), treating moderation as an active reasoning task \cite{wei2022chain}.
+
+The core contributions of this iteration are:
+\begin{enumerate}
+    \item \textbf{Agentic Architecture:} Implementation of the \texttt{A2A} (Agent-to-Agent) protocol using Google ADK \cite{google_adk}, allowing the system to decouple complex reasoning into specialized, cross-communicating agents.
+    \item \textbf{Fractal Chain-of-Thought (FCoT):} A recursive reasoning strategy (Macro $\rightarrow$ Meso $\rightarrow$ Synthesis) that prevents foundational models from misaligning conflicting modalities.
+    \item \textbf{Veracity Vectors \& TOON Schema:} Establishing a strict multi-dimensional Token-Oriented Object Notation schema to systematically benchmark visual, audio, and textual semantic dissonance.
+\end{enumerate}
+
+\section{System Architecture: The Agentic Workflow}
+
+The vChat system is containerized via Docker and orchestrated by a highly scalable backend written in Python (FastAPI) and Go. Moving away from monolithic script-based execution, the pipeline now strictly adheres to the ReAct (Reasoning + Acting) paradigm.
+
+\subsection{The A2A Protocol Implementation}
+We utilize the Google Agent Development Kit (ADK) to expose the veracity engine as a standardized Agent-to-Agent node.
+\begin{itemize}
+    \item \textbf{Orchestrator Agent:} Ingests links, manages dynamic queue states, and routes execution payloads via JSON-RPC.
+    \item \textbf{Vision \& Audio Agents:} Interfaces with models (such as Gemini 2.0 and Qwen3-VL \cite{li2024videochat}) to extract spatial pixel anomalies and transcribe audio waveforms.
+    \item \textbf{Community Context Agent:} Scrapes user comments to dynamically calculate community skepticism, returning grounding contexts.
+    \item \textbf{Verification Agent:} The centralized evaluator that executes the FCoT logic, grounding answers with Google Search Retrieval.
+\end{itemize}
+
+This agentic ecosystem allows for natural, dynamic configuration shifts during live execution:
+\begin{quote}
+    \textit{User:} ``Run full pipeline on [URL] and set provider to Gemini.''\\
+    \textit{Agent:} ``I am analyzing the video content via A2A. Visual inspection confirms the footage is real, but the audio track does not align with the caption. Veracity Vector generated: Recontextualization Penalty applied.''
+\end{quote}
+
+\section{Methodology I: Fractal Chain-of-Thought (FCoT)}
+
+Predictive AI operates on features $x =[\text{shares}, \text{likes}, \text{age}]$, outputting a scalar $y_{pred} = \sigma(W^T x + b)$. While fast, it cannot explain \textit{why} a post is misleading. Generative AI overcomes this, but Standard Chain-of-Thought (CoT) prompting often fails in multimodal tasks because models hallucinate visual context to match misleading text.
+
+To counter this, we implemented \textbf{Fractal Chain-of-Thought} (\texttt{src/inference\_logic.py}). FCoT forces the agent to reason at isolated levels of abstraction before converging.
+
+\subsection{The Recursive Logic}
+\begin{enumerate}
+    \item  \textbf{Macro-Scale (Hypothesis):} The model ingests the entire context (Caption + Video Summary) to form a high-level intent hypothesis (``Political Satire'').
+    \item  \textbf{Meso-Scale (Verification):} The model zooms into specific, isolated modalities:
+    \begin{itemize}
+        \item   \textit{Visual Branch:} ``Are there deepfake pixel artifacts?''
+        \item   \textit{Audio Branch:} ``Are there signs of voice cloning or sentence mixing?''
+    \end{itemize}
+    \item  \textbf{Synthesis (Consensus):} The model actively checks for contradictions. If the Meso-observations conflict with the Macro-hypothesis, the agent formally executes a ``Self-Correction'' step.
+\end{enumerate}
+
+\subsection{Veracity Vectors and TOON Schema}
+To mathematically evaluate factuality, outputs are constrained to \textbf{Token-Oriented Object Notation (TOON)}. This decouples the analysis into 8 distinct \textit{Veracity Vectors} (scored 1-10): Visual Integrity, Audio Integrity, Source Credibility, Logical Consistency, Emotional Manipulation, and three Cross-Modality Alignment scores ($M_{va}$, $M_{vc}$, $M_{ac}$).
+
+The scalar Final Veracity Score ($S_{final}$) explicitly penalizes recontextualization using an \textbf{Alignment Penalty}:
+\begin{equation}
+    S_{final} = \left( \frac{w_1 V_{vis} + w_2 V_{aud} + w_3 V_{src}}{3} \right) \times \min\left(1, \frac{M_{vc}}{5}\right) \times 10
+\end{equation}
+Even if visual integrity ($V_{vis}$) is 10/10, a severe Video-Caption mismatch ($M_{vc} < 4$) will collapse the final score, successfully modeling the ``cheap fake'' phenomenon.
+
+\section{Methodology II: Account Integrity \& Community Context}
+
+\subsection{User Credibility Profiling}
+Moving beyond content moderation to \textit{source} moderation, the system scrapes historical posts to construct a \textbf{Credibility \& Bias Profile} (\texttt{src/user\_analysis\_logic.py}). By analyzing thematic clusters, echo chamber indicators, and emotional valence across a timeline, the system outputs a historical credibility weight that factors into the agent's initial baseline assumptions.
+
+\subsection{Community Quantization}
+The \texttt{generate\_community\_summary} tool treats unstructured comment sections as a Distributed Verification Network. By parsing keywords (``fake'', ``staged'' vs. ``source'', ``confirmed''), the agent establishes a \textbf{Community Trust Score}:
+\begin{equation}
+    S_{comm} = \max\left(0, \min\left(100, 50 + (N_{trust} \times 2) - (N_{skeptic} \times 5)\right)\right)
+\end{equation}
+This allows the AI to ground its contextual understanding using crowd-sourced intelligence.
+
+\section{Benchmarks and Results}
+
+We evaluated the vChat Agent against a verified human-in-the-loop (HITL) Ground Truth dataset, directly comparing metadata-based PredAI (AutoGluon / XGBoost) against the Agentic FCoT.
+
+\subsection{Automated Hill Climbing \& Vector Analysis}
+
+Using the A2A API, we executed an automated ``Hill Climbing'' evaluation process across various foundation models, reasoning depths (FCoT, CoT, None), and tool augmentations (Search, Code). Table \ref{tab:leaderboard} displays the overarching accuracy and Composite Mean Absolute Error (MAE), while Table \ref{tab:vector_mae} breaks down the error across all eight specific Veracity Vectors.
+
+\begin{table}[ht]
+\centering
+\resizebox{\textwidth}{!}{
+\begin{tabular}{@{}llcllcccc@{}}
+\toprule
+\textbf{Type} & \textbf{Model} & \textbf{Prompt} & \textbf{Reasoning} & \textbf{Tools} & \textbf{FCoT} & \textbf{Accuracy} & \textbf{Comp. MAE} & \textbf{Tag Acc} \\ \midrule
+GenAI & gemini-2.5-flash & standard & fcot & None & 2 & 83\% & 15.11 & 64.8\% \\
+GenAI & gemini-2.5-flash & standard & fcot & Search, Code & 2 & 77.3\% & 16.69 & 34.2\% \\
+GenAI & gemini-2.5-flash & standard & cot & Search, Code & 1 & 76.2\% & 20.79 & 20.2\% \\
+GenAI & Unknown & Standard & None & None & 0 & 73.3\% & 11.04 & 100\% \\
+GenAI & gemini-2.5-flash & standard & none & Search, Code & 0 & 71.4\% & 23.33 & 22.2\% \\
+GenAI & gemini-2.5-flash & standard & cot & None & 1 & 63.6\% & 26.16 & 32.7\% \\
+GenAI & gemini-2.5-flash & standard & none & None & 0 & 63\% & 20.66 & 18.4\% \\
+GenAI & gemini-2.5-flash-lite & standard & cot & None & 1 & 56.5\% & 20.37 & 24.5\% \\
+GenAI & qwen3 & standard & none & None & 0 & 46.2\% & 44.36 & 27.8\% \\
+GenAI & gemini-2.5-flash-lite & standard & fcot & None & 2 & 28.6\% & 27.21 & 30.7\% \\
+GenAI & qwen3 & standard & cot & None & 1 & 0\% & 54.44 & 80\% \\ \bottomrule
+\end{tabular}
+}
+\caption{Automated Hill Climbing (Leaderboard) evaluating model accuracy and MAE.}
+\label{tab:leaderboard}
+\end{table}
+
+\begin{table}[ht]
+\centering
+\resizebox{\textwidth}{!}{
+\begin{tabular}{@{}llclcccccccc@{}}
+\toprule
+\textbf{Model} & \textbf{Prompt} & \textbf{Reasoning} & \textbf{Tools} & \textbf{Vis} & \textbf{Aud} & \textbf{Src} & \textbf{Log} & \textbf{Emo} & \textbf{V-A} & \textbf{V-C} & \textbf{A-C} \\ \midrule
+gemini-2.5-flash & standard & fcot & None & 6.38 & 12.13 & 17.02 & 11.28 & 14.47 & 29.15 & 10.85 & 23.40 \\
+gemini-2.5-flash & standard & fcot & Search, Code & 5.91 & 13.18 & 16.36 & 15.00 & 16.36 & 30.91 & 12.27 & 22.73 \\
+gemini-2.5-flash & standard & cot & Search, Code & 12.86 & 21.90 & 17.14 & 20.48 & 23.33 & 30.00 & 17.62 & 27.14 \\
+Unknown & Standard & None & None & 23.33 & 20.67 & 6.00 & 11.33 & 6.00 & 6.67 & 5.33 & 5.33 \\
+gemini-2.5-flash & standard & none & Search, Code & 17.14 & 24.29 & 18.10 & 24.29 & 24.76 & 32.38 & 28.10 & 23.81 \\
+gemini-2.5-flash & standard & cot & None & 12.73 & 30.00 & 19.09 & 25.45 & 30.91 & 39.09 & 24.55 & 33.64 \\
+gemini-2.5-flash & standard & none & None & 7.41 & 16.67 & 17.78 & 22.22 & 20.74 & 30.74 & 20.00 & 28.15 \\
+gemini-2.5-flash-lite & standard & cot & None & 14.78 & 25.22 & 14.35 & 19.13 & 16.52 & 26.52 & 17.39 & 21.30 \\
+qwen3 & standard & none & None & 88.46 & 65.38 & 19.23 & 33.08 & 21.54 & 52.31 & 53.85 & 34.62 \\
+gemini-2.5-flash-lite & standard & fcot & None & 20.00 & 32.38 & 19.05 & 19.52 & 17.14 & 34.76 & 24.76 & 24.76 \\
+qwen3 & standard & cot & None & 90.00 & 90.00 & 30.00 & 50.00 & 30.00 & 50.00 & 70.00 & 30.00 \\ \bottomrule
+\end{tabular}
+}
+\caption{Detailed Vector Error Analysis (Mean Absolute Error by Modality).}
+\label{tab:vector_mae}
+\end{table}
+
+\subsection{Analysis and Key Takeaways}
+The empirical results from Tables \ref{tab:leaderboard} and \ref{tab:vector_mae} yield several critical insights regarding multimodal agentic moderation:
+\begin{itemize}
+    \item \textbf{FCoT Efficacy:} Gemini 2.5 Flash operating at an FCoT depth of 2 (without external tools) achieves the highest overall accuracy (83\%) and a strong Tag Accuracy (64.8\%). Deep, recursive reasoning significantly improves interpretation of conflicting modalities over simple zero-shot approaches.
+    \item \textbf{The Distraction of External Tools:} Counterintuitively, providing the agent with Web Search and Code Execution \textit{decreased} accuracy (to 77.3\%) and severely degraded Tag Accuracy (to 34.2\%). The tools caused the agent to over-index on textual search results, distracting it from analyzing the raw visual and audio alignment vectors present in the source media.
+    \item \textbf{Model Capabilities:} Open-source vision models like Qwen3 struggled significantly in zero-shot and CoT configurations, emphasizing the need for robust, multi-stage reasoning frameworks to parse semantic dissonance rather than simple object detection.
+\end{itemize}
+
+\subsection{Tagging Solution and Topic Clustering}
+To map posts into a multi-dimensional latent space, the Multi-Agent system assigns strict tags to every ingested video. By utilizing FCoT and TOON, the system dynamically clusters topics based on narrative intent rather than just visual features. For example, a satirical political video structurally mimics an entertainment sketch, pulling it closer to "Comedy" in the contextual vector space. This prevents the rigid, misclassified pigeonholing (e.g., labeling all political content as malicious) that is rampant in traditional metadata-focused systems.
+
+\section{Future Work}
+\begin{itemize}
+    \item \textbf{Account Honesty and Credibility Tracking:} We plan to expand the User Credibility Profiler into a persistent ``Account Honesty'' scoring system. By tracking longitudinal behavior, the system will maintain historical integrity scores, penalizing accounts that repeatedly post recontextualized media while trusting accounts with high authenticity histories.
+    \item \textbf{Video-Post Alignment Database:} Establishing a dedicated, searchable database to track specific video-post alignment patterns. This will allow the system to cross-reference known ``cheap fakes'' and actively flag recycled authentic videos that are frequently weaponized with new, deceptive captions across different platforms.
+\end{itemize}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%% Bibliography Generation
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\renewcommand{\refname}{References}
+\bibliography{reference}
+\bibliographystyle{plain} 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%% Appendix
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\clearpage
+\appendix
+
+\section{Appendix}
+
+\subsection{Latest Project Proposal}
+\includepdf[pages=-]{proposal.pdf}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%% Contribution
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\setcounter{section}{6}
+\renewcommand{\thesection}{\arabic{section}}
+\renewcommand{\thesubsection}{\thesection.\arabic{subsection}}
+\section{Contribution}
+\begin{itemize}
+    \item \textbf{Kliment Ho:} Developed scraping tools and extensions to ease the process of labeling social media posts; Prompt engineering on instructing criteria; Agentifying video factuality factor pipeline; Agentifying scoring method by prompting and tagging; Working on A2A API endpoint.
+    
+    \item \textbf{Keqing Li:} Reinforced the huggingface site and debugged to work with many endpoints; Agentifying text factuality factor pipeline; Exploring on building a vLLM model using NLP.
+    
+    \item \textbf{Shiwei Yang:} Scraped post data from X/Twitter and constructed ground truth validation dataset; Agentifying audio factuality factor pipeline; Exploring third-party web search tools as agent tool.
+
+\end{itemize}
+
+\end{document}

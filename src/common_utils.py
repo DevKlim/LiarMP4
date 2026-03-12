@@ -32,6 +32,12 @@ def extract_tweet_id(url: str) -> str | None:
     if match: return match.group(1)
     return None
 
+def extract_twitter_username(url: str) -> str | None:
+    if not url: return None
+    match = re.search(r"(?:twitter|x)\.com/([^/]+)/status/\d+", url)
+    if match: return match.group(1).lower()
+    return None
+
 def normalize_link(link: str) -> str:
     if not link: return ""
     return link.split('?')[0].strip().rstrip('/').replace('http://', '').replace('https://', '').replace('www.', '')
@@ -45,7 +51,7 @@ def parse_vtt(file_path: str) -> str:
         with open(file_path, 'r', encoding='utf-8') as f:
             lines = f.readlines()
         
-        text_lines = []
+        text_lines =[]
         for line in lines:
             line = line.strip()
             if line and not line.startswith('WEBVTT') and not '-->' in line and not line.isdigit():
@@ -81,7 +87,7 @@ async def prepare_video_assets(link: str, output_id: str) -> dict:
             info = ydl.extract_info(link, download=False)
             if info:
                 caption = info.get('description', '') or info.get('title', '')
-                formats = info.get('formats', [])
+                formats = info.get('formats',[])
                 if not formats and not info.get('url'):
                      logger.info(f"No video formats found for {link}. Treating as text-only.")
                 else:
@@ -101,4 +107,4 @@ async def prepare_video_assets(link: str, output_id: str) -> dict:
         "video": str(video_path) if video_downloaded else None,
         "transcript": str(transcript_path) if video_downloaded and transcript_path.exists() else None,
         "caption": caption
-    }
+    }

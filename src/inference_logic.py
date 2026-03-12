@@ -12,7 +12,8 @@ from transformers import Qwen3VLForConditionalGeneration, AutoProcessor
 from peft import PeftModel
 from my_vision_process import process_vision_info, client
 from labeling_logic import (
-    LABELING_PROMPT_TEMPLATE, SCORE_INSTRUCTIONS_SIMPLE, SCORE_INSTRUCTIONS_REASONING,
+    LABELING_PROMPT_TEMPLATE, LABELING_PROMPT_TEMPLATE_NO_COT,
+    SCORE_INSTRUCTIONS_SIMPLE, SCORE_INSTRUCTIONS_REASONING,
     SCHEMA_SIMPLE, SCHEMA_REASONING,
     FCOT_MACRO_PROMPT, FCOT_MESO_PROMPT, FCOT_SYNTHESIS_PROMPT, TEXT_ONLY_INSTRUCTIONS,
     get_formatted_tag_list
@@ -96,7 +97,7 @@ def inference_step(video_path, prompt, generation_kwargs, sampling_fps, pred_glu
     global processor, active_model
     if active_model is None: raise RuntimeError("Models not loaded.")
 
-    messages = [
+    messages =[
         {"role": "user", "content":[
                 {"type": "video", "video": video_path, 'key_time': pred_glue, 'fps': sampling_fps,
                  "total_pixels": 128*12 * 28 * 28, "min_pixels": 128 * 28 * 28},
@@ -153,7 +154,7 @@ async def generate_simple_text(prompt: str, model_type: str, config: dict):
             base_url = config.get("base_url", "https://api.openai.com/v1").rstrip("/")
             if not api_key: return "Error: NRP API key missing."
             headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
-            payload = {"model": model_name, "messages": [{"role": "user", "content": prompt}], "temperature": 0.0}
+            payload = {"model": model_name, "messages":[{"role": "user", "content": prompt}], "temperature": 0.0}
             def do_request():
                 resp = requests.post(f"{base_url}/chat/completions", headers=headers, json=payload, timeout=600)
                 if resp.status_code == 200:
@@ -197,7 +198,7 @@ def validate_parsed_data(data, is_text_only):
     vectors = data.get('veracity_vectors', {})
     required_vectors =['visual_integrity_score', 'audio_integrity_score', 'source_credibility_score', 'logical_consistency_score', 'emotional_manipulation_score']
     for k in required_vectors:
-        if k in ['visual_integrity_score', 'audio_integrity_score'] and is_text_only: continue
+        if k in['visual_integrity_score', 'audio_integrity_score'] and is_text_only: continue
         v = vectors.get(k)
         if not v or str(v) == '0' or str(v).lower() == 'n/a': missing.append(f"vector:{k}")
 
@@ -264,8 +265,10 @@ async def run_gemini_labeling_pipeline(video_path: str, caption: str, transcript
         active_tools =[]
         if gemini_config.get("use_search", False):
             active_tools.append({"google_search_retrieval": {}})
+            system_persona += "\n\n**CRITICAL: AGENTIC TOOLS ENABLED**\n- You MUST use the Web Search tool to fact-check the claims, look up current events, or verify entity backgrounds before concluding."
         if gemini_config.get("use_code", False):
             active_tools.append({"code_execution": {}})
+            system_persona += "\n- You MUST use the Code Execution tool for any necessary calculations, data processing, or statistical verifications."
 
         model = genai_legacy.GenerativeModel("models/gemini-2.0-flash-exp", tools=active_tools if active_tools else None)
         toon_schema = SCHEMA_REASONING if include_comments else SCHEMA_SIMPLE
@@ -327,18 +330,19 @@ async def run_gemini_labeling_pipeline(video_path: str, caption: str, transcript
                     save_debug_log(request_id, 'response', raw_text, attempt, 'fcot_synthesis')
                     prompt_used = f"FCoT Pipeline:\nMacro: {macro_hypothesis}\nMeso: {micro_observations}"
                 else:
-                    prompt_text = LABELING_PROMPT_TEMPLATE.format(
+                    template = LABELING_PROMPT_TEMPLATE_NO_COT if reasoning_method == "none" else LABELING_PROMPT_TEMPLATE
+                    prompt_text = template.format(
                         system_persona=system_persona, caption=caption, transcript=transcript,
                         toon_schema=toon_schema, score_instructions=score_instructions, tag_list_text=tag_list_text
                     )
                     prompt_used = prompt_text
                     if is_text_only: prompt_text = "NOTE: Text Analysis Only.\n" + prompt_text
-                    save_debug_log(request_id, 'prompt', prompt_text, attempt, 'standard')
+                    save_debug_log(request_id, 'prompt', prompt_text, attempt, f'standard_{reasoning_method}')
                     inputs = [prompt_text]
                     if uploaded_file: inputs.append(uploaded_file)
                     response = await loop.run_in_executor(None, lambda: model.generate_content(inputs, generation_config={"temperature": 0.1}))
                     raw_text = response.text
-                    save_debug_log(request_id, 'response', raw_text, attempt, 'standard')
+                    save_debug_log(request_id, 'response', raw_text, attempt, f'standard_{reasoning_method}')
 
             if raw_text:
                 full_raw_text += f"\n--- Attempt {attempt} ---\n{raw_text}\n"
@@ -355,7 +359,7 @@ async def run_gemini_labeling_pipeline(video_path: str, caption: str, transcript
             
             missing_fields = validate_parsed_data(accumulated_data, is_text_only)
             if not missing_fields:
-                yield "Validation Passed. All factuality components processed and confidence scores obtained.\n"
+                yield f"Validation Passed. All factuality components processed and confidence scores obtained. (Method: {reasoning_method})\n"
                 yield {"raw_toon": full_raw_text, "parsed_data": accumulated_data, "prompt_used": prompt_used, "fcot_trace": fcot_trace}
                 break 
             
@@ -395,12 +399,14 @@ async def run_vertex_labeling_pipeline(video_path: str, caption: str, transcript
         else: is_text_only = True
 
         active_tools =[]
-        if vertex_config.get("use_search", True):
+        if vertex_config.get("use_search", False):
             active_tools.append(Tool(google_search=GoogleSearch()))
+            system_persona += "\n\n**CRITICAL: AGENTIC TOOLS ENABLED**\n- You MUST use the Web Search tool to fact-check the claims, look up current events, or verify entity backgrounds before concluding."
         if vertex_config.get("use_code", False):
             try:
                 from google.genai.types import CodeExecution
                 active_tools.append(Tool(code_execution=CodeExecution()))
+                system_persona += "\n- You MUST use the Code Execution tool for any necessary calculations, data processing, or statistical verifications."
             except ImportError:
                 pass
 
@@ -476,19 +482,20 @@ async def run_vertex_labeling_pipeline(video_path: str, caption: str, transcript
                     save_debug_log(request_id, 'response', raw_text, attempt, 'fcot_synthesis')
                     prompt_used = f"FCoT (Vertex):\nMacro: {macro_hypothesis}\nMeso: {micro_observations}"
                 else:
-                    prompt_text = LABELING_PROMPT_TEMPLATE.format(
+                    template = LABELING_PROMPT_TEMPLATE_NO_COT if reasoning_method == "none" else LABELING_PROMPT_TEMPLATE
+                    prompt_text = template.format(
                         system_persona=system_persona, caption=caption, transcript=transcript,
                         toon_schema=toon_schema, score_instructions=score_instructions, tag_list_text=tag_list_text
                     )
-                    contents = []
+                    contents =[]
                     if video_part: contents =[video_part, prompt_text]
                     else: contents =[f"NOTE: Text Only Analysis (No Video).\n{prompt_text}"]
                     prompt_used = prompt_text
-                    save_debug_log(request_id, 'prompt', prompt_text, attempt, 'standard')
-                    yield "Generating Labels (Vertex CoT)..."
+                    save_debug_log(request_id, 'prompt', prompt_text, attempt, f'standard_{reasoning_method}')
+                    yield f"Generating Labels (Vertex {reasoning_method.upper()})..."
                     response = await loop.run_in_executor(None, lambda: client.models.generate_content(model=model_name, contents=contents, config=config))
                     raw_text = response.text
-                    save_debug_log(request_id, 'response', raw_text, attempt, 'standard')
+                    save_debug_log(request_id, 'response', raw_text, attempt, f'standard_{reasoning_method}')
 
             if raw_text:
                 full_raw_text += f"\n--- Attempt {attempt} ---\n{raw_text}\n"
@@ -505,7 +512,7 @@ async def run_vertex_labeling_pipeline(video_path: str, caption: str, transcript
 
             missing_fields = validate_parsed_data(accumulated_data, is_text_only)
             if not missing_fields:
-                yield "Validation Passed. All factuality components processed and confidence scores obtained.\n"
+                yield f"Validation Passed. All factuality components processed and confidence scores obtained. (Method: {reasoning_method})\n"
                 yield {"raw_toon": full_raw_text, "parsed_data": accumulated_data, "prompt_used": prompt_used, "fcot_trace": fcot_trace}
                 break
 
@@ -535,6 +542,11 @@ async def run_nrp_labeling_pipeline(video_path: str, caption: str, transcript: s
 
     is_text_only = True
     system_persona += "\n" + TEXT_ONLY_INSTRUCTIONS
+    
+    if nrp_config.get("use_search", False):
+        system_persona += "\n\n**CRITICAL: AGENTIC TOOLS ENABLED**\n- You MUST use the Web Search tool to fact-check the claims, look up current events, or verify entity backgrounds before concluding."
+    if nrp_config.get("use_code", False):
+        system_persona += "\n- You MUST use the Code Execution tool for any necessary calculations, data processing, or statistical verifications."
 
     toon_schema = SCHEMA_REASONING if include_comments else SCHEMA_SIMPLE
     score_instructions = SCORE_INSTRUCTIONS_REASONING if include_comments else SCORE_INSTRUCTIONS_SIMPLE
@@ -644,23 +656,24 @@ async def run_nrp_labeling_pipeline(video_path: str, caption: str, transcript: s
                     prompt_used = f"FCoT (NRP):\nMacro: {macro_hypothesis}\nMeso: {micro_observations}"
                     
                 else:
-                    prompt_text = LABELING_PROMPT_TEMPLATE.format(
+                    template = LABELING_PROMPT_TEMPLATE_NO_COT if reasoning_method == "none" else LABELING_PROMPT_TEMPLATE
+                    prompt_text = template.format(
                         system_persona=system_persona, caption=caption, transcript=transcript,
                         toon_schema=toon_schema, score_instructions=score_instructions, tag_list_text=tag_list_text
                     )
                     prompt_text = f"NOTE: Text Only Analysis (No Video).\n{prompt_text}"
                     prompt_used = prompt_text
-                    save_debug_log(request_id, 'prompt', prompt_text, attempt, 'standard')
-                    yield "Generating Labels (NRP CoT)...\n"
+                    save_debug_log(request_id, 'prompt', prompt_text, attempt, f'standard_{reasoning_method}')
+                    yield f"Generating Labels (NRP {reasoning_method.upper()})...\n"
                     yield f"  - Sending Standard request to NRP API (Model: {model_name}, Timeout: 600s)...\n"
                     
                     raw_text = await _call_nrp([
                         {"role": "system", "content": system_persona},
                         {"role": "user", "content": prompt_text}
-                    ], attempt_label="standard_cot")
+                    ], attempt_label=f"standard_{reasoning_method}")
                     
                     yield f"  - Received response from NRP API.\n\n"
-                    save_debug_log(request_id, 'response', raw_text, attempt, 'standard')
+                    save_debug_log(request_id, 'response', raw_text, attempt, f'standard_{reasoning_method}')
 
             if raw_text:
                 full_raw_text += f"\n--- Attempt {attempt} ---\n{raw_text}\n"
@@ -677,7 +690,7 @@ async def run_nrp_labeling_pipeline(video_path: str, caption: str, transcript: s
 
             missing_fields = validate_parsed_data(accumulated_data, is_text_only)
             if not missing_fields:
-                yield "Validation Passed. All factuality components processed and confidence scores obtained.\n"
+                yield f"Validation Passed. All factuality components processed and confidence scores obtained. (Method: {reasoning_method})\n"
                 yield {"raw_toon": full_raw_text, "parsed_data": accumulated_data, "prompt_used": prompt_used, "fcot_trace": fcot_trace}
                 break
 
@@ -689,4 +702,5 @@ async def run_nrp_labeling_pipeline(video_path: str, caption: str, transcript: s
     except Exception as e:
         yield f"ERROR: {e}\n\n"
         logger.error("NRP Labeling Error", exc_info=True)
+
 

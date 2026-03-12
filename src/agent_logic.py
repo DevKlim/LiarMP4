@@ -255,6 +255,29 @@ async def _analyze_video_async(video_url: str, context: str, agent_config: dict)
             except Exception as e:
                 logger.error(f"Failed saving A2A raw JSON sidecar: {e}")
 
+            # 5. Save to userprofiles catalog
+            author = common_utils.extract_twitter_username(video_url)
+            if author:
+                prof_dir = Path(f"data/profiles/{author}")
+                prof_dir.mkdir(parents=True, exist_ok=True)
+                hist_path = prof_dir / "history.csv"
+                hist_exists = hist_path.exists()
+                existing_links = set()
+                if hist_exists:
+                    for r in common_utils.robust_read_csv(hist_path):
+                        existing_links.add(r.get('link'))
+                if video_url not in existing_links:
+                    with open(hist_path, 'a', newline='', encoding='utf-8') as hf:
+                        fieldnames =["link", "timestamp", "text", "is_reply", "metric_replies", "metric_reposts", "metric_likes", "metric_views", "ingested_at"]
+                        hwriter = csv.DictWriter(hf, fieldnames=fieldnames, extrasaction='ignore')
+                        if not hist_exists: hwriter.writeheader()
+                        hwriter.writerow({
+                            "link": video_url,
+                            "timestamp": datetime.datetime.now().isoformat(),
+                            "text": assets.get('caption', ''),
+                            "ingested_at": datetime.datetime.now().isoformat()
+                        })
+
             reply_text += f"\n[Pipeline] Successfully parsed context, analyzed factuality, and saved raw AI Label File to Data Manager (Provider: {provider}, Model: {model_name}, Search: {use_search})."
 
             return {"text": reply_text, "data": final_result}
@@ -307,7 +330,7 @@ def create_a2a_app():
                 low_input = str(input_text).lower()
                 if "set provider to " in low_input:
                     val = low_input.split("set provider to ")[-1].strip().split()[0]
-                    if val in ["gemini", "vertex", "nrp"]: update_config["provider"] = val
+                    if val in["gemini", "vertex", "nrp"]: update_config["provider"] = val
                 if "set api key to " in low_input:
                     val = input_text.split("set api key to ")[-1].strip().split()[0]
                     update_config["api_key"] = val

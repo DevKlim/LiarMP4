@@ -29,7 +29,7 @@
                     },
                     fontFamily: {
                         sans:['"DM Sans"', 'Roboto', 'system-ui', 'sans-serif'],
-                        mono: ['"Fira Code"', 'monospace'],
+                        mono:['"Fira Code"', 'monospace'],
                     },
                     boxShadow: {
                         'google': '0 1px 2px 0 rgba(60,64,67,0.3), 0 1px 3px 1px rgba(60,64,67,0.15)',
@@ -63,12 +63,8 @@
             <div class="flex items-center justify-between h-16">
                 <div class="flex items-center gap-2">
                     <svg class="w-8 h-8 text-google-blue drop-shadow-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-label="LiarMP4 Logo">
-                      <polygon points="12 2 21 7 21 17 12 22 3 17 3 7"></polygon>
-                      <path d="M7 10V8a1 1 0 0 1 1-1h2"></path>
-                      <path d="M14 7h2a1 1 0 0 1 1 1v2"></path>
-                      <path d="M17 14v2a1 1 0 0 1-1 1h-2"></path>
-                      <path d="M10 17H8a1 1 0 0 1-1-1v-2"></path>
-                      <polygon points="10.5 9 14.5 12 10.5 15" fill="currentColor" stroke="none"></polygon>
+                      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                      <polygon points="10 8 16 12 10 16 10 8" fill="currentColor" stroke="none"></polygon>
                     </svg>
                     <span class="font-bold text-xl tracking-tight text-google-textMain">Liar<span class="text-google-textSecondary">MP4</span></span>
                 </div>
@@ -241,75 +237,141 @@
                 </div>
                 <div class="bg-white rounded-xl shadow-sm border border-google-border overflow-hidden">
                     <div class="overflow-x-auto">
-                        <table class="w-full text-left border-collapse">
+                        <table class="w-full text-left border-collapse whitespace-nowrap text-xs sm:text-sm">
                             <thead>
                                 <tr class="bg-google-bg border-b border-google-border">
-                                    <th class="p-4 font-bold text-google-textMain">Type</th>
-                                    <th class="p-4 font-bold text-google-textMain">Model</th>
-                                    <th class="p-4 font-bold text-google-textMain">Prompt</th>
-                                    <th class="p-4 font-bold text-google-textMain">Reasoning</th>
-                                    <th class="p-4 font-bold text-google-textMain text-center">FCoT Depth</th>
-                                    <th class="p-4 font-bold text-google-textMain text-right">Accuracy</th>
-                                    <th class="p-4 font-bold text-google-textMain text-right">Comp. MAE</th>
-                                    <th class="p-4 font-bold text-google-textMain text-right">Tag Acc</th>
-                                    <th class="p-4 font-bold text-google-textMain text-right">Samples</th>
+                                    <th class="px-2 py-3 font-bold text-google-textMain">Type</th>
+                                    <th class="px-2 py-3 font-bold text-google-textMain">Model</th>
+                                    <th class="px-2 py-3 font-bold text-google-textMain">Prompt</th>
+                                    <th class="px-2 py-3 font-bold text-google-textMain">Reasoning</th>
+                                    <th class="px-2 py-3 font-bold text-google-textMain text-center">Tools</th>
+                                    <th class="px-2 py-3 font-bold text-google-textMain text-center">FCoT Depth</th>
+                                    <th class="px-2 py-3 font-bold text-google-textMain text-right">Accuracy</th>
+                                    <th class="px-2 py-3 font-bold text-google-textMain text-right">Comp. MAE</th>
+                                    <th class="px-2 py-3 font-bold text-google-textMain text-right">Tag Acc</th>
+                                    <th class="px-2 py-3 text-center">Info</th>
                                 </tr>
                             </thead>
-                            <tbody class="divide-y divide-google-border text-sm text-google-textSecondary">
+                            <tbody class="divide-y divide-google-border text-google-textSecondary">
                                 <tr class="hover:bg-gray-50 transition-colors bg-google-blueLight/10">
-                                    <td class="p-4">GenAI</td>
-                                    <td class="p-4 font-bold text-google-textMain">gemini-2.5-flash</td>
-                                    <td class="p-4">standard</td>
-                                    <td class="p-4 font-mono text-xs">fcot</td>
-                                    <td class="p-4 text-center">2</td>
-                                    <td class="p-4 text-right font-bold text-google-green">83%</td>
-                                    <td class="p-4 text-right font-mono text-gray-700">15.11</td>
-                                    <td class="p-4 text-right">64.8%</td>
-                                    <td class="p-4 text-right">87</td>
+                                    <td class="px-2 py-3">GenAI</td>
+                                    <td class="px-2 py-3 font-bold text-google-textMain">gemini-2.5-flash</td>
+                                    <td class="px-2 py-3">standard</td>
+                                    <td class="px-2 py-3 font-mono text-[10px] uppercase">fcot</td>
+                                    <td class="px-2 py-3 text-center text-google-blue">None</td>
+                                    <td class="px-2 py-3 text-center">2</td>
+                                    <td class="px-2 py-3 text-right font-bold text-google-green">83%</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">15.11</td>
+                                    <td class="px-2 py-3 text-right">64.8%</td>
+                                    <td class="px-2 py-3 text-center cursor-help" title="Samples: 47"><i class="fa-solid fa-circle-info"></i></td>
                                 </tr>
                                 <tr class="hover:bg-gray-50 transition-colors">
-                                    <td class="p-4">GenAI</td>
-                                    <td class="p-4 font-medium text-google-textMain">qwen3</td>
-                                    <td class="p-4">standard</td>
-                                    <td class="p-4 font-mono text-xs">None</td>
-                                    <td class="p-4 text-center">0</td>
-                                    <td class="p-4 text-right font-bold text-google-green">68.3%</td>
-                                    <td class="p-4 text-right font-mono text-gray-700">11.04</td>
-                                    <td class="p-4 text-right">100%</td>
-                                    <td class="p-4 text-right">85</td>
+                                    <td class="px-2 py-3">GenAI</td>
+                                    <td class="px-2 py-3 font-medium text-google-textMain">gemini-2.5-flash</td>
+                                    <td class="px-2 py-3">standard</td>
+                                    <td class="px-2 py-3 font-mono text-[10px] uppercase">fcot</td>
+                                    <td class="px-2 py-3 text-center text-google-blue">Search, Code</td>
+                                    <td class="px-2 py-3 text-center">2</td>
+                                    <td class="px-2 py-3 text-right font-bold text-google-green">77.3%</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">16.69</td>
+                                    <td class="px-2 py-3 text-right">34.2%</td>
+                                    <td class="px-2 py-3 text-center cursor-help" title="Samples: 22"><i class="fa-solid fa-circle-info"></i></td>
                                 </tr>
                                 <tr class="hover:bg-gray-50 transition-colors">
-                                    <td class="p-4">GenAI</td>
-                                    <td class="p-4 font-medium text-google-textMain">gemini-2.5-flash</td>
-                                    <td class="p-4">standard</td>
-                                    <td class="p-4 font-mono text-xs">cot</td>
-                                    <td class="p-4 text-center">1</td>
-                                    <td class="p-4 text-right font-bold text-yellow-600">63.6%</td>
-                                    <td class="p-4 text-right font-mono text-gray-700">26.16</td>
-                                    <td class="p-4 text-right">32.7%</td>
-                                    <td class="p-4 text-right">51</td>
+                                    <td class="px-2 py-3">GenAI</td>
+                                    <td class="px-2 py-3 font-medium text-google-textMain">gemini-2.5-flash</td>
+                                    <td class="px-2 py-3">standard</td>
+                                    <td class="px-2 py-3 font-mono text-[10px] uppercase">cot</td>
+                                    <td class="px-2 py-3 text-center text-google-blue">Search, Code</td>
+                                    <td class="px-2 py-3 text-center">1</td>
+                                    <td class="px-2 py-3 text-right font-bold text-google-green">76.2%</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">20.79</td>
+                                    <td class="px-2 py-3 text-right">20.2%</td>
+                                    <td class="px-2 py-3 text-center cursor-help" title="Samples: 21"><i class="fa-solid fa-circle-info"></i></td>
                                 </tr>
                                 <tr class="hover:bg-gray-50 transition-colors">
-                                    <td class="p-4">GenAI</td>
-                                    <td class="p-4 font-medium text-google-textMain">gemini-2.5-flash-lite</td>
-                                    <td class="p-4">standard</td>
-                                    <td class="p-4 font-mono text-xs">cot</td>
-                                    <td class="p-4 text-center">1</td>
-                                    <td class="p-4 text-right font-bold text-yellow-600">56.5%</td>
-                                    <td class="p-4 text-right font-mono text-gray-700">20.37</td>
-                                    <td class="p-4 text-right">24.5%</td>
-                                    <td class="p-4 text-right">43</td>
+                                    <td class="px-2 py-3">GenAI</td>
+                                    <td class="px-2 py-3 font-medium text-google-textMain">Unknown</td>
+                                    <td class="px-2 py-3">Standard</td>
+                                    <td class="px-2 py-3 font-mono text-[10px] uppercase">none</td>
+                                    <td class="px-2 py-3 text-center text-google-blue">None</td>
+                                    <td class="px-2 py-3 text-center">0</td>
+                                    <td class="px-2 py-3 text-right font-bold text-google-green">73.3%</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">11.04</td>
+                                    <td class="px-2 py-3 text-right">100%</td>
+                                    <td class="px-2 py-3 text-center cursor-help" title="Samples: 15"><i class="fa-solid fa-circle-info"></i></td>
                                 </tr>
                                 <tr class="hover:bg-gray-50 transition-colors">
-                                    <td class="p-4">GenAI</td>
-                                    <td class="p-4 font-medium text-google-textMain">gemini-2.5-flash-lite</td>
-                                    <td class="p-4">standard</td>
-                                    <td class="p-4 font-mono text-xs">fcot</td>
-                                    <td class="p-4 text-center">2</td>
-                                    <td class="p-4 text-right font-bold text-google-red">28.6%</td>
-                                    <td class="p-4 text-right font-mono text-gray-700">27.21</td>
-                                    <td class="p-4 text-right">30.7%</td>
-                                    <td class="p-4 text-right">41</td>
+                                    <td class="px-2 py-3">GenAI</td>
+                                    <td class="px-2 py-3 font-medium text-google-textMain">gemini-2.5-flash</td>
+                                    <td class="px-2 py-3">standard</td>
+                                    <td class="px-2 py-3 font-mono text-[10px] uppercase">none</td>
+                                    <td class="px-2 py-3 text-center text-google-blue">Search, Code</td>
+                                    <td class="px-2 py-3 text-center">0</td>
+                                    <td class="px-2 py-3 text-right font-bold text-yellow-600">71.4%</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">23.33</td>
+                                    <td class="px-2 py-3 text-right">22.2%</td>
+                                    <td class="px-2 py-3 text-center cursor-help" title="Samples: 21"><i class="fa-solid fa-circle-info"></i></td>
+                                </tr>
+                                <tr class="hover:bg-gray-50 transition-colors">
+                                    <td class="px-2 py-3">GenAI</td>
+                                    <td class="px-2 py-3 font-medium text-google-textMain">gemini-2.5-flash</td>
+                                    <td class="px-2 py-3">standard</td>
+                                    <td class="px-2 py-3 font-mono text-[10px] uppercase">cot</td>
+                                    <td class="px-2 py-3 text-center text-google-blue">None</td>
+                                    <td class="px-2 py-3 text-center">1</td>
+                                    <td class="px-2 py-3 text-right font-bold text-yellow-600">63.6%</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">26.16</td>
+                                    <td class="px-2 py-3 text-right">32.7%</td>
+                                    <td class="px-2 py-3 text-center cursor-help" title="Samples: 11"><i class="fa-solid fa-circle-info"></i></td>
+                                </tr>
+                                <tr class="hover:bg-gray-50 transition-colors">
+                                    <td class="px-2 py-3">GenAI</td>
+                                    <td class="px-2 py-3 font-medium text-google-textMain">gemini-2.5-flash</td>
+                                    <td class="px-2 py-3">standard</td>
+                                    <td class="px-2 py-3 font-mono text-[10px] uppercase">none</td>
+                                    <td class="px-2 py-3 text-center text-google-blue">None</td>
+                                    <td class="px-2 py-3 text-center">0</td>
+                                    <td class="px-2 py-3 text-right font-bold text-yellow-600">63%</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">20.66</td>
+                                    <td class="px-2 py-3 text-right">18.4%</td>
+                                    <td class="px-2 py-3 text-center cursor-help" title="Samples: 27"><i class="fa-solid fa-circle-info"></i></td>
+                                </tr>
+                                <tr class="hover:bg-gray-50 transition-colors">
+                                    <td class="px-2 py-3">GenAI</td>
+                                    <td class="px-2 py-3 font-medium text-google-textMain">gemini-2.5-flash-lite</td>
+                                    <td class="px-2 py-3">standard</td>
+                                    <td class="px-2 py-3 font-mono text-[10px] uppercase">cot</td>
+                                    <td class="px-2 py-3 text-center text-google-blue">None</td>
+                                    <td class="px-2 py-3 text-center">1</td>
+                                    <td class="px-2 py-3 text-right font-bold text-yellow-600">56.5%</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">20.37</td>
+                                    <td class="px-2 py-3 text-right">24.5%</td>
+                                    <td class="px-2 py-3 text-center cursor-help" title="Samples: 23"><i class="fa-solid fa-circle-info"></i></td>
+                                </tr>
+                                <tr class="hover:bg-gray-50 transition-colors">
+                                    <td class="px-2 py-3">GenAI</td>
+                                    <td class="px-2 py-3 font-medium text-google-textMain">gemini-2.5-flash-lite</td>
+                                    <td class="px-2 py-3">standard</td>
+                                    <td class="px-2 py-3 font-mono text-[10px] uppercase">fcot</td>
+                                    <td class="px-2 py-3 text-center text-google-blue">None</td>
+                                    <td class="px-2 py-3 text-center">2</td>
+                                    <td class="px-2 py-3 text-right font-bold text-google-red">28.6%</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">27.21</td>
+                                    <td class="px-2 py-3 text-right">30.7%</td>
+                                    <td class="px-2 py-3 text-center cursor-help" title="Samples: 21"><i class="fa-solid fa-circle-info"></i></td>
+                                </tr>
+                                <tr class="hover:bg-gray-50 transition-colors">
+                                    <td class="px-2 py-3">GenAI</td>
+                                    <td class="px-2 py-3 font-medium text-google-textMain">qwen3</td>
+                                    <td class="px-2 py-3">standard</td>
+                                    <td class="px-2 py-3 font-mono text-[10px] uppercase">cot</td>
+                                    <td class="px-2 py-3 text-center text-google-blue">None</td>
+                                    <td class="px-2 py-3 text-center">1</td>
+                                    <td class="px-2 py-3 text-right font-bold text-google-red">0%</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">54.44</td>
+                                    <td class="px-2 py-3 text-right">80%</td>
+                                    <td class="px-2 py-3 text-center cursor-help" title="Samples: 1"><i class="fa-solid fa-circle-info"></i></td>
                                 </tr>
                             </tbody>
                         </table>
@@ -327,87 +389,163 @@
                 </div>
                 <div class="bg-white rounded-xl shadow-sm border border-google-border overflow-hidden">
                     <div class="overflow-x-auto">
-                        <table class="w-full text-left border-collapse whitespace-nowrap">
+                        <table class="w-full text-left border-collapse whitespace-nowrap text-xs">
                             <thead>
                                 <tr class="bg-google-bg border-b border-google-border">
-                                    <th class="p-4 font-bold text-google-textMain">Model</th>
-                                    <th class="p-4 font-bold text-google-textMain">Prompt</th>
-                                    <th class="p-4 font-bold text-google-textMain">Tools / Techniques</th>
-                                    <th class="p-4 font-bold text-google-textMain text-right">Vis MAE</th>
-                                    <th class="p-4 font-bold text-google-textMain text-right">Aud MAE</th>
-                                    <th class="p-4 font-bold text-google-textMain text-right">Src MAE</th>
-                                    <th class="p-4 font-bold text-google-textMain text-right">Log MAE</th>
-                                    <th class="p-4 font-bold text-google-textMain text-right">Emo MAE</th>
-                                    <th class="p-4 font-bold text-google-textMain text-right">V-A MAE</th>
-                                    <th class="p-4 font-bold text-google-textMain text-right">V-C MAE</th>
-                                    <th class="p-4 font-bold text-google-textMain text-right">A-C MAE</th>
+                                    <th class="px-2 py-3 font-bold text-google-textMain">Model</th>
+                                    <th class="px-2 py-3 font-bold text-google-textMain">Prompt</th>
+                                    <th class="px-2 py-3 font-bold text-google-textMain">Reasoning</th>
+                                    <th class="px-2 py-3 font-bold text-google-textMain">Tools</th>
+                                    <th class="px-2 py-3 font-bold text-google-textMain text-right">Vis MAE</th>
+                                    <th class="px-2 py-3 font-bold text-google-textMain text-right">Aud MAE</th>
+                                    <th class="px-2 py-3 font-bold text-google-textMain text-right">Src MAE</th>
+                                    <th class="px-2 py-3 font-bold text-google-textMain text-right">Log MAE</th>
+                                    <th class="px-2 py-3 font-bold text-google-textMain text-right">Emo MAE</th>
+                                    <th class="px-2 py-3 font-bold text-google-textMain text-right">V-A MAE</th>
+                                    <th class="px-2 py-3 font-bold text-google-textMain text-right">V-C MAE</th>
+                                    <th class="px-2 py-3 font-bold text-google-textMain text-right">A-C MAE</th>
                                 </tr>
                             </thead>
-                            <tbody class="divide-y divide-google-border text-sm text-google-textSecondary">
+                            <tbody class="divide-y divide-google-border text-google-textSecondary">
                                 <tr class="hover:bg-gray-50 transition-colors">
-                                    <td class="p-4 font-bold text-google-textMain">gemini-2.5-flash</td>
-                                    <td class="p-4">standard</td>
-                                    <td class="p-4">None</td>
-                                    <td class="p-4 text-right font-mono text-gray-700">6.38</td>
-                                    <td class="p-4 text-right font-mono text-gray-700">12.13</td>
-                                    <td class="p-4 text-right font-mono text-gray-700">17.02</td>
-                                    <td class="p-4 text-right font-mono text-gray-700">11.28</td>
-                                    <td class="p-4 text-right font-mono text-gray-700">14.47</td>
-                                    <td class="p-4 text-right font-mono text-gray-700">29.15</td>
-                                    <td class="p-4 text-right font-mono text-gray-700">10.85</td>
-                                    <td class="p-4 text-right font-mono text-gray-700">23.4</td>
+                                    <td class="px-2 py-3 font-bold text-google-textMain">gemini-2.5-flash</td>
+                                    <td class="px-2 py-3">standard</td>
+                                    <td class="px-2 py-3 font-mono text-[10px] uppercase">fcot</td>
+                                    <td class="px-2 py-3 text-google-blue">None</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">6.38</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">12.13</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">17.02</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">11.28</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">14.47</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">29.15</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">10.85</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">23.4</td>
                                 </tr>
                                 <tr class="hover:bg-gray-50 transition-colors">
-                                    <td class="p-4 font-bold text-google-textMain">qwen3</td>
-                                    <td class="p-4">Standard</td>
-                                    <td class="p-4">None</td>
-                                    <td class="p-4 text-right font-mono text-gray-700">23.33</td>
-                                    <td class="p-4 text-right font-mono text-gray-700">20.67</td>
-                                    <td class="p-4 text-right font-mono text-gray-700">6</td>
-                                    <td class="p-4 text-right font-mono text-gray-700">11.33</td>
-                                    <td class="p-4 text-right font-mono text-gray-700">6</td>
-                                    <td class="p-4 text-right font-mono text-gray-700">6.67</td>
-                                    <td class="p-4 text-right font-mono text-gray-700">5.33</td>
-                                    <td class="p-4 text-right font-mono text-gray-700">5.33</td>
+                                    <td class="px-2 py-3 font-bold text-google-textMain">gemini-2.5-flash</td>
+                                    <td class="px-2 py-3">standard</td>
+                                    <td class="px-2 py-3 font-mono text-[10px] uppercase">fcot</td>
+                                    <td class="px-2 py-3 text-google-blue">Search, Code</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">5.91</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">13.18</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">16.36</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">15</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">16.36</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">30.91</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">12.27</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">22.73</td>
                                 </tr>
                                 <tr class="hover:bg-gray-50 transition-colors">
-                                    <td class="p-4 font-bold text-google-textMain">gemini-2.5-flash</td>
-                                    <td class="p-4">standard</td>
-                                    <td class="p-4">None</td>
-                                    <td class="p-4 text-right font-mono text-gray-700">12.73</td>
-                                    <td class="p-4 text-right font-mono text-gray-700">30</td>
-                                    <td class="p-4 text-right font-mono text-gray-700">19.09</td>
-                                    <td class="p-4 text-right font-mono text-gray-700">25.45</td>
-                                    <td class="p-4 text-right font-mono text-gray-700">30.91</td>
-                                    <td class="p-4 text-right font-mono text-gray-700">39.09</td>
-                                    <td class="p-4 text-right font-mono text-gray-700">24.55</td>
-                                    <td class="p-4 text-right font-mono text-gray-700">33.64</td>
+                                    <td class="px-2 py-3 font-bold text-google-textMain">gemini-2.5-flash</td>
+                                    <td class="px-2 py-3">standard</td>
+                                    <td class="px-2 py-3 font-mono text-[10px] uppercase">cot</td>
+                                    <td class="px-2 py-3 text-google-blue">Search, Code</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">12.86</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">21.9</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">17.14</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">20.48</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">23.33</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">30</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">17.62</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">27.14</td>
                                 </tr>
                                 <tr class="hover:bg-gray-50 transition-colors">
-                                    <td class="p-4 font-bold text-google-textMain">gemini-2.5-flash-lite</td>
-                                    <td class="p-4">standard</td>
-                                    <td class="p-4">None</td>
-                                    <td class="p-4 text-right font-mono text-gray-700">14.78</td>
-                                    <td class="p-4 text-right font-mono text-gray-700">25.22</td>
-                                    <td class="p-4 text-right font-mono text-gray-700">14.35</td>
-                                    <td class="p-4 text-right font-mono text-gray-700">19.13</td>
-                                    <td class="p-4 text-right font-mono text-gray-700">16.52</td>
-                                    <td class="p-4 text-right font-mono text-gray-700">26.52</td>
-                                    <td class="p-4 text-right font-mono text-gray-700">17.39</td>
-                                    <td class="p-4 text-right font-mono text-gray-700">21.3</td>
+                                    <td class="px-2 py-3 font-bold text-google-textMain">Unknown</td>
+                                    <td class="px-2 py-3">Standard</td>
+                                    <td class="px-2 py-3 font-mono text-[10px] uppercase">none</td>
+                                    <td class="px-2 py-3 text-google-blue">None</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">23.33</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">20.67</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">6</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">11.33</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">6</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">6.67</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">5.33</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">5.33</td>
                                 </tr>
                                 <tr class="hover:bg-gray-50 transition-colors">
-                                    <td class="p-4 font-bold text-google-textMain">gemini-2.5-flash-lite</td>
-                                    <td class="p-4">standard</td>
-                                    <td class="p-4">None</td>
-                                    <td class="p-4 text-right font-mono text-gray-700">20</td>
-                                    <td class="p-4 text-right font-mono text-gray-700">32.38</td>
-                                    <td class="p-4 text-right font-mono text-gray-700">19.05</td>
-                                    <td class="p-4 text-right font-mono text-gray-700">19.52</td>
-                                    <td class="p-4 text-right font-mono text-gray-700">17.14</td>
-                                    <td class="p-4 text-right font-mono text-gray-700">34.76</td>
-                                    <td class="p-4 text-right font-mono text-gray-700">24.76</td>
-                                    <td class="p-4 text-right font-mono text-gray-700">24.76</td>
+                                    <td class="px-2 py-3 font-bold text-google-textMain">gemini-2.5-flash</td>
+                                    <td class="px-2 py-3">standard</td>
+                                    <td class="px-2 py-3 font-mono text-[10px] uppercase">none</td>
+                                    <td class="px-2 py-3 text-google-blue">Search, Code</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">17.14</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">24.29</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">18.1</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">24.29</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">24.76</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">32.38</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">28.1</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">23.81</td>
+                                </tr>
+                                <tr class="hover:bg-gray-50 transition-colors">
+                                    <td class="px-2 py-3 font-bold text-google-textMain">gemini-2.5-flash</td>
+                                    <td class="px-2 py-3">standard</td>
+                                    <td class="px-2 py-3 font-mono text-[10px] uppercase">cot</td>
+                                    <td class="px-2 py-3 text-google-blue">None</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">12.73</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">30</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">19.09</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">25.45</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">30.91</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">39.09</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">24.55</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">33.64</td>
+                                </tr>
+                                <tr class="hover:bg-gray-50 transition-colors">
+                                    <td class="px-2 py-3 font-bold text-google-textMain">gemini-2.5-flash</td>
+                                    <td class="px-2 py-3">standard</td>
+                                    <td class="px-2 py-3 font-mono text-[10px] uppercase">none</td>
+                                    <td class="px-2 py-3 text-google-blue">None</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">7.41</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">16.67</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">17.78</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">22.22</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">20.74</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">30.74</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">20</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">28.15</td>
+                                </tr>
+                                <tr class="hover:bg-gray-50 transition-colors">
+                                    <td class="px-2 py-3 font-bold text-google-textMain">gemini-2.5-flash-lite</td>
+                                    <td class="px-2 py-3">standard</td>
+                                    <td class="px-2 py-3 font-mono text-[10px] uppercase">cot</td>
+                                    <td class="px-2 py-3 text-google-blue">None</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">14.78</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">25.22</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">14.35</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">19.13</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">16.52</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">26.52</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">17.39</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">21.3</td>
+                                </tr>
+                                <tr class="hover:bg-gray-50 transition-colors">
+                                    <td class="px-2 py-3 font-bold text-google-textMain">gemini-2.5-flash-lite</td>
+                                    <td class="px-2 py-3">standard</td>
+                                    <td class="px-2 py-3 font-mono text-[10px] uppercase">fcot</td>
+                                    <td class="px-2 py-3 text-google-blue">None</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">20</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">32.38</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">19.05</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">19.52</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">17.14</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">34.76</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">24.76</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">24.76</td>
+                                </tr>
+                                <tr class="hover:bg-gray-50 transition-colors">
+                                    <td class="px-2 py-3 font-bold text-google-textMain">qwen3</td>
+                                    <td class="px-2 py-3">standard</td>
+                                    <td class="px-2 py-3 font-mono text-[10px] uppercase">cot</td>
+                                    <td class="px-2 py-3 text-google-blue">None</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">90</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">90</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">30</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">50</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">30</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">50</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">70</td>
+                                    <td class="px-2 py-3 text-right font-mono text-gray-700">30</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -863,12 +1001,8 @@
             <div>
                 <div class="flex items-center gap-2 mb-2">
                     <svg class="w-6 h-6 text-google-textSecondary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-label="LiarMP4 Icon">
-                      <polygon points="12 2 21 7 21 17 12 22 3 17 3 7"></polygon>
-                      <path d="M7 10V8a1 1 0 0 1 1-1h2"></path>
-                      <path d="M14 7h2a1 1 0 0 1 1 1v2"></path>
-                      <path d="M17 14v2a1 1 0 0 1-1 1h-2"></path>
-                      <path d="M10 17H8a1 1 0 0 1-1-1v-2"></path>
-                      <polygon points="10.5 9 14.5 12 10.5 15" fill="currentColor" stroke="none"></polygon>
+                      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                      <polygon points="10 8 16 12 10 16 10 8" fill="currentColor" stroke="none"></polygon>
                     </svg>
                     <span class="font-bold text-lg text-google-textMain">Liar<span class="text-google-textSecondary">MP4</span></span>
                 </div>

@@ -30,7 +30,7 @@ import agent_logic
 import common_utils
 
 from toon_parser import parse_veracity_toon
-from labeling_logic import PROMPT_VARIANTS, LABELING_PROMPT_TEMPLATE, FCOT_MACRO_PROMPT
+from labeling_logic import PROMPT_VARIANTS, LABELING_PROMPT_TEMPLATE, LABELING_PROMPT_TEMPLATE_NO_COT, FCOT_MACRO_PROMPT
 import benchmarking
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
@@ -111,7 +111,7 @@ except OverflowError:
 STOP_QUEUE_SIGNAL = False
 
 # --- CONSTANTS ---
-QUEUE_COLUMNS = ["link", "ingest_timestamp", "status", "task_type"]
+QUEUE_COLUMNS =["link", "ingest_timestamp", "status", "task_type"]
 
 GROUND_TRUTH_FIELDS =[
     "id", "link", "timestamp", "caption", 
@@ -139,8 +139,8 @@ def ensure_csv_schema(file_path: Path, fieldnames: list):
             start_pos = f.tell()
             line = f.readline()
             if not line: return
-            existing_header = [h.strip() for h in line.split(',')]
-            missing =[col for col in fieldnames if col not in existing_header]
+            existing_header =[h.strip() for h in line.split(',')]
+            missing = [col for col in fieldnames if col not in existing_header]
             if not missing: return
             f.seek(start_pos)
             dict_reader = csv.DictReader(f)
@@ -155,7 +155,7 @@ def ensure_csv_schema(file_path: Path, fieldnames: list):
 def get_processed_indices():
     processed_ids = set()
     processed_links = set()
-    for filename in["data/dataset.csv", "data/manual_dataset.csv"]:
+    for filename in ["data/dataset.csv", "data/manual_dataset.csv"]:
         path = Path(filename)
         for row in common_utils.robust_read_csv(path):
             if row.get('id'): processed_ids.add(row.get('id'))
@@ -225,10 +225,6 @@ async def get_benchmark_stats():
 async def get_benchmark_leaderboard():
     return benchmarking.generate_leaderboard()
 
-@app.post("/benchmarks/train_predictive")
-async def run_predictive_training(config: dict = Body(...)):
-    return benchmarking.train_predictive_sandbox(config)
-
 @app.get("/config/prompts")
 async def list_prompts():
     return [{"id": k, "name": v['description']} for k, v in PROMPT_VARIANTS.items()]
@@ -258,7 +254,7 @@ async def list_all_tags():
                     t = t.strip()
                     if t: tags_count[t] = tags_count.get(t, 0) + 1
     sorted_tags = sorted(tags_count.items(), key=lambda x: x[1], reverse=True)
-    return [{"name": k, "count": v} for k, v in sorted_tags]
+    return[{"name": k, "count": v} for k, v in sorted_tags]
 
 @app.post("/extension/ingest")
 async def extension_ingest_link(request: Request):
@@ -359,11 +355,11 @@ async def promote_to_ground_truth(request: Request):
 async def delete_ground_truth(request: Request):
     try:
         data = await request.json()
-        target_ids = data.get("ids", [])
-        if not target_ids and data.get("id"): target_ids =[data.get("id")]
+        target_ids = data.get("ids",[])
+        if not target_ids and data.get("id"): target_ids = [data.get("id")]
         if not target_ids: raise HTTPException(status_code=400)
         
-        target_ids = [str(t) for t in target_ids]
+        target_ids =[str(t) for t in target_ids]
         manual_path = Path("data/manual_dataset.csv")
         if not manual_path.exists(): return {"status": "error", "message": "File not found"}
 
@@ -617,35 +613,35 @@ async def save_manual_label(request: Request):
             writer = csv.DictWriter(f, fieldnames=GROUND_TRUTH_FIELDS, extrasaction='ignore')
             writer.writeheader()
             writer.writerows(rows)
+            
+        # Add to User Profiles Catalog
+        author = common_utils.extract_twitter_username(link)
+        if author:
+            prof_dir = Path(f"data/profiles/{author}")
+            prof_dir.mkdir(parents=True, exist_ok=True)
+            hist_path = prof_dir / "history.csv"
+            hist_exists = hist_path.exists()
+            existing_links = set()
+            if hist_exists:
+                for r in common_utils.robust_read_csv(hist_path):
+                    existing_links.add(r.get('link'))
+            if link not in existing_links:
+                with open(hist_path, 'a', newline='', encoding='utf-8') as hf:
+                    fieldnames =["link", "timestamp", "text", "is_reply", "metric_replies", "metric_reposts", "metric_likes", "metric_views", "ingested_at"]
+                    hwriter = csv.DictWriter(hf, fieldnames=fieldnames, extrasaction='ignore')
+                    if not hist_exists: hwriter.writeheader()
+                    hwriter.writerow({
+                        "link": link,
+                        "timestamp": row["timestamp"],
+                        "text": row["caption"],
+                        "ingested_at": row["timestamp"]
+                    })
         
         update_queue_status(link, "Processed")
         return {"status": "success", "id": tweet_id}
     except Exception as e:
         logger.error(f"Save Manual Error: {e}")
         return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
-
-@app.get("/community/list_datasets")
-async def list_community_datasets():
-    path = Path("data/comments")
-    files =[]
-    if path.exists():
-        for f in path.glob("*.csv"):
-            files.append({"id": f.stem, "count": sum(1 for _ in open(f, encoding='utf-8'))-1})
-    return files
-
-@app.post("/community/analyze")
-async def analyze_community(dataset_id: str = Body(..., embed=True)):
-    path = Path(f"data/comments/{dataset_id}.csv")
-    if not path.exists(): raise HTTPException(status_code=404)
-    comments = list(common_utils.robust_read_csv(path))
-    if not comments: return {"score": 0, "verdict": "No Data"}
-    s_keys =["fake", "lie", "staged", "bs", "propaganda", "ai", "deepfake"]
-    t_keys =["true", "real", "confirmed", "fact", "source", "proof"]
-    s_count = sum(1 for c in comments if any(k in c['text'].lower() for k in s_keys))
-    t_count = sum(1 for c in comments if any(k in c['text'].lower() for k in t_keys))
-    score = max(0, min(100, 50 + (t_count * 2) - (s_count * 5)))
-    verdict = "Community Skepticism" if score < 30 else "Community Verification" if score > 70 else "Neutral/Mixed"
-    return {"dataset_id": dataset_id, "trust_score": score, "verdict": verdict, "details": {"skeptical_comments": s_count, "trusting_comments": t_count}}
 
 @app.get("/dataset/list")
 async def get_dataset_list():
@@ -671,26 +667,77 @@ async def get_dataset_list():
 async def get_account_integrity():
     id_map = {}
     prof_dir = Path("data/profiles")
+    prof_dir.mkdir(parents=True, exist_ok=True)
+    
+    existing_links_per_user = {}
     if prof_dir.exists():
         for d in prof_dir.iterdir():
-            for row in common_utils.robust_read_csv(d/"history.csv"):
-                tid = common_utils.extract_tweet_id(row.get('link',''))
-                if tid: id_map[tid] = d.name
+            if d.is_dir():
+                hist_file = d / "history.csv"
+                existing_links_per_user[d.name] = set()
+                if hist_file.exists():
+                    for row in common_utils.robust_read_csv(hist_file):
+                        link = row.get('link', '')
+                        tid = common_utils.extract_tweet_id(link)
+                        if tid: id_map[tid] = d.name
+                        existing_links_per_user[d.name].add(link)
 
     scores_map = {}
-    for fname in["data/dataset.csv", "data/manual_dataset.csv"]:
-        for row in common_utils.robust_read_csv(Path(fname)):
+    for fname in ["data/dataset.csv", "data/manual_dataset.csv"]:
+        path = Path(fname)
+        if not path.exists(): continue
+        for row in common_utils.robust_read_csv(path):
             tid = row.get('id')
+            link = row.get('link', '')
             sc = row.get('final_veracity_score', '0')
+            ts = row.get('timestamp', '')
+            caption = row.get('caption', '')
             try: val = float(re.sub(r'[^\d.]', '', str(sc)))
-            except: val = 0
+            except: val = -1
             
-            auth = id_map.get(tid, "Unknown")
-            if auth != "Unknown":
-                if auth not in scores_map: scores_map[auth] = []
-                scores_map[auth].append(val)
+            # Require scores to be between 0 and 100
+            if 0 <= val <= 100:
+                auth = common_utils.extract_twitter_username(link) or id_map.get(tid, "Unknown")
+                if auth and auth != "Unknown":
+                    if auth not in scores_map: scores_map[auth] = []
+                    scores_map[auth].append({'val': val, 'ts': ts})
+                    
+                    # Auto-add missing accounts/links to the Profile catalog
+                    if auth not in existing_links_per_user:
+                        existing_links_per_user[auth] = set()
+                        Path(f"data/profiles/{auth}").mkdir(parents=True, exist_ok=True)
+                        
+                    if link not in existing_links_per_user[auth]:
+                        existing_links_per_user[auth].add(link)
+                        hist_path = Path(f"data/profiles/{auth}/history.csv")
+                        hist_exists = hist_path.exists()
+                        with open(hist_path, 'a', newline='', encoding='utf-8') as hf:
+                            fieldnames =["link", "timestamp", "text", "is_reply", "metric_replies", "metric_reposts", "metric_likes", "metric_views", "ingested_at"]
+                            hwriter = csv.DictWriter(hf, fieldnames=fieldnames, extrasaction='ignore')
+                            if not hist_exists: hwriter.writeheader()
+                            hwriter.writerow({
+                                "link": link,
+                                "timestamp": ts,
+                                "text": caption,
+                                "ingested_at": ts
+                            })
     
-    return sorted([{"username": k, "avg_veracity": round(sum(v)/len(v),1), "posts_labeled": len(v)} for k,v in scores_map.items()], key=lambda x: x['avg_veracity'], reverse=True)
+    results =[]
+    for k, v in scores_map.items():
+        v_sorted = sorted(v, key=lambda x: x['ts'], reverse=True)
+        decay_factor = 0.9
+        total_weight = 0
+        weighted_sum = 0
+        
+        for i, item in enumerate(v_sorted):
+            weight = decay_factor ** i
+            weighted_sum += item['val'] * weight
+            total_weight += weight
+            
+        avg_veracity = round(weighted_sum / total_weight, 1) if total_weight > 0 else 0
+        results.append({"username": k, "avg_veracity": avg_veracity, "posts_labeled": len(v)})
+    
+    return sorted(results, key=lambda x: x['avg_veracity'], reverse=True)
 
 @app.post("/queue/add")
 async def add_queue_item(link: str = Body(..., embed=True)):
@@ -881,14 +928,15 @@ async def run_queue_processing(
     vertex_project_id: str = Form(""), vertex_location: str = Form(""), vertex_model_name: str = Form(""), vertex_api_key: str = Form(""),
     nrp_api_key: str = Form(""), nrp_model_name: str = Form(""), nrp_base_url: str = Form("https://ellm.nrp-nautilus.io/v1"),
     include_comments: bool = Form(False), reasoning_method: str = Form("cot"), prompt_template: str = Form("standard"),
-    custom_query: str = Form(""), max_reprompts: int = Form(1)
+    custom_query: str = Form(""), max_reprompts: int = Form(1),
+    use_search: bool = Form(False), use_code: bool = Form(False)
 ):
     global STOP_QUEUE_SIGNAL
     STOP_QUEUE_SIGNAL = False
     
-    gemini_config = {"api_key": gemini_api_key, "model_name": gemini_model_name, "max_retries": max_reprompts}
-    vertex_config = {"project_id": vertex_project_id, "location": vertex_location, "model_name": vertex_model_name, "api_key": vertex_api_key, "max_retries": max_reprompts, "use_search": True}
-    nrp_config = {"api_key": nrp_api_key, "model_name": nrp_model_name, "base_url": nrp_base_url, "max_retries": max_reprompts}
+    gemini_config = {"api_key": gemini_api_key, "model_name": gemini_model_name, "max_retries": max_reprompts, "use_search": use_search, "use_code": use_code}
+    vertex_config = {"project_id": vertex_project_id, "location": vertex_location, "model_name": vertex_model_name, "api_key": vertex_api_key, "max_retries": max_reprompts, "use_search": use_search, "use_code": use_code}
+    nrp_config = {"api_key": nrp_api_key, "model_name": nrp_model_name, "base_url": nrp_base_url, "max_retries": max_reprompts, "use_search": use_search, "use_code": use_code}
 
     sel_p = PROMPT_VARIANTS.get(prompt_template, PROMPT_VARIANTS['standard'])
     system_persona_txt = sel_p['instruction']
@@ -907,7 +955,9 @@ async def run_queue_processing(
     config_params_dict = {
         "reprompts": max_reprompts,
         "include_comments": include_comments,
-        "agent_active": False 
+        "agent_active": False,
+        "use_search": use_search,
+        "use_code": use_code
     }
     config_params_str = json.dumps(config_params_dict)
 
@@ -938,7 +988,7 @@ async def run_queue_processing(
                                 gt_data = row
                                 break
 
-            yield f"data: [START] {link} (Type: {task_type})\n\n"
+            yield f"data:[START] {link} (Type: {task_type})\n\n"
             tid = common_utils.extract_tweet_id(link) or hashlib.md5(link.encode()).hexdigest()[:10]
             assets = await common_utils.prepare_video_assets(link, tid)
             
@@ -1074,6 +1124,29 @@ async def run_queue_processing(
                     }
                     with open(Path(f"data/labels/{tid}_{ts_clean}.json"), 'w', encoding='utf-8') as f: json.dump(flat_parsed, f, indent=2, ensure_ascii=False)
                 except Exception as e: logger.error(f"Sidecar Error: {e}")
+
+                # Add to User Profiles Catalog
+                author = common_utils.extract_twitter_username(link)
+                if author:
+                    prof_dir = Path(f"data/profiles/{author}")
+                    prof_dir.mkdir(parents=True, exist_ok=True)
+                    hist_path = prof_dir / "history.csv"
+                    hist_exists = hist_path.exists()
+                    existing_links = set()
+                    if hist_exists:
+                        for r in common_utils.robust_read_csv(hist_path):
+                            existing_links.add(r.get('link'))
+                    if link not in existing_links:
+                        with open(hist_path, 'a', newline='', encoding='utf-8') as hf:
+                            fieldnames =["link", "timestamp", "text", "is_reply", "metric_replies", "metric_reposts", "metric_likes", "metric_views", "ingested_at"]
+                            hwriter = csv.DictWriter(hf, fieldnames=fieldnames, extrasaction='ignore')
+                            if not hist_exists: hwriter.writeheader()
+                            hwriter.writerow({
+                                "link": link,
+                                "timestamp": datetime.datetime.now().isoformat(),
+                                "text": assets['caption'],
+                                "ingested_at": datetime.datetime.now().isoformat()
+                            })
 
                 p_ids.add(tid)
                 p_links.add(common_utils.normalize_link(link))

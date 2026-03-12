@@ -96,6 +96,42 @@ LABELING_PROMPT_TEMPLATE = """
 <thinking>
 """
 
+LABELING_PROMPT_TEMPLATE_NO_COT = """
+{system_persona}
+
+**INPUT DATA:**
+- **User Caption:** "{caption}"
+- **Audio Transcript:** "{transcript}"
+- **Visuals:** (Provided in video context)
+
+**INSTRUCTIONS:**
+1.  **Grounding:** Cross-reference claims in the transcript with your internal knowledge base (and tools if active).
+2.  **Analysis:** Analyze Visual Integrity, Audio Integrity, Modality Alignment, Logic, and Disinformation.
+    *   **Classify Tags:** Identify 3-5 relevant tags. **PREFER** using tags from the **Standard Tag List** below if applicable, but create new ones if necessary.
+3.  **Output Format:** Output strictly in **TOON** format (Token-Oriented Object Notation) as defined below.
+
+**STANDARD TAG LIST:**
+{tag_list_text}
+
+**CRITICAL CONSTRAINTS:** 
+- Do NOT repeat the input data.
+- DO NOT provide step-by-step thinking. START your response IMMEDIATELY with the TOON output format.
+- **DO NOT use Markdown code blocks.** (Output plain text only).
+- Use strict `Key : Type [ Count ] {{ Headers }} :` format followed by data lines.
+- Strings containing commas MUST be quoted.
+- ALL scores must be filled (use 0 if unsure, do not leave blank).
+- **MODALITY SCORING:** You must provide 3 distinct alignment scores: Video-Audio, Video-Caption, and Audio-Caption.
+- **REQUIRED FIELDS:** You MUST provide a 'summary' of events, 'tags', 'disinfo' classification (intent, threat), and a 'final' assessment with reasoning.
+- **REASONING:** You MUST provide a short text justification for EVERY score.
+
+**TOON SCHEMA:**
+{toon_schema}
+
+{score_instructions}
+
+**RESPONSE:**
+"""
+
 SCORE_INSTRUCTIONS_REASONING = """
 **Constraints:** 
 1. Provide specific reasoning for EACH score in the `vectors` and `modalities` tables.

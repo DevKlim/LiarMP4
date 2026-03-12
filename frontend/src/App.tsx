@@ -10,8 +10,8 @@ import {
 
 function App() {
   const [activeTab, setActiveTab] = useState('home');
-  const [logs, setLogs] = useState<string>('System Ready.\n');
-  const[isProcessing, setIsProcessing] = useState(false);
+  const[logs, setLogs] = useState<string>('System Ready.\n');
+  const [isProcessing, setIsProcessing] = useState(false);
   const logContainerRef = useRef<HTMLDivElement>(null);
   
   // Processing Config State
@@ -19,65 +19,62 @@ function App() {
   const[apiKey, setApiKey] = useState('');
   const [baseUrl, setBaseUrl] = useState('https://ellm.nrp-nautilus.io/v1'); // NRP Default
   const[modelName, setModelName] = useState('qwen3'); // Default
-  const[projectId, setProjectId] = useState('');
+  const [projectId, setProjectId] = useState('');
   const [location, setLocation] = useState('us-central1');
   const[includeComments, setIncludeComments] = useState(false);
-  const[reasoningMethod, setReasoningMethod] = useState('cot');
+  const [reasoningMethod, setReasoningMethod] = useState('cot');
   const [promptTemplate, setPromptTemplate] = useState('standard');
   const[customQuery, setCustomQuery] = useState('');
-  const[maxRetries, setMaxRetries] = useState(1);
+  const [maxRetries, setMaxRetries] = useState(1);
   const [availablePrompts, setAvailablePrompts] = useState<any[]>([]);
-
-  // Predictive Config
-  const [predictiveModelType, setPredictiveModelType] = useState('logistic');
-  const [predictiveResult, setPredictiveResult] = useState<any>(null);
+  
+  const [useSearch, setUseSearch] = useState(false);
+  const[useCode, setUseCode] = useState(false);
 
   // Data States
-  const [queueList, setQueueList] = useState<any[]>([]);
-  const[selectedQueueItems, setSelectedQueueItems] = useState<Set<string>>(new Set());
-  const[expandedQueueItems, setExpandedQueueItems] = useState<Set<string>>(new Set());
-  const[lastQueueIndex, setLastQueueIndex] = useState<number | null>(null);
+  const[queueList, setQueueList] = useState<any[]>([]);
+  const [selectedQueueItems, setSelectedQueueItems] = useState<Set<string>>(new Set());
+  const [expandedQueueItems, setExpandedQueueItems] = useState<Set<string>>(new Set());
+  const [lastQueueIndex, setLastQueueIndex] = useState<number | null>(null);
   
-  const[singleLinkInput, setSingleLinkInput] = useState(''); 
+  const [singleLinkInput, setSingleLinkInput] = useState(''); 
   const [profileList, setProfileList] = useState<any[]>([]);
-  const [selectedProfile, setSelectedProfile] = useState<any>(null);
-  const[profilePosts, setProfilePosts] = useState<any[]>([]);
-  const [communityDatasets, setCommunityDatasets] = useState<any[]>([]);
-  const [communityAnalysis, setCommunityAnalysis] = useState<any>(null);
+  const[selectedProfile, setSelectedProfile] = useState<any>(null);
+  const [profilePosts, setProfilePosts] = useState<any[]>([]);
   const [integrityBoard, setIntegrityBoard] = useState<any[]>([]);
   
-  const[datasetList, setDatasetList] = useState<any[]>([]);
+  const [datasetList, setDatasetList] = useState<any[]>([]);
   const[selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
-  const [lastDatasetIndex, setLastDatasetIndex] = useState<number | null>(null);
+  const[lastDatasetIndex, setLastDatasetIndex] = useState<number | null>(null);
 
   const [benchmarks, setBenchmarks] = useState<any>(null);
-  const[leaderboard, setLeaderboard] = useState<any[]>([]); 
+  const [leaderboard, setLeaderboard] = useState<any[]>([]); 
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   // Tags
   const[configuredTags, setConfiguredTags] = useState<any>({});
 
   // Manual Labeling State
-  const[manualLink, setManualLink] = useState('');
-  const[manualCaption, setManualCaption] = useState('');
+  const [manualLink, setManualLink] = useState('');
+  const [manualCaption, setManualCaption] = useState('');
   const [manualTags, setManualTags] = useState('');
   const[manualReasoning, setManualReasoning] = useState('');
   const [manualScores, setManualScores] = useState({
       visual: 5, audio: 5, source: 5, logic: 5, emotion: 5,
       va: 5, vc: 5, ac: 5, final: 50
   });
-  const[showRubric, setShowRubric] = useState(false);
+  const [showRubric, setShowRubric] = useState(false);
   const[aiReference, setAiReference] = useState<any>(null);
-  const [labelBrowserMode, setLabelBrowserMode] = useState<'queue' | 'dataset'>('queue');
-  const [labelFilter, setLabelFilter] = useState('');
+  const[labelBrowserMode, setLabelBrowserMode] = useState<'queue' | 'dataset'>('queue');
+  const[labelFilter, setLabelFilter] = useState('');
 
   // Agent Chat State
-  const[agentInput, setAgentInput] = useState('');
-  const[agentMessages, setAgentMessages] = useState<any[]>([]);
+  const [agentInput, setAgentInput] = useState('');
+  const [agentMessages, setAgentMessages] = useState<any[]>([]);
   const[agentThinking, setAgentThinking] = useState(false);
-  const[agentEndpoint, setAgentEndpoint] = useState('/a2a');
+  const [agentEndpoint, setAgentEndpoint] = useState('/a2a');
   const [agentMethod, setAgentMethod] = useState('agent.process');
-  const[agentConfig, setAgentConfig] = useState({ use_search: true, use_code: false });
+  const [agentConfig, setAgentConfig] = useState({ use_search: true, use_code: false });
 
   // Resampling configuration
   const [resampleCount, setResampleCount] = useState<number>(1);
@@ -125,7 +122,6 @@ function App() {
         setLastQueueIndex(null);
     }
     if (activeTab === 'profiles') load('/profiles/list', setProfileList);
-    if (activeTab === 'community') load('/community/list_datasets', setCommunityDatasets);
     if (activeTab === 'analytics') load('/analytics/account_integrity', setIntegrityBoard);
     if (activeTab === 'dataset' || activeTab === 'manual' || activeTab === 'groundtruth') load('/dataset/list', setDatasetList);
     if (activeTab === 'manual') load('/queue/list', setQueueList);
@@ -409,28 +405,6 @@ function App() {
       } catch(e: any) { alert("Network error: " + e.toString()); }
   };
 
-  const analyzeComments = async (id: string) => {
-      setCommunityAnalysis({ verdict: "Analyzing..." });
-      const res = await fetch('/community/analyze', {
-          method: 'POST', headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({ dataset_id: id })
-      });
-      setCommunityAnalysis(await res.json());
-  };
-
-  const runPredictiveTraining = async (useVisual: boolean) => {
-      setPredictiveResult({ status: 'training' });
-      try {
-          const res = await fetch('/benchmarks/train_predictive', {
-              method: 'POST', headers: {'Content-Type': 'application/json'},
-              body: JSON.stringify({ use_visual_meta: useVisual, model_type: predictiveModelType })
-          });
-          const data = await res.json();
-          setPredictiveResult(data);
-          setRefreshTrigger(p => p+1);
-      } catch (e) { setPredictiveResult({ error: "Failed to train." }); }
-  };
-
   const queueUnlabeledPosts = async () => {
       const unlabeled = profilePosts.filter(p => !p.is_labeled).map(p => p.link);
       if(unlabeled.length === 0) return alert("All posts already labeled!");
@@ -547,6 +521,9 @@ function App() {
       fd.append('prompt_template', promptTemplate); 
       fd.append('custom_query', customQuery);
       fd.append('max_reprompts', maxRetries.toString());
+      
+      fd.append('use_search', useSearch.toString());
+      fd.append('use_code', useCode.toString());
 
       try {
           const res = await fetch('/queue/run', { method: 'POST', body: fd });
@@ -597,6 +574,9 @@ function App() {
           fd.append('prompt_template', promptTemplate); 
           fd.append('custom_query', customQuery);
           fd.append('max_reprompts', maxRetries.toString());
+          
+          fd.append('use_search', useSearch.toString());
+          fd.append('use_code', useCode.toString());
 
           setDemoLogs(prev => prev + '[SYSTEM] Sending analysis payload to model server...\n');
           
@@ -736,13 +716,11 @@ function App() {
            {[
                {id:'home', l:'Home & Benchmarks', i:Home},
                {id:'agent', l:'Agent Nexus', i:Bot},
-               {id:'predictive', l:'Predictive Sandbox', i:FlaskConical},
                {id:'queue', l:'Ingest Queue', i:List}, 
                {id:'profiles', l:'User Profiles', i:Users}, 
                {id:'manual', l:'Labeling Studio', i:PenTool},
                {id:'dataset', l:'Data Manager', i:Archive}, 
                {id:'groundtruth', l:'Ground Truth (Verified)', i:ShieldCheck},
-               {id:'community', l:'Community Trust', i:MessageSquare}, 
                {id:'analytics', l:'Analytics', i:BarChart2}
            ].map(t => (
               <button key={t.id} onClick={() => setActiveTab(t.id)}
@@ -817,6 +795,7 @@ function App() {
                                 <div className="space-y-3">
                                     <label className="text-[10px] text-slate-500 uppercase font-bold block border-b border-slate-800 pb-1">Inference Strategy</label>
                                     <select value={reasoningMethod} onChange={e => setReasoningMethod(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-xs text-white">
+                                        <option value="none">Direct (No CoT)</option>
                                         <option value="cot">Standard Chain of Thought</option>
                                         <option value="fcot">Fractal Chain of Thought</option>
                                     </select>
@@ -825,6 +804,16 @@ function App() {
                                             <option key={p.id} value={p.id}>{p.name}</option>
                                         )) : <option value="standard">Standard</option>}
                                     </select>
+                                    
+                                    <label className="text-[10px] text-slate-500 uppercase font-bold block border-b border-slate-800 pb-1 mt-3">Agentic Tools</label>
+                                    <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
+                                        <input type="checkbox" className="accent-indigo-500" checked={useSearch} onChange={e => setUseSearch(e.target.checked)} />
+                                        Enable Web Search Retrieval
+                                    </label>
+                                    <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
+                                        <input type="checkbox" className="accent-indigo-500" checked={useCode} onChange={e => setUseCode(e.target.checked)} />
+                                        Enable Code Execution
+                                    </label>
                                 </div>
                             </div>
                         )}
@@ -860,8 +849,7 @@ function App() {
                                     <div>
                                         <h3 className="text-xl font-bold text-white flex items-center gap-2">
                                             <ShieldCheck className="w-6 h-6 text-emerald-400" />
-                                            <span className="text-indigo-400 uppercase tracking-wider text-[16px] bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20">
-                                                [{demoResult.config_model || 'AI'}]
+                                            <span className="text-indigo-400 uppercase tracking-wider text-[16px] bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20">[{demoResult.config_model || 'AI'}]
                                             </span>
                                             Analysis Complete
                                         </h3>
@@ -1013,11 +1001,11 @@ function App() {
                                         <th className="p-3">Model</th>
                                         <th className="p-3">Prompt</th>
                                         <th className="p-3">Reasoning</th>
+                                        <th className="p-3 text-center">Tools</th>
                                         <th className="p-3 text-center">FCoT Depth</th>
                                         <th className="p-3 text-right text-emerald-400">Accuracy</th>
                                         <th className="p-3 text-right">Comp. MAE</th>
                                         <th className="p-3 text-right">Tag Acc</th>
-                                        <th className="p-3 text-right">Samples</th>
                                         <th className="p-3"></th>
                                     </tr>
                                 </thead>
@@ -1028,17 +1016,18 @@ function App() {
                                             <td className="p-3 font-mono text-white">{row.model}</td>
                                             <td className="p-3">{row.prompt}</td>
                                             <td className="p-3 uppercase text-[10px]">{row.reasoning}</td>
+                                            <td className="p-3 text-center text-sky-400 font-mono text-[10px]">{row.tools || 'None'}</td>
                                             <td className="p-3 text-center text-slate-400 font-mono">{row.fcot_depth ?? 0}</td>
                                             <td className="p-3 text-right font-bold text-emerald-400">{row.accuracy}%</td>
                                             <td className="p-3 text-right font-mono text-amber-400">{row.comp_mae}</td>
                                             <td className="p-3 text-right">{row.tag_acc}%</td>
-                                            <td className="p-3 text-right text-slate-500">{row.samples}</td>
-                                            <td className="p-3 text-center" title={row.params}>
+                                            <td className="p-3 text-center">
                                                 <div className="group relative">
                                                     <HelpCircle className="w-4 h-4 text-slate-600 cursor-help"/>
                                                     <div className="absolute right-0 bottom-6 w-64 p-3 bg-black border border-slate-700 rounded shadow-xl hidden group-hover:block z-50 text-[10px] whitespace-pre-wrap text-left">
                                                         <div className="font-bold mb-1 text-slate-400">Config Params</div>
-                                                        {row.params}
+                                                        <div>{row.params}</div>
+                                                        <div className="mt-2 pt-2 border-t border-slate-800 text-slate-400 font-bold">Samples: {row.samples}</div>
                                                     </div>
                                                 </div>
                                             </td>
@@ -1063,15 +1052,16 @@ function App() {
                                     <tr>
                                         <th className="p-3">Model</th>
                                         <th className="p-3">Prompt</th>
+                                        <th className="p-3">Reasoning</th>
                                         <th className="p-3">Tools / Techniques</th>
-                                        <th className="p-3 text-right">Vis MAE</th>
-                                        <th className="p-3 text-right">Aud MAE</th>
-                                        <th className="p-3 text-right">Src MAE</th>
-                                        <th className="p-3 text-right">Log MAE</th>
-                                        <th className="p-3 text-right">Emo MAE</th>
-                                        <th className="p-3 text-right">V-A MAE</th>
-                                        <th className="p-3 text-right">V-C MAE</th>
-                                        <th className="p-3 text-right">A-C MAE</th>
+                                        <th className="p-3 text-right">Vis</th>
+                                        <th className="p-3 text-right">Aud</th>
+                                        <th className="p-3 text-right">Src</th>
+                                        <th className="p-3 text-right">Log</th>
+                                        <th className="p-3 text-right">Emo</th>
+                                        <th className="p-3 text-right">V-A</th>
+                                        <th className="p-3 text-right">V-C</th>
+                                        <th className="p-3 text-right">A-C</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-800">
@@ -1079,7 +1069,8 @@ function App() {
                                         <tr key={i} className="hover:bg-white/5">
                                             <td className="p-3 font-mono text-white">{row.model}</td>
                                             <td className="p-3">{row.prompt}</td>
-                                            <td className="p-3 text-sky-400 font-mono">{row.tools || 'None'}</td>
+                                            <td className="p-3 uppercase text-[10px]">{row.reasoning}</td>
+                                            <td className="p-3 text-sky-400 font-mono text-[10px]">{row.tools || 'None'}</td>
                                             <td className="p-3 text-right font-mono">{row.err_visual_score ?? '-'}</td>
                                             <td className="p-3 text-right font-mono">{row.err_audio_score ?? '-'}</td>
                                             <td className="p-3 text-right font-mono">{row.err_source_score ?? '-'}</td>
@@ -1091,7 +1082,7 @@ function App() {
                                         </tr>
                                     ))}
                                     {(!leaderboard || leaderboard.length === 0) && (
-                                        <tr><td colSpan={11} className="p-4 text-center text-slate-600">No detailed benchmark data available.</td></tr>
+                                        <tr><td colSpan={12} className="p-4 text-center text-slate-600">No detailed benchmark data available.</td></tr>
                                     )}
                                 </tbody>
                             </table>
@@ -1171,6 +1162,7 @@ function App() {
                                 <div className="space-y-1 mt-2">
                                     <label className="text-[10px] text-slate-500">Reasoning Method</label>
                                     <select value={reasoningMethod} onChange={e => setReasoningMethod(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white">
+                                        <option value="none">Direct (No CoT)</option>
                                         <option value="cot">Standard Chain of Thought</option>
                                         <option value="fcot">Fractal Chain of Thought</option>
                                     </select>
@@ -1254,31 +1246,6 @@ function App() {
                                 <ArrowUpRight className="w-4 h-4"/>
                             </button>
                         </div>
-                    </div>
-                </div>
-            )}
-
-            {/* PREDICTIVE SANDBOX */}
-            {activeTab === 'predictive' && (
-                <div className="flex h-full gap-6">
-                    <div className="w-1/3 bg-slate-900/50 border border-slate-800 rounded-xl p-6 flex flex-col gap-6">
-                        <div>
-                            <h2 className="text-lg font-bold text-white flex items-center gap-2"><FlaskConical className="w-5 h-5"/> Model Sandbox</h2>
-                            <p className="text-xs text-slate-400">Train models on the text features of the current Ground Truth dataset.</p>
-                        </div>
-                        <button onClick={() => runPredictiveTraining(false)} className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded font-bold text-xs">Train Baseline</button>
-                    </div>
-                    <div className="flex-1 bg-slate-900/50 border border-slate-800 rounded-xl p-6 relative overflow-hidden overflow-y-auto">
-                        {predictiveResult ? (
-                            predictiveResult.status === 'training' ? (
-                                <div className="absolute inset-0 flex items-center justify-center text-indigo-400 animate-pulse">Training Model...</div>
-                            ) : predictiveResult.error ? ( <div className="text-red-400">{predictiveResult.error}</div> ) : (
-                                <div className="space-y-6">
-                                    <div className="text-xl font-mono text-white">Training Complete ({predictiveResult.type})</div>
-                                    <pre className="text-xs text-slate-400 bg-black p-4 rounded">{JSON.stringify(predictiveResult, null, 2)}</pre>
-                                </div>
-                            )
-                        ) : <div className="flex h-full items-center justify-center text-slate-600">Ready to train.</div>}
                     </div>
                 </div>
             )}
@@ -1367,6 +1334,7 @@ function App() {
                         <div className="space-y-1 mt-2">
                             <label className="text-[10px] text-slate-500">Reasoning Method</label>
                             <select value={reasoningMethod} onChange={e => setReasoningMethod(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white">
+                                <option value="none">Direct (No CoT)</option>
                                 <option value="cot">Standard Chain of Thought</option>
                                 <option value="fcot">Fractal Chain of Thought</option>
                             </select>
@@ -1378,6 +1346,18 @@ function App() {
                                     <option key={p.id} value={p.id}>{p.name}</option>
                                 )) : <option value="standard">Standard</option>}
                             </select>
+                        </div>
+                        
+                        <div className="space-y-2 mt-2">
+                            <label className="text-[10px] text-slate-500 uppercase font-bold block border-b border-slate-800 pb-1">Agentic Tools</label>
+                            <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
+                                <input type="checkbox" className="accent-indigo-500" checked={useSearch} onChange={e => setUseSearch(e.target.checked)} />
+                                Enable Web Search Retrieval
+                            </label>
+                            <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
+                                <input type="checkbox" className="accent-indigo-500" checked={useCode} onChange={e => setUseCode(e.target.checked)} />
+                                Enable Code Execution
+                            </label>
                         </div>
                         
                         {/* Process Controls */}
@@ -1768,7 +1748,7 @@ function App() {
                                                      <span className="capitalize text-slate-300 font-bold">{k}</span>
                                                      <span className="text-indigo-400 font-mono font-bold">{(manualScores as any)[k]}/10</span>
                                                  </div>
-                                                 <input type="range" min="1" max="10" value={(manualScores as any)[k]} onChange={e => setManualScores({...manualScores, [k]: parseInt(e.target.value)})} className="w-full accent-indigo-500"/>
+                                                 <input type="range" min="1" max="10" value={(manualScores as any)[k]} onChange={e => setManualScores({...manualScores,[k]: parseInt(e.target.value)})} className="w-full accent-indigo-500"/>
                                              </div>
                                          ))}
                                      </div>
@@ -1856,37 +1836,6 @@ function App() {
                             </div>
                         )}
 
-                    </div>
-                </div>
-            )}
-
-            {/* COMMUNITY AND ANALYTICS TABS (UNCHANGED) */}
-            {activeTab === 'community' && (
-                <div className="flex h-full gap-6">
-                    <div className="w-1/3 bg-slate-900/50 border border-slate-800 rounded-xl overflow-auto">
-                        <div className="p-3 bg-slate-950 border-b border-slate-800 text-xs font-bold text-slate-400">Comment Datasets</div>
-                        {communityDatasets.map((d, i) => (
-                            <div key={i} onClick={() => analyzeComments(d.id)} className="p-4 border-b border-slate-800/50 cursor-pointer hover:bg-white/5">
-                                <div className="text-xs font-mono text-indigo-400 mb-1">{d.id}</div>
-                                <div className="text-[10px] text-slate-500">{d.count} comments</div>
-                            </div>
-                        ))}
-                    </div>
-                    <div className="flex-1 flex flex-col justify-center items-center bg-slate-900/20 border border-slate-800 rounded-xl p-8">
-                        {communityAnalysis ? (
-                            <div className="text-center w-full max-w-md">
-                                <div className="text-xs uppercase text-slate-500 mb-2 tracking-widest">Community Quantization</div>
-                                <h2 className="text-5xl font-bold text-white mb-2">{communityAnalysis.trust_score?.toFixed(0)}<span className="text-xl text-slate-600">/100</span></h2>
-                                <div className={`text-lg font-bold mb-8 px-4 py-1 rounded-full inline-block ${communityAnalysis.trust_score < 40 ? 'bg-red-500/10 text-red-400' : 'bg-emerald-500/10 text-emerald-400'}`}>
-                                    {communityAnalysis.verdict}
-                                </div>
-                            </div>
-                        ) : (
-                            <div className="text-slate-600 flex flex-col items-center">
-                                <MessageSquare className="w-12 h-12 mb-4 opacity-20"/>
-                                <span>Select a dataset to analyze community sentiment.</span>
-                            </div>
-                        )}
                     </div>
                 </div>
             )}

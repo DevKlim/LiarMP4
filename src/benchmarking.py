@@ -4,8 +4,6 @@ import shutil
 import json
 import math
 from pathlib import Path
-from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import train_test_split
 
 # Lazy import to avoid startup overhead
 try:
@@ -82,7 +80,7 @@ def get_combined_dataset():
             ('align_audio_caption', 'audio_caption_score'),
         ]
         
-        error_cols =['abs_error']
+        error_cols = ['abs_error']
         for ai_c, man_c in vector_pairs:
             if ai_c in merged.columns and man_c in merged.columns:
                 # Multiply 1-10 scores by 10 to put them on the same 0-100 scale as final score
@@ -229,29 +227,3 @@ def generate_leaderboard():
     leaderboard.sort(key=lambda x: (-x['accuracy'], -x['tag_acc'], x['comp_mae']))
     
     return sanitize_for_json(leaderboard)
-
-def train_predictive_sandbox(features_config: dict):
-    if not DATA_MANUAL.exists(): return {"error": "No data"}
-    df = pd.read_csv(DATA_MANUAL).dropna(subset=['caption', 'final_veracity_score'])
-    if len(df) < 5: return {"error": "Not enough data"}
-
-    df['len'] = df['caption'].astype(str).apply(len)
-    keywords = ["shocking", "breaking", "watch"]
-    df['kw_count'] = df['caption'].astype(str).apply(lambda x: sum(1 for k in keywords if k in x.lower()))
-    feat_cols = ['len', 'kw_count']
-    
-    df['target'] = (pd.to_numeric(df['final_veracity_score'], errors='coerce').fillna(0) >= 50).astype(int)
-
-    try:
-        X_train, X_test, y_train, y_test = train_test_split(df[feat_cols], df['target'], test_size=0.3, random_state=42)
-        clf = LogisticRegression()
-        clf.fit(X_train, y_train)
-        return {
-            "status": "success",
-            "type": "logistic_regression",
-            "accuracy": round(clf.score(X_test, y_test) * 100, 1),
-            "message": "Baseline trained on Caption Length + Keywords."
-        }
-    except Exception as e:
-        return {"error": str(e)}
-

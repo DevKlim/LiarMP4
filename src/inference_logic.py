@@ -133,11 +133,7 @@ async def generate_simple_text(prompt: str, model_type: str, config: dict):
             
         elif model_type == 'vertex':
             if genai is None: return "Error: Vertex SDK missing."
-            api_key = config.get("api_key")
-            if api_key:
-                cl = genai.Client(vertexai=True, project=config['project_id'], location=config['location'], api_key=api_key)
-            else:
-                cl = genai.Client(vertexai=True, project=config['project_id'], location=config['location'])
+            cl = genai.Client(vertexai=True, project=config['project_id'], location=config['location'])
             response = await loop.run_in_executor(
                 None,
                 lambda: cl.models.generate_content(
@@ -338,7 +334,7 @@ async def run_gemini_labeling_pipeline(video_path: str, caption: str, transcript
                     prompt_used = prompt_text
                     if is_text_only: prompt_text = "NOTE: Text Analysis Only.\n" + prompt_text
                     save_debug_log(request_id, 'prompt', prompt_text, attempt, f'standard_{reasoning_method}')
-                    inputs = [prompt_text]
+                    inputs =[prompt_text]
                     if uploaded_file: inputs.append(uploaded_file)
                     response = await loop.run_in_executor(None, lambda: model.generate_content(inputs, generation_config={"temperature": 0.1}))
                     raw_text = response.text
@@ -380,16 +376,11 @@ async def run_vertex_labeling_pipeline(video_path: str, caption: str, transcript
     location = vertex_config.get("location", "us-central1")
     model_name = vertex_config.get("model_name", "gemini-1.5-pro-preview-0409")
     max_retries = int(vertex_config.get("max_retries", 1))
-    api_key = vertex_config.get("api_key")
 
     if not project_id: return
 
     try:
-        # Pass api_key directly if available to use API Keys instead of ADC Service Accounts
-        if api_key:
-            client = genai.Client(vertexai=True, project=project_id, location=location, api_key=api_key)
-        else:
-            client = genai.Client(vertexai=True, project=project_id, location=location)
+        client = genai.Client(vertexai=True, project=project_id, location=location)
 
         video_part = None
         is_text_only = False
@@ -702,5 +693,3 @@ async def run_nrp_labeling_pipeline(video_path: str, caption: str, transcript: s
     except Exception as e:
         yield f"ERROR: {e}\n\n"
         logger.error("NRP Labeling Error", exc_info=True)
-
-

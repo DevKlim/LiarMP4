@@ -67,7 +67,7 @@ If you use this work academically or integrate it into your systems, please cons
 ```bibtex
 @misc{arsanjani_alternusvera,
   author = {Arsanjani, Ali and others},
-  title = {Alternus Vera: A Research Project for AI4Good Misinformation Detection, Ranking, and Mitigation},
+  title = {Alternus Vera: A Research Project for LiarMP4 Detecting Contextual Malformation with Fractal Chain of Thought},
   year = {2024},
   publisher = {Alternus Vera Research Group},
   url = {https://alternusvera.com},

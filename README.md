@@ -3,7 +3,7 @@
 ## Project Context
 This project is an implementation/extension of the **Alternus Vera Research Project** supervised by **Dr. Ali Arsanjani**. It focuses on the **AI4Good** mission of identifying and mitigating digital misinformation and disinformation through advanced techniques such as **Veracity Vectors** and **Truthness Tensors**.
 
-For more details on the core methodology, visit[Alternus Vera](https://alternusvera.com) or the [AI4Good Core Repository](https://github.com/chriss-mo/ai4good).
+For more details on the core methodology, visit [Alternus Vera](https://alternusvera.com) or the[LiarMP4 Repository](https://github.com/DevKlim/LiarMP4).
 
 ## Research Overview
 
@@ -35,8 +35,8 @@ By standardizing on the A2A protocol, the system dynamically shifts configuratio
 ## Project Resources
 
 *   **Live Demonstration (Hugging Face):**[https://huggingface.co/spaces/GlazedDon0t/liarMP4](https://huggingface.co/spaces/GlazedDon0t/liarMP4)
-*   **Source Code (GitHub):**[https://github.com/DevKlim/LiarMP4](https://github.com/DevKlim/LiarMP4)
-*   **Vision for this project:** [https://alternusvera.com](https://alternusvera.com)
+*   **Source Code (GitHub):** [https://github.com/DevKlim/LiarMP4](https://github.com/DevKlim/LiarMP4)
+*   **Vision for this project:**[https://alternusvera.com](https://alternusvera.com)
 
 ## Installation and Deployment
 
@@ -59,8 +59,8 @@ The system will initialize the backend services, mount the A2A endpoints, and ex
 
 **Project Attribution:** This work was developed as part of the Alternus Vera Research Project, focusing on AI4Good: Misinformation & Disinformation Detection, Ranking, and Mitigation. This project was conducted under the supervision of Dr. Ali Arsanjani.
 
-**Project Website:** [alternusvera.com](https://alternusvera.com)
-**Core Codebase:** [GitHub: chriss-mo/ai4good](https://github.com/chriss-mo/ai4good)
+**Project Website:**[alternusvera.com](https://alternusvera.com)
+**Core Codebase:**[GitHub: DevKlim/LiarMP4](https://github.com/DevKlim/LiarMP4)
 
 If you use this work academically or integrate it into your systems, please consider citing the core Alternus Vera project:
 
@@ -78,9 +78,3 @@ If you use this work academically or integrate it into your systems, please cons
 ## License
 
 This research project is open-source. Please refer to the LICENSE file in the repository for specific terms regarding usage and distribution.
-
-## Project Context
-
-This project is an implementation/extension of the **Alternus Vera Research Project** supervised by **Dr. Ali Arsanjani**. It focuses on the **AI4Good** mission of identifying and mitigating digital misinformation and disinformation through advanced techniques such as **Veracity Vectors** and **Truthness Tensors**.
-
-For more details on the core methodology, visit [Alternus Vera](https://alternusvera.com) or the [AI4Good Core Repository](https://github.com/chriss-mo/ai4good).

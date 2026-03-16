@@ -1,5 +1,10 @@
 # liarMP4: Multimodal Content Moderation via Fractal Chain-of-Thought
 
+## Project Context
+This project is an implementation/extension of the **Alternus Vera Research Project** supervised by **Dr. Ali Arsanjani**. It focuses on the **AI4Good** mission of identifying and mitigating digital misinformation and disinformation through advanced techniques such as **Veracity Vectors** and **Truthness Tensors**.
+
+For more details on the core methodology, visit[Alternus Vera](https://alternusvera.com) or the [AI4Good Core Repository](https://github.com/chriss-mo/ai4good).
+
 ## Research Overview
 
 The liarMP4 project investigates the efficacy of Generative AI (GenAI) systems in detecting "contextual malformation" in video content, as opposed to traditional Predictive AI (PredAI) which focuses on metadata and engagement velocity.
@@ -30,8 +35,8 @@ By standardizing on the A2A protocol, the system dynamically shifts configuratio
 ## Project Resources
 
 *   **Live Demonstration (Hugging Face):**[https://huggingface.co/spaces/GlazedDon0t/liarMP4](https://huggingface.co/spaces/GlazedDon0t/liarMP4)
-*   **Source Code (GitHub):** [https://github.com/DevKlim/LiarMP4](https://github.com/DevKlim/LiarMP4)
-*   **Vision for this project:** [http://alternusvera.com/](http://alternusvera.com/)
+*   **Source Code (GitHub):**[https://github.com/DevKlim/LiarMP4](https://github.com/DevKlim/LiarMP4)
+*   **Vision for this project:** [https://alternusvera.com](https://alternusvera.com)
 
 ## Installation and Deployment
 
@@ -49,6 +54,26 @@ This project is containerized to ensure reproducibility.
     ```
 
 The system will initialize the backend services, mount the A2A endpoints, and expose the UI for the analysis pipeline.
+
+## Acknowledgments & Citation
+
+**Project Attribution:** This work was developed as part of the Alternus Vera Research Project, focusing on AI4Good: Misinformation & Disinformation Detection, Ranking, and Mitigation. This project was conducted under the supervision of Dr. Ali Arsanjani.
+
+**Project Website:** [alternusvera.com](https://alternusvera.com)
+**Core Codebase:** [GitHub: chriss-mo/ai4good](https://github.com/chriss-mo/ai4good)
+
+If you use this work academically or integrate it into your systems, please consider citing the core Alternus Vera project:
+
+```bibtex
+@misc{arsanjani_alternusvera,
+  author = {Arsanjani, Ali and others},
+  title = {Alternus Vera: A Research Project for AI4Good Misinformation Detection, Ranking, and Mitigation},
+  year = {2024},
+  publisher = {Alternus Vera Research Group},
+  url = {https://alternusvera.com},
+  note = {Core codebase: https://github.com/chriss-mo/ai4good}
+}
+```
 
 ## License
 

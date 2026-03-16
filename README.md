@@ -71,7 +71,7 @@ If you use this work academically or integrate it into your systems, please cons
   year = {2024},
   publisher = {Alternus Vera Research Group},
   url = {https://alternusvera.com},
-  note = {Core codebase: https://github.com/chriss-mo/ai4good}
+  note = {Core codebase: https://github.com/DevKlim/LiarMP4}
 }
 ```
 

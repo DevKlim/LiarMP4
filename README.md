@@ -53,3 +53,9 @@ The system will initialize the backend services, mount the A2A endpoints, and ex
 ## License
 
 This research project is open-source. Please refer to the LICENSE file in the repository for specific terms regarding usage and distribution.
+
+## Project Context
+
+This project is an implementation/extension of the **Alternus Vera Research Project** supervised by **Dr. Ali Arsanjani**. It focuses on the **AI4Good** mission of identifying and mitigating digital misinformation and disinformation through advanced techniques such as **Veracity Vectors** and **Truthness Tensors**.
+
+For more details on the core methodology, visit [Alternus Vera](https://alternusvera.com) or the [AI4Good Core Repository](https://github.com/chriss-mo/ai4good).
